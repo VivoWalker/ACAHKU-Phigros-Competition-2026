@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
+const { getBranding } = require('../lib/branding');
 function waitEvent(socket, name, timeout = 6000) { return new Promise((resolve, reject) => { const timer = setTimeout(() => { socket.off(name, handler); reject(new Error('Timed out: ' + name)); }, timeout); function handler(value) { clearTimeout(timer); resolve(value); } socket.once(name, handler); }); }
 async function pair(url) { const r = await fetch(url + '/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: 'fixture-code' }) }); return (await r.json()).token; }
 test('HTTP pages and authenticated live updates, reconnect and process restart retain state and privacy', async () => {
@@ -12,6 +13,9 @@ test('HTTP pages and authenticated live updates, reconnect and process restart r
   try {
     app = createBroadcastServer({ dataDir: dir, pin: 'fixture-code' }); const address = await app.listen(0, '127.0.0.1'); let url = `http://127.0.0.1:${address.port}`;
     assert.equal((await fetch(url + '/api/health')).status, 200);
+    const brandingResponse = await fetch(url + '/api/branding');
+    assert.equal(brandingResponse.status, 200);
+    assert.deepEqual(await brandingResponse.json(), getBranding());
     assert.equal((await fetch(url + '/api/control-state')).status, 401);
     assert.equal((await fetch(url + '/data/match-state.json')).status, 404);
     for (const page of ['start', 'qualifier-waiting', 'double-elimination-waiting', 'qualifier-match', 'double-elimination-match', 'result', 'bracket', 'song-selection']) {

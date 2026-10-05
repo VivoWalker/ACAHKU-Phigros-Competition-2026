@@ -68,6 +68,16 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                         fill_score(f'#qs-p{index}-{song}', 980000 - index*1000)
             for slot, id_ in enumerate(['p5','p6','p7']):
                 revision = state()['revision']; crew.select_option(f'#active-{slot}', id_); saved_after(revision)
+            crew.click('.tabs [data-tab="broadcast"]')
+            revision = state()['revision']; crew.click('[data-scene="result"]'); saved_after(revision)
+            live.wait_for_selector('.ranking-tables')
+            assert state()['stage'] == 'qualifier'
+            assert live.locator('.ranking-tables table').count() == 2
+            assert live.locator('.ranking-tables tbody tr').count() == 8
+            assert '2,937,000' in live.locator('.ranking-tables').inner_text()
+            live.set_viewport_size({'width':1920,'height':1080})
+            live.screenshot(path=str(OUT/'overlay-qualifier-ranking.png'), omit_background=True)
+            crew.click('.tabs [data-tab="qualifiers"]')
             revision = state()['revision']; crew.click('[data-command="qualify"]'); saved_after(revision)
             assert state()['tournament']['seeded']
             crew.click('.tabs [data-tab="songs"]')
@@ -129,7 +139,10 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 for song in range(3): fill_score(f'#ms-{player}-{song}', 990000 if player == 0 else 980000)
             revision = state()['revision']; crew.click('[data-scene="double-elimination-match"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="double-elimination-match"]')
-            assert live.locator('.score-row').count() == 6
+            assert live.locator('.score-row').count() == 0
+            assert live.locator('.player-info').count() == 2
+            assert live.locator('.song-band').count() == 1
+            assert '2,970,000' in live.locator('.player-total').first.inner_text()
             live.set_viewport_size({'width':1920,'height':1080})
             live.screenshot(path=str(OUT/'grand-finals-match.png'), omit_background=True)
             crew.locator('#result-details summary').click()
@@ -140,10 +153,14 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 
             overlay = context.new_page(); overlay.set_viewport_size({'width':1920, 'height':1080})
             geometry = {}
+            actual_branding = context.request.get(base + '/api/branding').json()
             for scene in SCENES:
                 overlay.goto(base + f'/overlay/{scene}.html?fixed=1')
                 overlay.wait_for_selector(f'[data-rendered-scene="{scene}"]')
                 overlay.evaluate('document.fonts.ready')
+                if actual_branding['visual']:
+                    overlay.wait_for_selector('[data-branding="visual"]')
+                    overlay.wait_for_function('Array.from(document.querySelectorAll(".key-visual img")).every(i=>i.complete&&i.naturalWidth>0)')
                 assert overlay.evaluate('getComputedStyle(document.body).backgroundColor') == 'rgba(0, 0, 0, 0)'
                 assert overlay.locator('#canvas').evaluate('(e)=>e.offsetWidth===1920&&e.offsetHeight===1080')
                 png = overlay.screenshot(path=str(OUT/f'overlay-{scene}.png'), omit_background=True, animations='disabled')
@@ -170,6 +187,58 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                     if width in [1280,960] and scene == 'double-elimination-match':
                         overlay.screenshot(path=str(OUT/f'match-{height}p.png'), omit_background=True)
                 overlay.set_viewport_size({'width':1920,'height':1080})
+
+            # Check the documented capture coordinates, optional cameras and score detail.
+            layouts = {
+                ('qualifier-match', ''): [(64,300,1088,612),(1200,214,656,369),(1200,630,656,369)],
+                ('qualifier-match', '&details=1'): [(64,300,1088,612),(1200,214,656,369),(1200,630,656,369)],
+                ('qualifier-match', '&cameras=1&details=1'): [(64,300,576,324),(64,800,240,135),(672,300,576,324),(672,800,240,135),(1280,300,576,324),(1280,800,240,135)],
+                ('double-elimination-match', ''): [(64,280,872,490.5),(984,280,872,490.5)],
+                ('double-elimination-match', '&details=1'): [(64,280,872,490.5),(984,280,872,490.5)],
+                ('double-elimination-match', '&cameras=1&details=1'): [(64,280,872,490.5),(64,846,224,126),(984,280,872,490.5),(1632,846,224,126)]
+            }
+            for (scene, options), expected in layouts.items():
+                overlay.goto(base + f'/overlay/{scene}.html?fixed=1' + options)
+                overlay.wait_for_selector(f'[data-rendered-scene="{scene}"]')
+                overlay.evaluate('document.fonts.ready')
+                captures = overlay.locator('[data-capture]').all()
+                assert len(captures) == len(expected)
+                expected_scores = (9 if scene == 'qualifier-match' else 6) if options else 0
+                assert overlay.locator('.score-row').count() == expected_scores
+                png = overlay.screenshot(path=str(OUT/(scene + ('-cameras-details.png' if options else '-minimal.png'))), omit_background=True, animations='disabled')
+                image = Image.open(io.BytesIO(png)).convert('RGBA')
+                for el, rect in zip(captures, expected):
+                    box = el.bounding_box()
+                    for key, value in zip(['x','y','width','height'], rect): assert abs(box[key]-value) < .1, (scene,key,box,rect)
+                    if el.get_attribute('data-capture') == 'gameplay': assert abs(box['width']/box['height'] - 16/9) < .001
+                    for fraction_x in [.1,.5,.9]:
+                        for fraction_y in [.1,.5,.9]:
+                            assert image.getpixel((int(box['x']+box['width']*fraction_x),int(box['y']+box['height']*fraction_y)))[3] == 0, (scene,options,'opaque capture')
+                    # Names and score detail must remain outside capture interiors.
+                    for label in overlay.locator('.player-info,.song-band,.song-scores,.player-total').all():
+                        text = label.bounding_box()
+                        assert text['x']+text['width'] <= box['x'] or text['x'] >= box['x']+box['width'] or text['y']+text['height'] <= box['y'] or text['y'] >= box['y']+box['height'], (scene,options,'label overlaps capture',text,box)
+
+            # Test real local-asset rendering using labelled in-memory fixtures, never fake delivered artwork.
+            brand_page = context.new_page()
+            brand_page.set_viewport_size({'width':1920,'height':1080})
+            brand_page.route('**/api/branding', lambda route: route.fulfill(json={'logo':'assets/event/fixture-logo.svg','visual':'assets/event/fixture-poster.svg'}))
+            brand_page.route('**/assets/event/fixture-logo.svg', lambda route: route.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg" width="500" height="150"><rect width="500" height="150" fill="#87dddd"/></svg>'))
+            brand_page.route('**/assets/event/fixture-poster.svg', lambda route: route.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg" width="1312" height="1860"><rect width="1312" height="1860" fill="#654064"/></svg>'))
+            for scene in ['start','qualifier-waiting','double-elimination-waiting']:
+                brand_page.goto(base + f'/overlay/{scene}.html?fixed=1')
+                brand_page.wait_for_selector('[data-branding="visual"]')
+                brand_page.wait_for_function('Array.from(document.querySelectorAll(".key-visual img,.phigros-logo")).every(i=>i.complete&&i.naturalWidth>0)')
+                assert brand_page.locator('.key-visual img').count() == 1
+                assert brand_page.locator('.phigros-logo').count() == 1
+                assert brand_page.locator('.key-visual img').evaluate('(el)=>getComputedStyle(el).objectFit') == 'contain'
+            brand_page.goto(base + '/overlay/qualifier-match.html?fixed=1')
+            brand_page.wait_for_selector('[data-branding="visual"]')
+            branded_png = Image.open(io.BytesIO(brand_page.screenshot(omit_background=True, animations='disabled'))).convert('RGBA')
+            for el in brand_page.locator('[data-capture]').all():
+                box = el.bounding_box()
+                assert branded_png.getpixel((int(box['x']+box['width']/2),int(box['y']+box['height']/2)))[3] == 0
+            brand_page.close()
 
             for width,height in [(1194,834),(768,1024),(390,844)]:
                 crew.set_viewport_size({'width':width,'height':height})

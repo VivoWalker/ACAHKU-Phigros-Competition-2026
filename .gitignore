@@ -7,3 +7,4 @@ data/match-state.json.*
 *.log
 test-results/
 .DS_Store
+__pycache__/

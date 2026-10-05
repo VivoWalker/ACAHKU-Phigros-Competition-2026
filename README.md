@@ -1,6 +1,6 @@
 # ACAHKU Phigros Broadcast
 
-A local tournament server, transparent OBS overlays and an iPad-friendly control panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
+A local tournament server, transparent OBS overlays and an iPad-friendly control panel. The broadcast uses the previous year's large video areas and a quieter presentation: player names, totals and one shared current-song line. Full scoring and tournament controls remain in the staff panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
 
 ## Quick start
 
@@ -23,7 +23,7 @@ OBS Browser Source:  http://localhost:3000/overlay/start.html
 
 The pairing code separates staff-only state from the public broadcast. It is created locally in `data/.control-pin`. The laptop and iPad do not need external accounts. Pairing is retained in that browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` before starting the server. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
 
-Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. No event poster was included, so the start screen uses the supplied event details and original local geometric artwork.
+Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo and event key visual are bundled as local files; see the replacement instructions below.
 
 ## Laptop + iPad
 
@@ -37,11 +37,11 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 
 ## OBS setup
 
-1. Add your gameplay capture and webcam sources to an OBS scene.
+1. Add your gameplay captures to an OBS scene. Separate webcam sources are optional; the default layout dedicates the space to gameplay.
 2. Add a **Browser Source** above those sources. Disable **Local file**, use `http://localhost:3000/overlay/start.html`, and set **Width 1920 / Height 1080**.
 3. Keep the Browser Source active. Prefer leaving **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked; scene changes arrive over Socket.IO.
 4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes immediately without a reload. It does not switch your OBS capture sources or OBS scenes automatically.
-5. Align the OBS capture sources below the transparent gameplay and webcam frames. The interface does not capture video itself. Different capture arrangements may use separate OBS scenes; switch those in OBS manually or use the reserved adapter in a later integration.
+5. Align the OBS capture sources below the transparent gameplay frames. If you enable the optional camera layout, also align the webcam sources below its frames. The interface does not capture video itself. Different capture arrangements may use separate OBS scenes; switch those in OBS manually or use the reserved adapter in a later integration.
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
@@ -54,20 +54,49 @@ All overlay documents keep their root and body backgrounds transparent. Opaque o
 | Double elimination waiting | `/overlay/double-elimination-waiting.html` |
 | Three-player qualifier match | `/overlay/qualifier-match.html` |
 | Two-player double elimination match, including the three-song final | `/overlay/double-elimination-match.html` |
-| Result announcement | `/overlay/result.html` |
+| Group A / B qualifier rankings or double elimination result | `/overlay/result.html` |
 | Complete bracket progress | `/overlay/bracket.html` |
 | Additional requested song-selection screen | `/overlay/song-selection.html` |
 
 `/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). Thus there are seven main screens plus the separately requested selection screen.
 
-Approximate gameplay source rectangles in the 1920×1080 canvas:
+Default gameplay source rectangles in the 1920×1080 canvas, in player order:
 
 | Layout | Gameplay frames (x, y, width, height) |
 | --- | --- |
-| Three-player qualifier | `(72,160,573,325)`, `(673,160,573,325)`, `(1275,160,573,325)` |
-| Two-player match / final | `(100,170,838,385)`, `(982,170,838,385)` |
+| Three-player qualifier: one large left, two smaller right | `(64,300,1088,612)`, `(1200,214,656,369)`, `(1200,630,656,369)` |
+| Two-player match / final: side by side | `(64,280,872,490.5)`, `(984,280,872,490.5)` |
 
-Webcam frames sit below each player's information. Use OBS's transform and crop controls to fit your capture aspect ratio. The exact rectangles are accessible through `[data-capture]` elements in the overlay if you customise the CSS.
+The qualifier's first player selected in the control panel occupies the large frame; the second and third occupy the upper-right and lower-right frames. The default match display shows each player's name and total, plus a shared current song and progress indicator. Individual song scores stay in the control panel. Append `?details=1` to show a compact per-song score line alongside each player’s capture.
+
+Append `?cameras=1` when separate webcam windows are needed. This changes the qualifier to three equal gameplay frames and adds camera frames:
+
+| Camera layout | Gameplay frames (x, y, width, height) | Webcam frames (x, y, width, height) |
+| --- | --- | --- |
+| Three-player qualifier | `(64,300,576,324)`, `(672,300,576,324)`, `(1280,300,576,324)` | `(64,800,240,135)`, `(672,800,240,135)`, `(1280,800,240,135)` |
+| Two-player match / final | Same as the default two-player layout | `(64,846,224,126)`, `(1632,846,224,126)` |
+
+Options can be combined, for example `/overlay/live.html?cameras=1&details=1` or `/overlay/qualifier-match.html?follow=1&cameras=1`. Use OBS's transform and crop controls to fit the captures. Exact rectangles are accessible through `[data-capture]` elements in the overlay if you customise the CSS.
+
+Qualifier results show separate Group A and Group B ranking tables. Groups with up to four players use large text; five to eight use a compact table. Longer groups show **eight players per page**, with a visible range such as `1–8 / 32`, and automatically turn pages every **12 seconds**. Each group cycles through its own pages. To keep a particular page on screen, append `?rankPage=2` (or `&rankPage=2` when another option is present). A requested page beyond a group's page count displays its last page.
+
+### Local logo and key visual
+
+The supplied event poster and Phigros logo are already bundled as `public/assets/event/key-visual.jpg` and `public/assets/event/phigros-logo.webp`. To add or replace branding, copy the real artwork into this project's local asset directory:
+
+```text
+public/assets/event/phigros-logo.webp
+public/assets/event/key-visual.jpg
+```
+
+`/api/branding` recognises these fixed local filenames, in the listed priority order:
+
+| Asset | Accepted filenames in `public/assets/event/` |
+| --- | --- |
+| Phigros logo | `phigros-logo.webp`, `phigros-logo.png`, `Site-logo.webp`, `Site-logo.png` |
+| Event key visual | `key-visual.jpg`, `key-visual.jpeg`, `key-visual.png`, `key-visual.webp`, `PhigrosComp Poster (A5 size).jpg` |
+
+Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens can use the supplied visual alongside short event or next-match information. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
 
 ## Staff workflow
 
@@ -114,7 +143,7 @@ Webcam frames sit below each player's information. Use OBS's transform and crop 
 | R5 | L6 | Winner to GF; loser is **Third place** |
 | R6 | GF | Champion vs. First Runner-up |
 
-L3 pairs the L1 winner with the W6 loser, and L4 pairs the L2 winner with the W5 loser to reduce immediate rematches. The progress overlay shows all fourteen matches, seeds, losses, live/ready states, winner destinations and loser destinations. Two losses mark elimination.
+L3 pairs the L1 winner with the W6 loser, and L4 pairs the L2 winner with the W5 loser to reduce immediate rematches. The progress overlay shows all fourteen matches with player names, match states and compact bye markers. Detailed seeds, losses, advancement paths and adjudication notes remain available in the control panel. Two losses mark elimination.
 
 The requested **14-match format has one decisive Grand Final and no bracket reset**. If the WB champion loses GF, they finish as runner-up with one loss. This exception is preserved rather than silently introducing a fifteenth match.
 
@@ -131,8 +160,8 @@ For a four-player entry field with exactly three players and one vacancy, open *
 - New events can use `data/match-state.example.json` after preserving the old event and stopping the server. There is deliberately no destructive reset button.
 - A second operator's newer revision is detected; stale commands are rejected and current state is sent back. Reconnect or inspect the latest state before retrying an unacknowledged command.
 - Add authorised song artwork to `public/assets/song/`, then edit its local `assets/song/file.webp` path in the library. HTTP/CDN artwork paths are rejected. Existing match candidate/pick metadata stays fixed after a draw; library changes affect future draws.
-- Original geometric artwork is bundled. Uploaded skill screenshots were used only for visual analysis and are not shipped as page backgrounds. Saira is a **local implementation candidate**, not a claim about the original game font. Its SIL OFL licence is included. Hong Kong CJK fonts use system fallbacks (`Source Han Sans HC`, `Noto Sans HK`, `PingFang HK`, `Microsoft JhengHei`).
-- CSS and scripts are separate local files. `public/assets/ui/phi-ui.css` and the mesh/icons come from the supplied `phigros-web-ui` skill. The implementation keeps horizontal text, 15° surfaces, height-based cuts, masked cover changes and reduced-motion support.
+- Song-art placeholders are bundled. Actual event branding is loaded only from the local logo and key-visual files described above. Uploaded skill screenshots were used only for visual analysis and are not shipped as page backgrounds. Saira is a **local implementation candidate**, not a claim about the original game font. Its SIL OFL licence is included. Hong Kong CJK fonts use system fallbacks (`Source Han Sans HC`, `Noto Sans HK`, `PingFang HK`, `Microsoft JhengHei`).
+- CSS and scripts are separate local files. `public/assets/ui/phi-ui.css` and the mesh/icons come from the supplied `phigros-web-ui` skill. The broadcast reduces repeated headings, explanatory copy and large score cards while keeping horizontal text, restrained angled surfaces, masked cover changes and reduced-motion support.
 
 ## Validation and development
 
@@ -142,7 +171,7 @@ npm test
 npm run dev
 ```
 
-`npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery and server restart. It does not modify the production tournament.
+`npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart and local branding lookup (including missing assets and directories). It does not modify the production tournament.
 
 Optional browser smoke test, if Python Playwright, Pillow and Chromium are installed:
 
@@ -152,6 +181,12 @@ python3 test/browser-smoke.py
 
 It exercises real controls against temporary data, checks 8 overlay scenes, 1920×1080 / 720p / 540p scaling, iPad landscape/portrait and phone widths, alpha in every capture frame, offline reconnection, no navigation during state updates, local-only requests, keyboard selection and reduced-motion. Screenshots go to ignored `test-results/`. Browser emulation is not a physical iPad or OBS/CEF hardware test; rehearse those devices and actual capture sources before the event.
 
+An independent long-roster browser regression checks 32 players per group, eight-row pages, fixed and out-of-range page requests, row visibility and automatic rotation through every player. It accelerates only the 12-second ranking timer for the test and uses temporary tournament data:
+
+```sh
+python3 test/ranking-layout.py
+```
+
 ## Project files
 
 ```text
@@ -159,6 +194,7 @@ server.js                 LAN server, pairing, public/private sockets and HTTP
 lib/tournament.js         Rules, 14-match graph, scoring, lotteries, public redaction
 lib/store.js              Revision checks and atomic JSON persistence
 lib/default-state.js      Event defaults and editable sample roster/song metadata
+lib/branding.js           Fixed local logo/key-visual discovery for /api/branding
 lib/obs-adapter.js         Optional future OBS WebSocket integration hook
 data/                     Local state and pairing files (runtime data ignored by Git)
 public/control/           Staff panel, responsive CSS and interactions

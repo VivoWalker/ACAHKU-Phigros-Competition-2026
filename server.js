@@ -7,6 +7,7 @@ const { randomBytes, randomInt, timingSafeEqual, createHmac } = require('node:cr
 const { Server } = require('socket.io');
 const { StateStore } = require('./lib/store');
 const { publicState } = require('./lib/tournament');
+const { getBranding } = require('./lib/branding');
 const obsAdapter = require('./lib/obs-adapter');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
@@ -37,6 +38,7 @@ function createBroadcastServer(options = {}) {
   }
   app.get('/api/health', (req, res) => res.json({ ok: true, revision: store.state.revision }));
   app.get('/api/state', (req, res) => res.json(publicState(store.state)));
+  app.get('/api/branding', (req, res) => res.json(getBranding()));
   app.post('/api/session', (req, res) => {
     const key = req.ip; const now = Date.now(); const failed = (attempts.get(key) || []).filter(t => now - t < 60000);
     if (failed.length >= 10) return res.status(429).json({ error: 'Too many pairing attempts. Wait one minute.' });

@@ -26,6 +26,35 @@ function complete(s, id, side = 0) {
   m.scores.forEach((row, pi) => row.forEach((_, si) => act(s, 'set-match-score', { playerIndex: pi, songIndex: si, score: pi === side ? 980000 : 970000 })));
   act(s, 'record-result'); return m;
 }
+test('shared start and result scenes preserve qualifier rankings or double-elimination results', () => {
+  const qualifiers = createDefaultState();
+  act(qualifiers, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 990000 });
+  for (const scene of ['result', 'start', 'result']) {
+    act(qualifiers, 'set-scene', { scene });
+    assert.equal(qualifiers.stage, 'qualifier');
+    assert.equal(rankings(qualifiers, 'A')[0].total, 990000);
+  }
+  const elimination = seeded(); complete(elimination, 'W1');
+  const result = structuredClone(elimination.result);
+  for (const scene of ['start', 'result']) {
+    act(elimination, 'set-scene', { scene });
+    assert.equal(elimination.stage, 'double-elimination');
+    assert.deepEqual(elimination.result, result);
+  }
+});
+test('stage-specific match, waiting, bracket and selection scenes switch stages explicitly', () => {
+  const s = createDefaultState();
+  for (const scene of ['double-elimination-match', 'double-elimination-waiting', 'bracket', 'song-selection']) {
+    act(s, 'set-stage', { stage: 'qualifier' });
+    act(s, 'set-scene', { scene });
+    assert.equal(s.stage, 'double-elimination', scene);
+  }
+  for (const scene of ['qualifier-match', 'qualifier-waiting']) {
+    act(s, 'set-stage', { stage: 'double-elimination' });
+    act(s, 'set-scene', { scene });
+    assert.equal(s.stage, 'qualifier', scene);
+  }
+});
 test('qualifiers rank full three-song totals, resolve ties, and alternate group seeds', () => {
   const s = createDefaultState();
   s.qualifier.players.forEach((p, i) => p.scores.forEach((_, songIndex) => act(s, 'set-qualifier-score', { playerId: p.id, songIndex, score: 990000 - (i % 4) * 1000 })));
