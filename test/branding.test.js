@@ -32,17 +32,21 @@ test('branding recognizes supplied filenames and prefers standard filenames', t 
     logo: 'assets/event/phigros-logo.webp',
     visual: 'assets/event/key-visual.webp'
   });
+  // A new transparent character must override an older poster left after an in-place update.
+  fs.writeFileSync(path.join(directory, 'key-visual.jpg'), 'old-poster-fixture');
+  fs.writeFileSync(path.join(directory, 'key-visual.png'), 'new-character-fixture');
+  assert.equal(getBranding(directory).visual, 'assets/event/key-visual.png');
 });
 
 test('branding ignores directories and detects files added after an earlier read', t => {
   const directory = assetFixture(t);
   fs.mkdirSync(path.join(directory, 'phigros-logo.webp'));
-  fs.mkdirSync(path.join(directory, 'key-visual.jpg'));
+  fs.mkdirSync(path.join(directory, 'key-visual.png'));
   assert.deepEqual(getBranding(directory), { logo: null, visual: null });
   fs.writeFileSync(path.join(directory, 'phigros-logo.png'), 'fixture');
-  fs.writeFileSync(path.join(directory, 'key-visual.png'), 'fixture');
+  fs.writeFileSync(path.join(directory, 'key-visual.webp'), 'fixture');
   assert.deepEqual(getBranding(directory), {
     logo: 'assets/event/phigros-logo.png',
-    visual: 'assets/event/key-visual.png'
+    visual: 'assets/event/key-visual.webp'
   });
 });

@@ -82,11 +82,11 @@ Qualifier results show separate Group A and Group B ranking tables. Groups with 
 
 ### Local logo and key visual
 
-The supplied event poster and Phigros logo are already bundled as `public/assets/event/key-visual.jpg` and `public/assets/event/phigros-logo.webp`. To add or replace branding, copy the real artwork into this project's local asset directory:
+The supplied transparent character PNG and Phigros logo are already bundled as `public/assets/event/key-visual.png` and `public/assets/event/phigros-logo.webp`. To add or replace branding, copy the real artwork into this project's local asset directory:
 
 ```text
 public/assets/event/phigros-logo.webp
-public/assets/event/key-visual.jpg
+public/assets/event/key-visual.png
 ```
 
 `/api/branding` recognises these fixed local filenames, in the listed priority order:
@@ -94,9 +94,9 @@ public/assets/event/key-visual.jpg
 | Asset | Accepted filenames in `public/assets/event/` |
 | --- | --- |
 | Phigros logo | `phigros-logo.webp`, `phigros-logo.png`, `Site-logo.webp`, `Site-logo.png` |
-| Event key visual | `key-visual.jpg`, `key-visual.jpeg`, `key-visual.png`, `key-visual.webp`, `PhigrosComp Poster (A5 size).jpg` |
+| Event key visual | `key-visual.png`, `key-visual.webp`, `key-visual.jpg`, `key-visual.jpeg`, `PhigrosComp Poster (A5 size).jpg` |
 
-Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens can use the supplied visual alongside short event or next-match information. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
+Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens show the supplied transparent character alongside short event or next-match information. The PNG keeps its original transparency and proportions, with the full character and book visible. PNG/WebP take priority over older JPG copies. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
 
 ## Staff workflow
 
