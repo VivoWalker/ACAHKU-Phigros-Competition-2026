@@ -23,7 +23,7 @@ OBS Browser Source:  http://localhost:3000/overlay/start.html
 
 The pairing code separates staff-only state from the public broadcast. It is created locally in `data/.control-pin`. The laptop and iPad do not need external accounts. Pairing is retained in that browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` before starting the server. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
 
-Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo and event key visual are bundled as local files; see the replacement instructions below.
+Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
 
 ## Laptop + iPad
 
@@ -80,13 +80,15 @@ Use the normal URL without `cameras` for control-panel switching. For a source t
 
 Qualifier results show separate Group A and Group B ranking tables. Groups with up to four players use large text; five to eight use a compact table. Longer groups show **eight players per page**, with a visible range such as `1–8 / 32`, and automatically turn pages every **12 seconds**. Each group cycles through its own pages. To keep a particular page on screen, append `?rankPage=2` (or `&rankPage=2` when another option is present). A requested page beyond a group's page count displays its last page.
 
-### Local logo and key visual
+### Local logos and key visual
 
-The supplied transparent character PNG and Phigros logo are already bundled as `public/assets/event/key-visual.png` and `public/assets/event/phigros-logo.webp`. To add or replace branding, copy the real artwork into this project's local asset directory:
+The supplied transparent character PNG, Phigros logo, Soc Logo and Kirameki logo are already bundled as local assets. The two society logos keep their original image bytes and proportions. To add or replace branding, copy the real artwork into this project's local asset directory:
 
 ```text
 public/assets/event/phigros-logo.webp
 public/assets/event/key-visual.png
+public/assets/event/soc-logo.png
+public/assets/event/kirameki-logo.png
 ```
 
 `/api/branding` recognises these fixed local filenames, in the listed priority order:
@@ -95,6 +97,10 @@ public/assets/event/key-visual.png
 | --- | --- |
 | Phigros logo | `phigros-logo.webp`, `phigros-logo.png`, `Site-logo.webp`, `Site-logo.png` |
 | Event key visual | `key-visual.png`, `key-visual.webp`, `key-visual.jpg`, `key-visual.jpeg`, `PhigrosComp Poster (A5 size).jpg` |
+| Soc Logo | `soc-logo.png`, `soc-logo.webp` |
+| Kirameki logo | `kirameki-logo.png`, `kirameki-logo.webp` |
+
+The start screen places the society logos to the right of the organiser's name, with **Soc Logo on the left and Kirameki on the right**, at a larger size. Every other screen places the same pair in the upper-right corner in the same order. A light backing keeps the black strokes of Soc Logo readable against the broadcast background.
 
 Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens show the supplied transparent character alongside short event or next-match information. The PNG keeps its original transparency and proportions, with the full character and book visible. PNG/WebP take priority over older JPG copies. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
 
@@ -160,7 +166,7 @@ For a four-player entry field with exactly three players and one vacancy, open *
 - New events can use `data/match-state.example.json` after preserving the old event and stopping the server. There is deliberately no destructive reset button.
 - A second operator's newer revision is detected; stale commands are rejected and current state is sent back. Reconnect or inspect the latest state before retrying an unacknowledged command.
 - Add authorised song artwork to `public/assets/song/`, then edit its local `assets/song/file.webp` path in the library. HTTP/CDN artwork paths are rejected. Existing match candidate/pick metadata stays fixed after a draw; library changes affect future draws.
-- Song-art placeholders are bundled. Actual event branding is loaded only from the local logo and key-visual files described above. Uploaded skill screenshots were used only for visual analysis and are not shipped as page backgrounds. Saira is a **local implementation candidate**, not a claim about the original game font. Its SIL OFL licence is included. Hong Kong CJK fonts use system fallbacks (`Source Han Sans HC`, `Noto Sans HK`, `PingFang HK`, `Microsoft JhengHei`).
+- Song-art placeholders are bundled. Actual event branding is loaded only from the local logos and key-visual files described above. Uploaded skill screenshots were used only for visual analysis and are not shipped as page backgrounds. Saira is a **local implementation candidate**, not a claim about the original game font. Its SIL OFL licence is included. Hong Kong CJK fonts use system fallbacks (`Source Han Sans HC`, `Noto Sans HK`, `PingFang HK`, `Microsoft JhengHei`).
 - CSS and scripts are separate local files. `public/assets/ui/phi-ui.css` and the mesh/icons come from the supplied `phigros-web-ui` skill. The broadcast reduces repeated headings, explanatory copy and large score cards while keeping horizontal text, restrained angled surfaces, masked cover changes and reduced-motion support.
 
 ## Validation and development

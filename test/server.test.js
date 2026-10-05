@@ -15,7 +15,9 @@ test('HTTP pages and authenticated live updates, reconnect and process restart r
     assert.equal((await fetch(url + '/api/health')).status, 200);
     const brandingResponse = await fetch(url + '/api/branding');
     assert.equal(brandingResponse.status, 200);
-    assert.deepEqual(await brandingResponse.json(), getBranding());
+    const brandingJson = await brandingResponse.json();
+    assert.deepEqual(Object.keys(brandingJson).sort(), ['kiramekiLogo', 'logo', 'socLogo', 'visual']);
+    assert.deepEqual(brandingJson, getBranding());
     assert.equal((await fetch(url + '/api/control-state')).status, 401);
     assert.equal((await fetch(url + '/data/match-state.json')).status, 404);
     for (const page of ['start', 'qualifier-waiting', 'double-elimination-waiting', 'qualifier-match', 'double-elimination-match', 'result', 'bracket', 'song-selection']) {

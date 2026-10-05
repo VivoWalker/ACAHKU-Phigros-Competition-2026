@@ -10,7 +10,7 @@
   const rankPage = Number.parseInt(query.get('rankPage'), 10);
   const fixedRankPage = Number.isInteger(rankPage) && rankPage > 0;
   let rankingTick = 0;
-  let state, shown, markup, branding = { logo: null, visual: null };
+  let state, shown, markup, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
   const url = path => '/' + encodeURI(path);
   const art = song => url(song?.art || 'assets/song/cover-1.svg');
   function fit() {
@@ -23,13 +23,18 @@
   function logo(className = '') {
     return branding.logo ? `<img class='phigros-logo ${className}' src='${e(url(branding.logo))}' alt='Phigros'>` : `<span class='phigros-wordmark ${className}'>Phigros</span>`;
   }
+  function clubLogos(className = '') {
+    const logos = [['soc', branding.socLogo, '香港大學動漫聯盟'], ['kirameki', branding.kiramekiLogo, 'Kirameki']];
+    const images = logos.filter(([, path]) => path).map(([kind, path, label]) => `<img class='club-logo ${kind}' data-club-logo='${kind}' src='${e(url(path))}' alt='${e(label)}'>`).join('');
+    return images ? `<div class='club-logos ${className}' aria-label='社團標誌'>${images}</div>` : '';
+  }
   function backdrop(holes = []) {
     const cutouts = holes.map(([x, y, w, h]) => `<rect x='${x}' y='${y}' width='${w}' height='${h}' fill='black'/>`).join('');
     const image = branding.visual ? `<image href='${e(url(branding.visual))}' x='-120' y='-180' width='2160' height='1440' preserveAspectRatio='xMidYMid slice' filter='url(#art-blur)' opacity='.28'/>` : '';
     return `<svg class='broadcast-backdrop' viewBox='0 0 1920 1080' aria-hidden='true'><defs><mask id='capture-mask' maskUnits='userSpaceOnUse' x='0' y='0' width='1920' height='1080'><rect x='12' y='12' width='1896' height='1056' fill='white'/>${cutouts}</mask><linearGradient id='event-gradient' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#321c35'/><stop offset='.55' stop-color='#24232e'/><stop offset='1' stop-color='#111820'/></linearGradient><filter id='art-blur'><feGaussianBlur stdDeviation='48'/></filter></defs><g mask='url(#capture-mask)'><rect width='1920' height='1080' fill='url(#event-gradient)'/>${image}<path d='M 1420 0 L 1130 1080 L 1920 1080 L 1920 0 Z' fill='#080d15' opacity='.17'/><rect x='13' y='13' width='1894' height='1054' fill='none' stroke='#e8e3ef' stroke-opacity='.24' stroke-width='2'/></g></svg>`;
   }
   function header(s, context = '') {
-    return `<header class='topbar'><div class='brand'>${logo()}<span class='event-title'>${e(s.event.title)}</span></div>${context ? `<div class='topmeta'>${e(context)}</div>` : ''}</header>`;
+    return `<header class='topbar'><div class='brand'>${logo()}<span class='event-title'>${e(s.event.title)}</span></div><div class='header-right'>${context ? `<div class='topmeta'>${e(context)}</div>` : ''}${clubLogos()}</div></header>`;
   }
   function footer(label, context = '') {
     return `<footer class='footer'><span>${e(label)}</span>${context ? `<span>${e(context)}</span>` : ''}</footer>`;
@@ -41,7 +46,8 @@
     return branding.visual ? `<figure class='key-visual ${className}'><img src='${e(url(branding.visual))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
   }
   function start(s) {
-    return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><p class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p></section></div>`;
+    const clubs = clubLogos('hero-club-logos');
+    return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><div class='organiser-row ${clubs ? 'with-club-logos' : ''}'><p class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p>${clubs}</div></section></div>`;
   }
   function waiting(s, context, label, names, currentSong, songCount, song) {
     return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div class='section-label'>準備中 <span>PREPARING</span></div><h1>${e(label)}</h1><div class='waiting-players'>${names.map(name => `<p>${e(name)}</p>`).join('')}</div><div class='waiting-song'><span>接下來 · SONG ${currentSong + 1} / ${songCount}</span><h2>${e(song?.title || '選曲中')}</h2></div></section>${visual('waiting-art')}</div>`;
