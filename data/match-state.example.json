@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "revision": 0,
+  "updatedAt": "2026-10-04T16:46:03.157Z",
+  "event": {
+    "title": "ACAHKU Phigros Competition",
+    "organiser": "ACAHKU — The Animation and Comics Association",
+    "organiserZH": "香港大學動漫聯盟",
+    "date": "2026-11-07",
+    "time": "13:00–19:30",
+    "venue": "UG201",
+    "message": "A new rhythm. A new champion."
+  },
+  "scene": "start",
+  "stage": "qualifier",
+  "library": [
+    {
+      "id": "song-1",
+      "title": "Stardust:RAY",
+      "artist": "kanone vs. BlackY",
+      "difficulty": "IN",
+      "level": 16,
+      "art": "assets/song/cover-1.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-2",
+      "title": "Desultory Signals",
+      "artist": "technoplanet",
+      "difficulty": "IN",
+      "level": 17,
+      "art": "assets/song/cover-2.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-3",
+      "title": "Rrhar’il",
+      "artist": "Team Grimoire",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-3.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-4",
+      "title": "Igallta",
+      "artist": "Se-U-Ra",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-4.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-5",
+      "title": "Chronostasis",
+      "artist": "黒皇帝",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-1.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-6",
+      "title": "Spasmodic",
+      "artist": "姜米條",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-2.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-7",
+      "title": "Cthugha",
+      "artist": "USAO",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-3.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-8",
+      "title": "Distorted Fate",
+      "artist": "Sakuzyo",
+      "difficulty": "IN",
+      "level": 16,
+      "art": "assets/song/cover-4.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-9",
+      "title": "Crave Wave",
+      "artist": "LandRoot",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-1.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-10",
+      "title": "DESTRUCTION 3,2,1",
+      "artist": "Normal1zer",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-2.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-11",
+      "title": "Dlyrotz",
+      "artist": "Likey",
+      "difficulty": "IN",
+      "level": 14,
+      "art": "assets/song/cover-3.svg",
+      "eligible": true
+    },
+    {
+      "id": "song-12",
+      "title": "INFiNiTE ENERZY -Overdoze-",
+      "artist": "Reku Mochizuki",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/cover-4.svg",
+      "eligible": true
+    }
+  ],
+  "qualifier": {
+    "activeGroup": "A",
+    "currentSong": 0,
+    "activePlayers": [
+      "p1",
+      "p2",
+      "p3"
+    ],
+    "groups": {
+      "A": {
+        "songs": [
+          "song-1",
+          "song-3",
+          "song-5"
+        ]
+      },
+      "B": {
+        "songs": [
+          "song-2",
+          "song-4",
+          "song-6"
+        ]
+      }
+    },
+    "players": [
+      {
+        "id": "p1",
+        "name": "Player 01",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p2",
+        "name": "Player 02",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p3",
+        "name": "Player 03",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p4",
+        "name": "Player 04",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p5",
+        "name": "Player 05",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p6",
+        "name": "Player 06",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p7",
+        "name": "Player 07",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      },
+      {
+        "id": "p8",
+        "name": "Player 08",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "tiePriority": null
+      }
+    ]
+  },
+  "tournament": {
+    "seeded": false,
+    "seeds": [],
+    "matches": [],
+    "currentMatchId": null,
+    "drawLog": []
+  },
+  "result": null
+}

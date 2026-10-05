@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="phi-back" viewBox="0 0 24 24"><path d="M20 12H4m7-7-7 7 7 7"/></symbol>
+  <symbol id="phi-next" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></symbol>
+  <symbol id="phi-play" viewBox="0 0 24 24"><path d="m6 3 15 9-15 9Z"/></symbol>
+  <symbol id="phi-folder" viewBox="0 0 24 24"><path d="M2 6h7l2 3h11v12H2Z"/><path d="M2 11h20"/></symbol>
+  <symbol id="phi-settings" viewBox="0 0 24 24"><path d="M2 5h8m4 0h8M2 12h3m4 0h13M2 19h13m4 0h3"/><circle cx="12" cy="5" r="2"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="19" r="2"/></symbol>
+  <symbol id="phi-sort" viewBox="0 0 24 24"><path d="M4 3v17m-3-3 3 3 3-3M10 5h12M10 11h9M10 17h6"/></symbol>
+  <symbol id="phi-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+  <symbol id="phi-random" viewBox="0 0 24 24"><path d="m5 7-4 5 4 5m14-10 4 5-4 5"/><path d="M9 7a3 3 0 0 1 6 0c0 3-3 3-3 6m0 4v.01"/></symbol>
+</svg>

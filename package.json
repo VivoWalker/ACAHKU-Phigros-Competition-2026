@@ -1,0 +1,20 @@
+{
+  "name": "acahku-phigros-broadcast",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline LAN broadcast overlays and tournament control for ACAHKU",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "postinstall": "node scripts/copy-fonts.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@fontsource/saira": "5.2.8",
+    "express": "5.1.0",
+    "socket.io": "4.8.1"
+  },
+  "devDependencies": { "socket.io-client": "4.8.1" }
+}

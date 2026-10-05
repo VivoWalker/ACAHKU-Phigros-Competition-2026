@@ -1,0 +1,9 @@
+node_modules/
+.cache/
+data/.control-pin
+data/.session-key
+data/match-state.json
+data/match-state.json.*
+*.log
+test-results/
+.DS_Store

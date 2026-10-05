@@ -1,0 +1,334 @@
+/* Phigros menu language: reusable primitives, not a screenshot replica.
+   Load Saira / appropriate CJK fonts separately; no font files are bundled.
+   Every fixed-height slanted surface must keep --phi-h equal to its height.
+   Relative mesh URL assumes this stylesheet and triangle-mesh.svg stay together. */
+.phi-app {
+  --phi-angle: -15deg;
+  --phi-slope: .267949;
+  --phi-bg: #101319;
+  --phi-ink: #f7f8fa;
+  --phi-muted: #b4bcc7;
+  --phi-panel: rgb(4 6 11 / .76);
+  --phi-accent: #64d7f3;
+  --phi-ez: #48b96a;
+  --phi-hd: #176cb2;
+  --phi-in: #c91b22;
+  --phi-at: #665571;
+  --phi-focus: #83def4;
+  --phi-micro: 140ms;
+  --phi-select: 220ms;
+  --phi-cover: 260ms;
+  --phi-chapter: 400ms;
+  --phi-scene: 320ms;
+  --phi-ambient: 520ms;
+  --phi-ease: cubic-bezier(.22, 1, .36, 1);
+  --phi-font: "Saira", "Source Han Sans SC", "Noto Sans SC",
+              "PingFang SC", "Microsoft YaHei", sans-serif;
+  position: relative;
+  isolation: isolate;
+  min-block-size: 100dvh;
+  color: var(--phi-ink);
+  background: var(--phi-bg);
+  font-family: var(--phi-font);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.4;
+  letter-spacing: .01em;
+}
+.phi-app :where(*, *::before, *::after) { box-sizing: border-box; }
+.phi-app :where(button, input, select, textarea) { font: inherit; }
+.phi-app :where(button) { cursor: pointer; }
+.phi-app :where(button:disabled) { cursor: default; opacity: .48; }
+.phi-app :where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--phi-focus);
+  outline-offset: 4px;
+}
+.phi-app :where(h1, h2, h3, p) { margin-block: 0; }
+.phi-app :where(a) { color: inherit; }
+.phi-app .phi-heading {
+  font-size: clamp(28px, 3.125vw, 48px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: .005em;
+}
+.phi-app .phi-label { font-size: clamp(20px, 2.08vw, 32px); line-height: 1.25; }
+.phi-app .phi-meta { font-size: clamp(16px, 1.55vw, 24px); line-height: 1.35; }
+.phi-app .phi-micro { font-size: 12px; line-height: 1.15; letter-spacing: .01em; }
+.phi-app .phi-muted { color: var(--phi-muted); }
+.phi-app .phi-number {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  line-height: 1;
+  letter-spacing: .015em;
+}
+.phi-app .phi-start-prompt {
+  font-size: clamp(20px, 2.35vw, 36px);
+  letter-spacing: .3em;
+  line-height: 1.35;
+}
+/* Keep decorative clipping separate from content and focus rings. */
+.phi-app .phi-decoration {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.phi-app .phi-backdrop {
+  position: absolute;
+  inset: -7%;
+  background: var(--phi-image, none) center / cover no-repeat;
+  filter: blur(42px);
+  transform: scale(1.1);
+  opacity: .72;
+}
+.phi-app .phi-backdrop-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgb(4 7 12 / .72), rgb(16 23 35 / .35)),
+              linear-gradient(0deg, rgb(6 8 15 / .5), transparent 65%);
+}
+.phi-app .phi-mesh {
+  position: absolute;
+  inset: 0;
+  background: url("./triangle-mesh.svg") center / cover no-repeat;
+  opacity: .7;
+}
+.phi-app .phi-diagonal-plane {
+  position: absolute;
+  inset-block: -10%;
+  inset-inline-start: 8%;
+  inline-size: 38%;
+  background: rgb(0 0 0 / .12);
+  transform: skewX(var(--phi-angle));
+}
+/* The pseudo-element is skewed; text and the interaction box stay upright.
+   inset=cut/2 compensates the horizontal shear so bounds stay in the box. */
+.phi-app .phi-surface {
+  --phi-h: 56px;
+  --phi-cut: calc(var(--phi-h) * var(--phi-slope));
+  --phi-pad: 12px;
+  --phi-surface-fill: var(--phi-panel);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  block-size: var(--phi-h);
+  padding-inline: calc(var(--phi-cut) + var(--phi-pad));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--phi-ink);
+}
+.phi-app .phi-surface::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  inset-inline: calc(var(--phi-cut) * .5);
+  background: var(--phi-surface-fill);
+  transform: skewX(var(--phi-angle));
+  pointer-events: none;
+}
+.phi-app .phi-surface.is-selected,
+.phi-app .phi-surface[aria-selected="true"] {
+  --phi-surface-fill: #fff;
+  color: #101319;
+}
+.phi-app .phi-button {
+  --phi-h: 56px;
+  display: inline-flex;
+  min-inline-size: 84px;
+  font-size: 22px;
+  line-height: 1.1;
+  text-decoration: none;
+  transition: color var(--phi-micro), filter var(--phi-micro);
+}
+.phi-app .phi-button.is-primary { --phi-surface-fill: #fff; color: #101319; }
+@media (hover: hover) {
+  .phi-app .phi-button:hover { filter: brightness(1.1); }
+  .phi-app .phi-button.is-primary:hover { --phi-surface-fill: #dfeff5; }
+}
+.phi-app .phi-button:active { filter: brightness(.88); }
+.phi-app .phi-icon {
+  inline-size: 28px;
+  block-size: 28px;
+  flex: 0 0 auto;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.phi-app .phi-back {
+  --phi-h: 80px;
+  --phi-cut: calc(var(--phi-h) * var(--phi-slope));
+  --phi-surface-fill: #050609;
+  inline-size: 118px;
+}
+.phi-app .phi-back::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(var(--phi-cut) * .5);
+  inline-size: 6px;
+  background: #fff;
+  transform: skewX(var(--phi-angle));
+  pointer-events: none;
+}
+/* clip-path is for noninteractive inner layers; use an outer button for focus. */
+.phi-app .phi-cut {
+  --phi-h: 320px;
+  --phi-cut: calc(var(--phi-h) * var(--phi-slope));
+  block-size: var(--phi-h);
+  clip-path: polygon(var(--phi-cut) 0, 100% 0,
+                     calc(100% - var(--phi-cut)) 100%, 0 100%);
+  overflow: hidden;
+}
+.phi-app .phi-art-window {
+  --phi-h: clamp(240px, 27vw, 412px);
+  position: relative;
+  inline-size: 100%;
+  background: #1b2029;
+}
+.phi-app .phi-art-window > img,
+.phi-app .phi-cover-layer {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--phi-object-position, 50% 50%);
+}
+.phi-app .phi-cover-layer {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+/* In a diagonal roll, extend image layers horizontally enough to cover cut. */
+.phi-app .phi-art-window.is-diagonal-roll > .phi-cover-layer {
+  inset-inline-start: calc(var(--phi-cut) * -1);
+  inline-size: calc(100% + var(--phi-cut) * 2);
+}
+.phi-app .phi-tabs {
+  display: flex;
+  gap: 0;
+  align-items: center;
+  padding-inline: 12px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.phi-app .phi-tabs > .phi-surface {
+  --phi-h: 72px;
+  min-inline-size: 142px;
+  flex: 0 0 auto;
+  font-size: 24px;
+}
+.phi-app .phi-song-row {
+  --phi-h: 78px;
+  inline-size: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding-inline: calc(var(--phi-cut) + 14px) calc(var(--phi-cut) + 8px);
+  text-align: start;
+  justify-content: normal;
+  color: var(--phi-ink);
+}
+.phi-app .phi-song-row::before { opacity: 0; transition: opacity var(--phi-select); }
+.phi-app .phi-song-row[aria-selected="true"]::before,
+.phi-app .phi-song-row.is-selected::before { opacity: 1; }
+.phi-app .phi-song-row[aria-selected="true"],
+.phi-app .phi-song-row.is-selected {
+  --phi-surface-fill: rgb(2 4 8 / .82);
+  color: var(--phi-ink);
+}
+.phi-app .phi-song-title {
+  display: block;
+  min-inline-size: 0;
+  font-size: 26px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phi-app .phi-song-row .phi-song-author { display: none; }
+.phi-app .phi-song-row[aria-selected="true"] .phi-song-author,
+.phi-app .phi-song-row.is-selected .phi-song-author {
+  display: block;
+  font-size: 16px;
+  line-height: 1.25;
+  margin-block-start: 4px;
+}
+.phi-app .phi-difficulty-strip {
+  --phi-chip-h: 60px;
+  display: inline-flex;
+  align-items: center;
+  max-inline-size: 100%;
+}
+.phi-app .phi-chip {
+  --phi-h: var(--phi-chip-h, 60px);
+  --phi-cut: calc(var(--phi-h) * var(--phi-slope));
+  --phi-surface-fill: #fff;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  inline-size: calc(var(--phi-chip-h, 60px) * 1.32);
+  padding-inline: 0;
+  color: #11151b;
+  line-height: 1;
+  transition: color var(--phi-select);
+}
+.phi-app .phi-chip + .phi-chip {
+  margin-inline-start: calc(var(--phi-chip-h, 60px) * var(--phi-slope) * -1);
+}
+.phi-app .phi-chip .phi-number { font-size: 30px; }
+.phi-app .phi-chip[aria-pressed="true"] {
+  --phi-h: calc(var(--phi-chip-h, 60px) + 6px);
+  --phi-surface-fill: var(--phi-difficulty-color, var(--phi-in));
+  color: #fff;
+}
+.phi-app .phi-chip[data-difficulty="EZ"] { --phi-difficulty-color: var(--phi-ez); }
+.phi-app .phi-chip[data-difficulty="EZ"][aria-pressed="true"] { color: #101319; }
+.phi-app .phi-chip[data-difficulty="HD"] { --phi-difficulty-color: var(--phi-hd); }
+.phi-app .phi-chip[data-difficulty="IN"] { --phi-difficulty-color: var(--phi-in); }
+.phi-app .phi-chip[data-difficulty="AT"] { --phi-difficulty-color: var(--phi-at); }
+.phi-app .phi-score {
+  --phi-h: 60px;
+  justify-content: flex-start;
+  gap: 18px;
+}
+.phi-app .phi-score .phi-number { font-size: clamp(28px, 2.8vw, 44px); }
+.phi-app .phi-enter { animation: phi-enter var(--phi-scene) var(--phi-ease) both; }
+@keyframes phi-enter {
+  from { opacity: 0; transform: translate(5px, 18px); }
+  to { opacity: 1; transform: translate(0, 0); }
+}
+@media (max-width: 760px) {
+  .phi-app { font-size: 16px; }
+  .phi-app .phi-label { font-size: 22px; }
+  .phi-app .phi-art-window { --phi-h: clamp(220px, 60vw, 360px); }
+  .phi-app .phi-tabs > .phi-surface {
+    --phi-h: 56px;
+    min-inline-size: 112px;
+    font-size: 20px;
+  }
+  .phi-app .phi-song-title { font-size: 21px; }
+  .phi-app .phi-song-row { --phi-h: 78px; }
+  .phi-app .phi-back { --phi-h: 60px; inline-size: 92px; }
+  .phi-app .phi-difficulty-strip { --phi-chip-h: 54px; }
+  .phi-app .phi-score { --phi-h: 54px; gap: 10px; }
+}
+/* WAAPI / JS controllers must also observe this preference and commit state. */
+@media (prefers-reduced-motion: reduce) {
+  .phi-app *, .phi-app *::before, .phi-app *::after {
+    animation: none !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .phi-app .phi-enter { opacity: 1; transform: none; }
+}

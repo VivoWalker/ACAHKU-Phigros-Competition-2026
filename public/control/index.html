@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101319"><title>ACAHKU · Broadcast control</title><link rel="stylesheet" href="./control.css"></head>
+<body class="phi-app">
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="app-header"><a class="wordmark" href="./">ACA<span>HKU</span><i></i></a><div class="header-caption">PHIGROS COMPETITION <span>LIVE PRODUCTION / 2026</span></div><div class="connection" id="connection" role="status"><span class="dot"></span>Connecting</div></header>
+  <section id="pairing" class="pairing" hidden>
+    <div class="pair-art"><img src="../assets/event/signal.svg" alt="ACAHKU rhythm artwork"></div>
+    <div class="pair-copy"><div class="eyebrow">ACAHKU / CREW ACCESS</div><h1>Your signal.<br>Your stage.</h1><p>Pair this device with the broadcast laptop.</p><p class="secondary">輸入伺服器啟動時顯示的工作人員配對碼。</p><form id="pair-form"><label for="pin">Pairing code <span>配對碼</span></label><input id="pin" name="pin" type="password" autocomplete="current-password" inputmode="numeric" required placeholder="Enter code from laptop"><button class="phi-surface phi-button is-primary" type="submit">Connect to control →</button></form><div id="pair-error" class="error" role="alert"></div><small>The code stays on your laptop. No cloud account required.</small></div>
+  </section>
+  <div id="workspace" hidden>
+    <nav class="tabs phi-tabs" aria-label="Control sections">
+      <button class="phi-surface" data-tab="broadcast" aria-selected="true">Broadcast <small>直播</small></button>
+      <button class="phi-surface" data-tab="qualifiers" aria-selected="false">Qualifiers <small>預選賽</small></button>
+      <button class="phi-surface" data-tab="bracket" aria-selected="false">Bracket <small>雙淘汰賽</small></button>
+      <button class="phi-surface" data-tab="songs" aria-selected="false">Song selection <small>選曲</small></button>
+      <button class="phi-surface" data-tab="event" aria-selected="false">Event & library <small>活動與曲庫</small></button>
+    </nav>
+    <main id="content"></main>
+    <footer class="app-footer"><span>ACAHKU — THE ANIMATION AND COMICS ASSOCIATION</span><span id="sync-status" role="status">Waiting for server</span></footer>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="../socket.io/socket.io.js"></script><script src="../js/common.js"></script><script src="../js/socket.js"></script><script src="./control.js"></script>
+</body></html>

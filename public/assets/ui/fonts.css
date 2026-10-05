@@ -1,0 +1,3 @@
+@font-face{font-family:Saira;src:url('../fonts/saira-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:Saira;src:url('../fonts/saira-latin-500-normal.woff2') format('woff2');font-weight:500;font-display:swap}
+:root{--broadcast-font:'Saira','Source Han Sans HC','Noto Sans HK','PingFang HK','Microsoft JhengHei',sans-serif}
