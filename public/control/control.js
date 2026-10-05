@@ -57,7 +57,9 @@
   }
   function broadcast() {
     const selected = B.scenes.find(s => s[0] === state.scene), m = B.currentMatch(state), q = state.qualifier;
+    const showHandcams = state.broadcast?.showHandcams === true;
     return heading('CONTROL ROOM / 直播控制', 'Your next moment, on air.', 'Manage the show. Keep the rhythm moving.', `<span class="pill"><span>${state.stage === 'qualifier' ? 'QUALIFIERS' : 'DOUBLE ELIMINATION'}</span></span>`) +
+      `<section class="panel broadcast-display-panel"><div class="section-heading"><div><h2>畫面顯示</h2><p class="secondary">每位選手的直播畫面</p></div></div><div class="display-mode-buttons" role="group" aria-label="選手畫面顯示模式">${button('<strong class="display-mode-title">單畫面</strong><span class="display-mode-description">擷取卡主畫面</span>', `data-broadcast-handcams="false" class="display-mode-button ${showHandcams ? '' : 'selected'}" aria-pressed="${!showHandcams}"`, !showHandcams)}${button('<strong class="display-mode-title">雙畫面</strong><span class="display-mode-description">擷取卡主畫面 + 手元小窗</span>', `data-broadcast-handcams="true" class="display-mode-button ${showHandcams ? 'selected' : ''}" aria-pressed="${showHandcams}"`, showHandcams)}</div><p class="secondary">先在 OBS 擺好擷取卡與手元來源，將網頁 Layout 放在最上層。切換後，網頁即時顯示或隱藏手元小窗。</p></section>` +
       `<div class="broadcast-grid"><section class="preview-panel"><div class="panel-header"><h2>Program preview</h2><span class="on-air"><i class="dot"></i>LIVE STATE</span></div><div class="preview-shell" id="preview-container"></div><div class="preview-caption"><span>1920 × 1080 · transparent overlay</span><a href="../overlay/live.html" target="_blank" rel="noopener">Open overlay ${B.icon('next')}</a></div><div class="status-strip"><div class="status-cell"><span class="micro">Current stage</span><strong>${state.stage === 'qualifier' ? 'Qualifiers' : 'Double elimination'}</strong><small>${state.stage === 'qualifier' ? 'Group ' + q.activeGroup : m ? `R${m.round} · ${m.bracket}` : 'Awaiting seeding'}</small></div><div class="status-cell"><span class="micro">Current match</span><strong>${state.stage === 'qualifier' ? `${q.activePlayers.length} players` : m?.id || '—'}</strong><small>${state.stage === 'qualifier' ? 'Three-player layout' : m?.label || 'Eight qualifying seeds'}</small></div><div class="status-cell"><span class="micro">Song progress</span><strong>${state.stage === 'qualifier' ? q.currentSong + 1 + ' / 3' : m ? `${m.currentSong + 1} / ${m.id === 'GF' ? 3 : 2}` : '—'}</strong><small>${e(state.stage === 'qualifier' ? B.song(state, q.groups[q.activeGroup].songs[q.currentSong])?.title : m?.songs[m.currentSong]?.title || 'Awaiting selection')}</small></div></div><div class="current-bar"><div><span class="micro">On air now</span><h3>${e(selected[1])}</h3><p>${e(state.event.title)} · ${e(state.event.venue)}</p></div><div>${button('Edit match ' + B.icon('next'), `data-tab="${state.stage === 'qualifier' ? 'qualifiers' : 'bracket'}"`)}</div></div></section><aside class="panel"><div class="panel-header"><h2>Scenes <span class="secondary">畫面</span></h2><span class="micro">${String(B.scenes.findIndex(s => s[0] === state.scene) + 1).padStart(2, '0')} / 08</span></div><div class="scene-list">${B.scenes.map(([id, title, zh], i) => `<button class="scene-button" data-scene="${id}" aria-pressed="${id === state.scene}"><span class="scene-number">${String(i + 1).padStart(2, '0')}</span><span><span class="scene-name">${title}</span><small>${zh}</small></span><span class="scene-arrow">${id === state.scene ? '●' : B.icon('next')}</span></button>`).join('')}</div><div class="scene-section-note"><div id="overlay-count">Overlay status</div><div id="crew-count" style="margin-top:5px">Control devices</div><div style="margin-top:10px">OBS WebSocket · not configured</div></div></aside></div>`;
   }
   function qualifiers() {
@@ -99,7 +101,7 @@
   function render() {
     if (!state) return;
     const active = document.activeElement;
-    const focusAttributes = ['data-scene', 'data-focus-song', 'data-ban-song', 'data-ban-player', 'data-command', 'data-song-progress'];
+    const focusAttributes = ['data-scene', 'data-focus-song', 'data-ban-song', 'data-ban-player', 'data-command', 'data-song-progress', 'data-broadcast-handcams'];
     const keyboardSelector = active?.tagName === 'BUTTON' ? focusAttributes.filter(key => active.hasAttribute(key)).map(key => `[${key}="${CSS.escape(active.getAttribute(key))}"]`).join('') : '';
     const focused = active && active.id && $('content').contains(active) && ['INPUT', 'TEXTAREA'].includes(active.tagName) ? { id: active.id, value: active.value, start: active.selectionStart, end: active.selectionEnd } : null;
     const openDetails = [...$('content').querySelectorAll('details[open][id]')].map(el => el.id);
@@ -110,7 +112,7 @@
     if (activeTab === 'broadcast' && $('program-preview')) {
       // Keep the iframe attached: replacing or moving it would reload its source.
       const template = document.createElement('template'); template.innerHTML = nextHTML;
-      for (const selector of ['.page-heading', '.status-strip', '.current-bar', 'aside.panel']) {
+      for (const selector of ['.page-heading', '.broadcast-display-panel', '.status-strip', '.current-bar', 'aside.panel']) {
         $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
       }
     } else {
@@ -138,6 +140,7 @@
   document.addEventListener('click', event => {
     const target = event.target.closest('button,[data-focus-song]'); if (!target || target.disabled || !state) return;
     if (target.dataset.tab) { activeTab = target.dataset.tab; render(); window.scrollTo({ top: 0, behavior: 'instant' }); return; }
+    if (target.dataset.broadcastHandcams !== undefined) { send('set-broadcast-display', { showHandcams: target.dataset.broadcastHandcams === 'true' }).catch(() => {}); return; }
     if (target.dataset.scene) { send('set-scene', { scene: target.dataset.scene }).catch(() => {}); return; }
     if (target.dataset.group) { send('set-qualifier-display', { group: target.dataset.group }).catch(() => {}); return; }
     if (target.dataset.match) { send('select-match', { matchId: target.dataset.match }).catch(() => {}); return; }

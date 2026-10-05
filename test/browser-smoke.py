@@ -14,7 +14,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'test-results'
+OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results'))
 OUT.mkdir(exist_ok=True)
 SCENES = ['start', 'qualifier-waiting', 'double-elimination-waiting', 'qualifier-match', 'double-elimination-match', 'result', 'bracket', 'song-selection']
 
@@ -190,11 +190,13 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 
             # Check the documented capture coordinates, optional cameras and score detail.
             layouts = {
-                ('qualifier-match', ''): [(64,300,1088,612),(1200,214,656,369),(1200,630,656,369)],
-                ('qualifier-match', '&details=1'): [(64,300,1088,612),(1200,214,656,369),(1200,630,656,369)],
+                ('qualifier-match', ''): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
+                ('qualifier-match', '&details=1'): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
+                ('qualifier-match', '&cameras=0'): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
                 ('qualifier-match', '&cameras=1&details=1'): [(64,300,576,324),(64,800,240,135),(672,300,576,324),(672,800,240,135),(1280,300,576,324),(1280,800,240,135)],
                 ('double-elimination-match', ''): [(64,280,872,490.5),(984,280,872,490.5)],
                 ('double-elimination-match', '&details=1'): [(64,280,872,490.5),(984,280,872,490.5)],
+                ('double-elimination-match', '&cameras=0'): [(64,280,872,490.5),(984,280,872,490.5)],
                 ('double-elimination-match', '&cameras=1&details=1'): [(64,280,872,490.5),(64,846,224,126),(984,280,872,490.5),(1632,846,224,126)]
             }
             for (scene, options), expected in layouts.items():
@@ -203,13 +205,15 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 overlay.evaluate('document.fonts.ready')
                 captures = overlay.locator('[data-capture]').all()
                 assert len(captures) == len(expected)
-                expected_scores = (9 if scene == 'qualifier-match' else 6) if options else 0
+                expected_scores = (9 if scene == 'qualifier-match' else 6) if '&details=1' in options else 0
                 assert overlay.locator('.score-row').count() == expected_scores
                 png = overlay.screenshot(path=str(OUT/(scene + ('-cameras-details.png' if options else '-minimal.png'))), omit_background=True, animations='disabled')
                 image = Image.open(io.BytesIO(png)).convert('RGBA')
                 for el, rect in zip(captures, expected):
                     box = el.bounding_box()
                     for key, value in zip(['x','y','width','height'], rect): assert abs(box[key]-value) < .1, (scene,key,box,rect)
+                    assert el.get_attribute('data-player-id'), 'Each capture must identify its on-stage player'
+                    assert el.get_attribute('data-feed') == ('capture-card' if el.get_attribute('data-capture') == 'gameplay' else 'handcam')
                     if el.get_attribute('data-capture') == 'gameplay': assert abs(box['width']/box['height'] - 16/9) < .001
                     for fraction_x in [.1,.5,.9]:
                         for fraction_y in [.1,.5,.9]:

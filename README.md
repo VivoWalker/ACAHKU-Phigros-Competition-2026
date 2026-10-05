@@ -1,6 +1,6 @@
 # ACAHKU Phigros Broadcast
 
-A local tournament server, transparent OBS overlays and an iPad-friendly control panel. The broadcast uses the previous year's large video areas and a quieter presentation: player names, totals and one shared current-song line. Full scoring and tournament controls remain in the staff panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
+A local tournament server, transparent OBS overlays and an iPad-friendly control panel. The broadcast uses a quieter presentation with larger, bold titles, player names and totals, plus one shared current-song line. Each player's capture card and handcam can appear together; staff can switch between single and dual views live. Full scoring and tournament controls remain in the staff panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
 
 ## Quick start
 
@@ -37,11 +37,11 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 
 ## OBS setup
 
-1. Add your gameplay captures to an OBS scene. Separate webcam sources are optional; the default layout dedicates the space to gameplay.
+1. Add each player's capture-card source to an OBS scene. Add their handcam source as well if you want to use dual view, and position both using the rectangles below.
 2. Add a **Browser Source** above those sources. Disable **Local file**, use `http://localhost:3000/overlay/start.html`, and set **Width 1920 / Height 1080**.
 3. Keep the Browser Source active. Prefer leaving **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked; scene changes arrive over Socket.IO.
 4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes immediately without a reload. It does not switch your OBS capture sources or OBS scenes automatically.
-5. Align the OBS capture sources below the transparent gameplay frames. If you enable the optional camera layout, also align the webcam sources below its frames. The interface does not capture video itself. Different capture arrangements may use separate OBS scenes; switch those in OBS manually or use the reserved adapter in a later integration.
+5. In **Broadcast → 畫面顯示**, select **單畫面** for capture card only or **雙畫面** for capture card plus each player's handcam. This setting updates all connected overlays immediately and is saved across restarts. Capture-card positions stay fixed; single view covers the handcam areas with the overlay background. Keep both sources beneath the Browser Source. The interface does not capture video or move OBS sources. Different player counts may use separate OBS scenes with the matching source arrangement.
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
@@ -60,23 +60,23 @@ All overlay documents keep their root and body backgrounds transparent. Opaque o
 
 `/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). Thus there are seven main screens plus the separately requested selection screen.
 
-Default gameplay source rectangles in the 1920×1080 canvas, in player order:
+Capture-card source rectangles in the 1920×1080 canvas, in player order. These positions are identical in single and dual view:
 
 | Layout | Gameplay frames (x, y, width, height) |
 | --- | --- |
-| Three-player qualifier: one large left, two smaller right | `(64,300,1088,612)`, `(1200,214,656,369)`, `(1200,630,656,369)` |
+| Three-player qualifier: three equal columns | `(64,300,576,324)`, `(672,300,576,324)`, `(1280,300,576,324)` |
 | Two-player match / final: side by side | `(64,280,872,490.5)`, `(984,280,872,490.5)` |
 
-The qualifier's first player selected in the control panel occupies the large frame; the second and third occupy the upper-right and lower-right frames. The default match display shows each player's name and total, plus a shared current song and progress indicator. Individual song scores stay in the control panel. Append `?details=1` to show a compact per-song score line alongside each player’s capture.
+The qualifier's first, second and third selected players occupy the left, middle and right columns. Match displays show each player's name and total, plus a shared current song and progress indicator. Individual song scores stay in the control panel. Append `?details=1` to show a compact per-song score line alongside each player’s capture. **Upgrading from the old single-view layout:** realign the three qualifier capture-card sources once to the new fixed columns.
 
-Append `?cameras=1` when separate webcam windows are needed. This changes the qualifier to three equal gameplay frames and adds camera frames:
+Handcam rectangles, paired in the same player order:
 
-| Camera layout | Gameplay frames (x, y, width, height) | Webcam frames (x, y, width, height) |
-| --- | --- | --- |
-| Three-player qualifier | `(64,300,576,324)`, `(672,300,576,324)`, `(1280,300,576,324)` | `(64,800,240,135)`, `(672,800,240,135)`, `(1280,800,240,135)` |
-| Two-player match / final | Same as the default two-player layout | `(64,846,224,126)`, `(1632,846,224,126)` |
+| Layout | Handcam frames (x, y, width, height) |
+| --- | --- |
+| Three-player qualifier | `(64,800,240,135)`, `(672,800,240,135)`, `(1280,800,240,135)` |
+| Two-player match / final | `(64,846,224,126)`, `(1632,846,224,126)` |
 
-Options can be combined, for example `/overlay/live.html?cameras=1&details=1` or `/overlay/qualifier-match.html?follow=1&cameras=1`. Use OBS's transform and crop controls to fit the captures. Exact rectangles are accessible through `[data-capture]` elements in the overlay if you customise the CSS.
+Use the normal URL without `cameras` for control-panel switching. For a source that must remain in one mode, the existing `?cameras=1` forces dual view and `?cameras=0` forces single view, overriding the shared setting. Options can be combined, for example `/overlay/live.html?cameras=1&details=1`. Use OBS's transform and crop controls to fit the captures. Exact rectangles are accessible through `[data-capture]`; each frame also carries `data-player-id` and `data-feed` (`capture-card` or `handcam`) to identify the paired sources. When changing the selected entrants, make sure OBS shows the corresponding players in those slots.
 
 Qualifier results show separate Group A and Group B ranking tables. Groups with up to four players use large text; five to eight use a compact table. Longer groups show **eight players per page**, with a visible range such as `1–8 / 32`, and automatically turn pages every **12 seconds**. Each group cycles through its own pages. To keep a particular page on screen, append `?rankPage=2` (or `&rankPage=2` when another option is present). A requested page beyond a group's page count displays its last page.
 
@@ -171,7 +171,7 @@ npm test
 npm run dev
 ```
 
-`npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart and local branding lookup (including missing assets and directories). It does not modify the production tournament.
+`npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart, local branding lookup, and saved display modes with backwards compatibility for older tournaments. It does not modify the production tournament.
 
 Optional browser smoke test, if Python Playwright, Pillow and Chromium are installed:
 
@@ -185,6 +185,12 @@ An independent long-roster browser regression checks 32 players per group, eight
 
 ```sh
 python3 test/ranking-layout.py
+```
+
+The display regression checks actual control-panel switches against temporary legacy data, paired capture-card/handcam frames, unchanged capture-card positions, handcam masking, updates without reloading the live source or preview, saved settings across restart, URL overrides, real local bold fonts and text staying clear of captures:
+
+```sh
+python3 test/display-layout.py
 ```
 
 ## Project files

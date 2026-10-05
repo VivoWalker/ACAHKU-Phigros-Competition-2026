@@ -13,6 +13,9 @@
   },
   "scene": "start",
   "stage": "qualifier",
+  "broadcast": {
+    "showHandcams": false
+  },
   "library": [
     {
       "id": "song-1",

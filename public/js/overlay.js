@@ -3,7 +3,9 @@
   const requested = document.body.dataset.scene || 'start';
   const query = new URLSearchParams(location.search);
   const follow = query.has('follow') ? query.get('follow') !== '0' : requested === 'start' || requested === 'live';
-  const fixed = query.get('fixed') === '1', cameras = query.get('cameras') === '1', details = query.get('details') === '1';
+  const fixed = query.get('fixed') === '1', details = query.get('details') === '1';
+  const cameraOverride = ['0', '1'].includes(query.get('cameras')) ? query.get('cameras') === '1' : null;
+  const showHandcams = s => cameraOverride ?? (s.broadcast?.showHandcams === true);
   canvas.classList.toggle('show-details', details);
   const rankPage = Number.parseInt(query.get('rankPage'), 10);
   const fixedRankPage = Number.isInteger(rankPage) && rankPage > 0;
@@ -39,7 +41,7 @@
     return branding.visual ? `<figure class='key-visual ${className}'><img src='${e(url(branding.visual))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
   }
   function start(s) {
-    return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 style='font-size:${s.event.title.length > 60 ? 60 : 78}px'>${e(s.event.title)}</h1><p class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><p class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p></section></div>`;
+    return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><p class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p></section></div>`;
   }
   function waiting(s, context, label, names, currentSong, songCount, song) {
     return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div class='section-label'>準備中 <span>PREPARING</span></div><h1>${e(label)}</h1><div class='waiting-players'>${names.map(name => `<p>${e(name)}</p>`).join('')}</div><div class='waiting-song'><span>接下來 · SONG ${currentSong + 1} / ${songCount}</span><h2>${e(song?.title || '選曲中')}</h2></div></section>${visual('waiting-art')}</div>`;
@@ -58,29 +60,35 @@
     const scoresLine = details ? `<div class='song-scores'>${songs.map((song, i) => `<span class='score-row' title='${e(song?.title || '待定')}'>S${i + 1} <b>${B.score(scores?.[i])}</b></span>`).join('')}</div>` : '';
     return `<section class='player-info ${kind} player-${index + 1}'><div class='player-name'><h2>${e(id ? B.name(s, id) : '待定')}</h2><div class='player-total'><span>TOTAL</span><strong>${total}</strong></div></div>${scoresLine}</section>`;
   }
-  function capture(rect, kind = 'gameplay', player = '') {
+  function capture(rect, kind = 'gameplay', player = '', playerId = '') {
     const [x, y, width, height] = rect;
-    return `<div class='capture ${kind}' data-capture='${kind}' aria-label='${e(player)} ${kind} capture' style='left:${x}px;top:${y}px;width:${width}px;height:${height}px'></div>`;
+    return `<div class='capture ${kind}' data-capture='${kind}' data-feed='${kind === 'webcam' ? 'handcam' : 'capture-card'}' data-player-id='${e(playerId || '')}' aria-label='${e(player)} ${kind === 'webcam' ? '手元 handcam' : '采集卡 capture card'}' style='left:${x}px;top:${y}px;width:${width}px;height:${height}px'></div>`;
+  }
+  function handcam(rect, name, id) {
+    const [x, y, width] = rect;
+    return `<span class='handcam-label' style='left:${x}px;top:${y - 44}px;width:${width}px'>手元 · HANDCAM</span>` + capture(rect, 'webcam', name, id);
   }
   function songBand(song, current, count, kind = '') {
     return `<div class='song-band ${kind}'><span>SONG ${current + 1} / ${count}</span><h2>${e(song?.title || '選曲中')}</h2>${song && !song.hidden ? `<span class='difficulty'>${e(song.difficulty)} ${e(song.level)}</span>` : ''}</div>`;
   }
   function qualifierMatch(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs.map(id => B.song(s, id));
-    const frames = cameras ? [[64, 300, 576, 324], [672, 300, 576, 324], [1280, 300, 576, 324]] : [[64, 300, 1088, 612], [1200, 214, 656, 369], [1200, 630, 656, 369]];
+    const cameras = showHandcams(s);
+    const frames = [[64, 300, 576, 324], [672, 300, 576, 324], [1280, 300, 576, 324]];
     const cams = cameras ? [[64, 800, 240, 135], [672, 800, 240, 135], [1280, 800, 240, 135]] : [];
     return backdrop([...frames, ...cams]) + header(s, `預選賽 · GROUP ${q.activeGroup}`) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : ''}'>${frames.map((rect, i) => {
       const id = q.activePlayers[i], name = id ? B.name(s, id) : '待定';
-      return playerName(s, id, B.player(s, id)?.scores, songs, i, 'qualifier-player') + capture(rect, 'gameplay', name) + (cams[i] ? capture(cams[i], 'webcam', name) : '');
+      return playerName(s, id, B.player(s, id)?.scores, songs, i, 'qualifier-player') + capture(rect, 'gameplay', name, id) + (cams[i] ? handcam(cams[i], name, id) : '');
     }).join('')}${songBand(songs[q.currentSong], q.currentSong, 3, 'qualifier-song')}</div>`;
   }
   function doubleMatch(s) {
     const m = B.currentMatch(s);
     if (!m) return doubleWaiting(s);
+    const cameras = showHandcams(s);
     const frames = [[64, 280, 872, 490.5], [984, 280, 872, 490.5]];
     const cams = cameras ? [[64, 846, 224, 126], [1632, 846, 224, 126]] : [];
     const count = m.id === 'GF' ? 3 : 2, songs = m.songs.length ? m.songs : Array(count).fill(null);
-    return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : ''}'>${m.players.map((id, i) => playerName(s, id, m.scores[i], songs, i, 'double-player') + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定') + (cams[i] ? capture(cams[i], 'webcam', id ? B.name(s, id) : '待定') : '')).join('')}${songBand(m.songs[m.currentSong], m.currentSong, count, 'double-song')}</div>`;
+    return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : ''}'>${m.players.map((id, i) => playerName(s, id, m.scores[i], songs, i, 'double-player') + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定', id) + (cams[i] ? handcam(cams[i], id ? B.name(s, id) : '待定', id) : '')).join('')}${songBand(m.songs[m.currentSong], m.currentSong, count, 'double-song')}</div>`;
   }
   function qualifierResults(s) {
     const ranks = ['A', 'B'].map(group => B.rankings(s, group));
@@ -129,6 +137,7 @@
     const oldSrc = mount.querySelector('.selection-art img')?.getAttribute('src');
     mount.innerHTML = next; markup = next; canvas.dataset.renderedScene = scene;
     canvas.dataset.branding = branding.visual ? 'visual' : 'text';
+    canvas.dataset.displayMode = showHandcams(state) ? 'dual' : 'single';
     if (shown !== scene) { mount.classList.remove('scene-enter'); void mount.offsetWidth; mount.classList.add('scene-enter'); }
     const windowEl = mount.querySelector('.selection-art');
     if (windowEl && oldSrc && oldSrc !== windowEl.querySelector('img').getAttribute('src') && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
