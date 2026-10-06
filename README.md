@@ -100,7 +100,7 @@ public/assets/event/kirameki-logo.png
 | Soc Logo | `soc-logo.png`, `soc-logo.webp` |
 | Kirameki logo | `kirameki-logo.png`, `kirameki-logo.webp` |
 
-The start screen places the society logos to the right of the organiser's name, with **Soc Logo on the left and Kirameki on the right**, at a larger size. Every other screen places the same pair in the upper-right corner in the same order. A light backing keeps the black strokes of Soc Logo readable against the broadcast background.
+The start screen places the society logos to the right of the organiser's name, with **Soc Logo on the left and Kirameki on the right**, at a larger size. Every other screen places the same pair in the upper-right corner in the same order. Both logos display directly with their original transparent backgrounds.
 
 Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens show the supplied transparent character alongside short event or next-match information. The PNG keeps its original transparency and proportions, with the full character and book visible. PNG/WebP take priority over older JPG copies. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
 
