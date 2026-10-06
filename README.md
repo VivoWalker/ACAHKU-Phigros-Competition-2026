@@ -25,6 +25,8 @@ The pairing code separates staff-only state from the public broadcast. It is cre
 
 Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
 
+When upgrading an existing installation, preserve the whole `data/` folder, replace the application files, restart the server, and refresh every control-panel tab and the OBS Browser Source once. Older control scripts without explicit match IDs are rejected by the updated server; existing valid schema-1 event files and paired sessions remain supported.
+
 ## Laptop + iPad
 
 1. Connect both devices to the same Wi-Fi or wired LAN. A network with client isolation or a guest Wi-Fi policy can block device-to-device access.
@@ -42,6 +44,7 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 3. Keep the Browser Source active. Prefer leaving **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked; scene changes arrive over Socket.IO.
 4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes without a reload. Shared logos, artwork and player names move to their new positions; other content exits before the new content slides in. It does not switch your OBS capture sources or OBS scenes automatically.
 5. In **Broadcast → 畫面顯示**, select **單畫面** for capture card only or **雙畫面** for capture card plus each player's handcam. This setting updates all connected overlays immediately and is saved across restarts. Capture-card positions stay fixed; single view covers the handcam areas with the overlay background. Keep both sources beneath the Browser Source. The interface does not capture video or move OBS sources. Different player counts may use separate OBS scenes with the matching source arrangement.
+6. In the Broadcast source-check panel, enter the actual OBS capture-card and handcam source names for each slot, save them, inspect the real feeds, and confirm the manual check. Changing entrants, their names, the match, sources, stage or single/dual mode invalidates that confirmation. A restored backup also requires a new check. This records a crew member's visual check; it does not connect to OBS, inspect video, or switch sources automatically.
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
@@ -111,7 +114,7 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 ### Qualifiers
 
 1. In **Event & library**, verify event name, organiser, date, time, venue and song metadata.
-2. In **Qualifiers**, edit the Group A and Group B rosters (one name per line). Names unchanged within a group retain their scores. Renaming a player creates a new player record, so enter final names before scoring.
+2. In **Qualifiers**, edit the Group A and Group B rosters (one name per line). Names unchanged within a group retain their scores. Use **Rename player** to correct a name while keeping its player ID, scores and bracket references, including after seeding. Bulk roster replacement cannot remove a player who already has scores.
 3. Optionally use **Randomise A / B** before any scores have been entered. This balances the two groups. It cannot redistribute scored players.
 4. Select three different group songs for each group. The groups must have different sets; a group's selection is locked once its scoring begins.
 5. Choose up to three on-stage players, select the current song, and use the waiting or match scene. Empty slots remain empty; no fake scores are inserted.
@@ -129,7 +132,9 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 6. In **Record result**, confirm the result. For a tied total, choose a referee winner and provide an adjudication note. All song scores are required; partial totals cannot win.
 7. The result opens incoming winner/loser paths. The live scene changes to result announcement. Select the next ready match to continue.
 
-**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. It preserves entrants, seeding and every other result. Completed results lock; there is no one-click whole-tournament reset.
+**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. It preserves entrants, seeding and every other result. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
+
+Completed results lock against ordinary editing. To correct one, preview its downstream impact in the result-correction panel, enter a reason, and explicitly confirm any affected selections, scores and results that must be cleared. Reopening retains the chosen match's songs and scores for correction, selects it as the active match, and clears its dependent matches before the result is confirmed again. An unrelated newer update invalidates the reviewed preview and requires another review. The automatic backup and private correction log retain the previous data. A result belonging to a vacancy lottery with reassigned entrants must instead be corrected by restoring a backup from before that lottery. There is no one-click whole-tournament reset.
 
 ### Grand Finals, R6
 
@@ -159,15 +164,17 @@ The requested **14-match format has one decisive Grand Final and no bracket rese
 
 Use empty manual seed slots to represent absences. In a match with zero or one player, **Record vacant-match bye** advances its available player without inventing a loser or a loss.
 
-For a four-player entry field with exactly three players and one vacancy, open **Vacancy, bye & lottery**. Choose the recorded draw winner or leave the dropdown blank for a random local lottery, then **Draw four-player bye**. The selected entrant advances directly; the other two stay paired in the companion match. Both entry matches must be ready and unscored. Supported fields are W1/W2, W3/W4, and L1/L2. Eligible entrants, chosen player, destination, timestamp and notes are recorded in `drawLog`; the progress overlay marks the draw result. An unrelated player cannot receive the bye.
+For a four-player entry field with exactly three players and one vacancy, open **Vacancy, bye & lottery**. Choose the recorded draw winner or leave the dropdown blank for a random local lottery, then **Draw four-player bye**. The selected entrant advances directly; the other two stay paired in the companion match. Both entry matches must be ready and unscored, and the lottery must happen **before either match draws candidates, bans or selects songs**. Supported fields are W1/W2, W3/W4, and L1/L2. Eligible entrants, chosen player, destination, timestamp and notes are recorded in `drawLog`; the progress overlay marks the draw result. An unrelated player cannot receive the bye.
 
 ## Data, backups and local resources
 
 - Shared state is stored atomically after every successful command in `data/match-state.json`. Restarting the server or refreshing a browser preserves it. Failed and stale commands do not overwrite it.
-- **Export state backup** in Event & library downloads a staff-only JSON backup. Keep backups before confirming important results. To restore: stop the server, preserve the current JSON separately, place the backup at `data/match-state.json`, and restart. Keep the same PIN and session-key files to preserve paired browser sessions. Backups are private staff data; they include unrevealed selections.
+- Every successful update first creates a private automatic snapshot in `data/backups/`; the latest **500** snapshots are retained. A failed snapshot or official save does not advance the in-memory state. **Event & library** lets paired staff preview an automatic backup and restore it with a reason. Restore saves the current version first, uses a new revision, and updates all controls and overlays. A concurrent update invalidates the restore confirmation. Recent actions and recovery reasons remain in the private audit log.
+- **Export state backup** downloads a staff-only JSON backup for storage elsewhere. To restore an exported file manually: stop the server, preserve the entire current `data/` folder, place the complete backup at `data/match-state.json`, and restart. Keep the PIN and session-key files to preserve paired browser sessions. Backups include unrevealed selections and must remain private.
+- Startup fully validates the saved tournament before publishing it. If it is damaged and a valid automatic backup exists, the server preserves the damaged bytes in `data/match-state-damaged-*.json`, restores the latest valid snapshot, and shows a recovery notice to staff. Check the restored scores and actual OBS feeds before proceeding. With no valid backup, startup fails clearly and preserves the original file.
 - New events can use `data/match-state.example.json` after preserving the old event and stopping the server. There is deliberately no destructive reset button.
 - A second operator's newer revision is detected; stale commands are rejected and current state is sent back. Reconnect or inspect the latest state before retrying an unacknowledged command.
-- Add authorised song artwork to `public/assets/song/`, then edit its local `assets/song/file.webp` path in the library. HTTP/CDN artwork paths are rejected. Existing match candidate/pick metadata stays fixed after a draw; library changes affect future draws.
+- Add authorised song artwork to `public/assets/song/`, then edit its local `assets/song/file.webp` path in the library. HTTP/CDN artwork paths are rejected. Existing match candidate/pick metadata stays fixed after a draw; library changes affect future draws. A qualifier group's song title, artist, difficulty and level lock once that group starts scoring; create a new library entry for a different chart.
 - Song-art placeholders are bundled. Actual event branding is loaded only from the local logos and key-visual files described above. Uploaded skill screenshots were used only for visual analysis and are not shipped as page backgrounds. Saira is a **local implementation candidate**, not a claim about the original game font. Its SIL OFL licence is included. Hong Kong CJK fonts use system fallbacks (`Source Han Sans HC`, `Noto Sans HK`, `PingFang HK`, `Microsoft JhengHei`).
 - CSS and scripts are separate local files. `public/assets/ui/phi-ui.css` and the mesh/icons come from the supplied `phigros-web-ui` skill. The broadcast reduces repeated headings, explanatory copy and large score cards while keeping horizontal text, restrained angled surfaces, masked cover changes and reduced-motion support.
 
@@ -180,6 +187,8 @@ npm run dev
 ```
 
 `npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart, local branding lookup, and saved display modes with backwards compatibility for older tournaments. It does not modify the production tournament.
+
+The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
 
 Optional browser smoke test, if Python Playwright, Pillow and Chromium are installed:
 
@@ -196,6 +205,15 @@ python3 test/motion-layout.py
 ```
 
 Set `MOTION_TEST_SCOPE=scenes` or `MOTION_TEST_SCOPE=covers` for a focused run. `MOTION_RECORD_PREVIEW=1` records a real browser WebM; outputs use `BROADCAST_TEST_OUTPUT` or `test-results/`.
+
+Focused regressions for two simultaneous operators and the motion edge cases use independent temporary events:
+
+```sh
+python3 test/control-drafts.py
+python3 scripts/motion-regression.py
+```
+
+The operator test checks per-match drafts, complete forms and dropdown/checkbox focus, conflicting edits, reviewed result correction and backup restore, player renaming, source verification and preview continuity. The motion edge test checks actual text positions, long-name clipping, long song titles and resizing during transitions.
 
 An independent long-roster browser regression checks 32 players per group, eight-row pages, fixed and out-of-range page requests, row visibility and automatic rotation through every player. It accelerates only the 12-second ranking timer for the test and uses temporary tournament data:
 
@@ -214,7 +232,9 @@ python3 test/display-layout.py
 ```text
 server.js                 LAN server, pairing, public/private sockets and HTTP
 lib/tournament.js         Rules, 14-match graph, scoring, lotteries, public redaction
-lib/store.js              Revision checks and atomic JSON persistence
+lib/store.js              Revision checks, atomic saves, automatic backups and recovery
+lib/state-validation.js   Complete saved-state structure and reference validation
+lib/broadcast-check.js    Private manual OBS source assignments and check invalidation
 lib/default-state.js      Event defaults and editable sample roster/song metadata
 lib/branding.js           Fixed local logo/key-visual discovery for /api/branding
 lib/obs-adapter.js         Optional future OBS WebSocket integration hook

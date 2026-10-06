@@ -111,7 +111,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             crew.screenshot(path=str(OUT/'song-selection-landscape.png'), full_page=True)
             crew.click('.tabs [data-tab="bracket"]')
             for player in range(2):
-                for song in range(2): fill_score(f'#ms-{player}-{song}', 999999 if player == 0 else 950000)
+                for song in range(2): fill_score(f'#ms-W1-{player}-{song}', 999999 if player == 0 else 950000)
             crew.locator('#result-details summary').click()
             revision = state()['revision']; crew.click('#result-form button[type="submit"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="result"]')
@@ -126,7 +126,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
               let state; await new Promise(resolve=>socket.once('state',s=>{state=s;resolve()}));
               socket.on('state',s=>state=s);
               const command=(type,payload={})=>new Promise((resolve,reject)=>socket.emit('command',
-                {expectedRevision:state.revision,action:{type,payload}},r=>r.ok?resolve():reject(new Error(r.error))));
+                {expectedRevision:state.revision,action:{type,payload:{matchId:state.tournament.currentMatchId,...payload}}},r=>r.ok?resolve():reject(new Error(r.error))));
               for(const id of ['W2','W3','W4','W5','W6','L1','L2','W7','L3','L4','L5','L6']) {
                 await command('select-match',{matchId:id}); await command('draw-candidates');
                 let m=state.tournament.matches.find(m=>m.id===id);
@@ -151,7 +151,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             crew.click('.tabs [data-tab="bracket"]')
             assert crew.locator('[data-song-progress="2"]').is_enabled()
             for player in range(2):
-                for song in range(3): fill_score(f'#ms-{player}-{song}', 990000 if player == 0 else 980000)
+                for song in range(3): fill_score(f'#ms-GF-{player}-{song}', 990000 if player == 0 else 980000)
             revision = state()['revision']; crew.click('[data-scene="double-elimination-match"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="double-elimination-match"]')
             motion_idle(live, 'double-elimination-match')

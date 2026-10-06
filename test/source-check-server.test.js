@@ -1,0 +1,41 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { io } = require('socket.io-client');
+const { createBroadcastServer } = require('../server');
+
+test('staff source verification synchronizes, stays private and expires after leaving a match context', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-sources-'));
+  const app = createBroadcastServer({ dataDir: directory, pin: 'source-fixture-code' });
+  let socket;
+  t.after(async () => { socket?.close(); await app.close(); fs.rmSync(directory, { recursive: true, force: true }); });
+  const address = await app.listen(0, '127.0.0.1'), base = `http://127.0.0.1:${address.port}`;
+  const paired = await fetch(base + '/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: 'source-fixture-code' }) });
+  const { token } = await paired.json();
+  const headers = { Authorization: 'Bearer ' + token };
+  const state = async () => (await fetch(base + '/api/control-state', { headers })).json();
+  socket = io(base + '/control', { forceNew: true, reconnection: false, auth: { token } });
+  const first = await new Promise((resolve, reject) => { socket.once('state', resolve); socket.once('connect_error', reject); });
+  assert.equal(first.broadcast.sourceStatus.confirmed, false);
+  const command = async (type, payload = {}) => {
+    const current = await state();
+    return new Promise(resolve => socket.timeout(5000).emit('command', { expectedRevision: current.revision, action: { type, payload } }, (error, result) => resolve(error ? { ok: false, error: error.message } : result)));
+  };
+  assert.equal((await command('set-broadcast-sources', { layout: 'qualifier', slots: Array.from({ length: 3 }, (_, i) => ({ capture: `Card ${i + 1}`, handcam: `Hands ${i + 1}` })) })).ok, true);
+  const signature = (await state()).broadcast.sourceStatus.signature;
+  assert.equal((await command('confirm-broadcast-sources', { signature })).ok, true);
+  const confirmed = await state();
+  assert.equal(confirmed.broadcast.sourceStatus.confirmed, true);
+  const publicState = await (await fetch(base + '/api/state')).json();
+  for (const field of ['sourceSlots', 'sourceCheck', 'sourceStatus']) assert.equal(field in publicState.broadcast, false, `${field} is a staff-only field`);
+  assert.equal((await command('set-qualifier-display', { players: ['p2'] })).ok, true);
+  assert.equal((await state()).broadcast.sourceStatus.confirmed, false);
+  assert.equal((await command('confirm-broadcast-sources', { signature })).ok, false);
+  assert.equal((await command('set-qualifier-display', { players: confirmed.qualifier.activePlayers })).ok, true);
+  assert.equal((await state()).broadcast.sourceStatus.confirmed, false, 'Returning to the same entrants must not revive an old visual check');
+  assert.equal((await command('confirm-broadcast-sources', { signature: (await state()).broadcast.sourceStatus.signature })).ok, true);
+  assert.equal((await command('set-broadcast-display', { showHandcams: true })).ok, true);
+  assert.equal((await state()).broadcast.sourceStatus.confirmed, false);
+});

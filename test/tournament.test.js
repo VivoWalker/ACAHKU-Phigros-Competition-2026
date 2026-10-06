@@ -4,9 +4,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createDefaultState } = require('../lib/default-state');
-const { applyAction, publicState, rankings, losses } = require('../lib/tournament');
+const { applyAction, publicState, rankings, losses, CURRENT_MATCH_ACTIONS, resultCorrectionImpact } = require('../lib/tournament');
 const { StateStore } = require('../lib/store');
-function act(state, type, payload = {}) { return applyAction(state, { type, payload }); }
+function act(state, type, payload = {}) {
+  return applyAction(state, { type, payload: CURRENT_MATCH_ACTIONS.has(type) ? { matchId: state.tournament.currentMatchId, ...payload } : payload });
+}
 function seeded(ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']) { return act(createDefaultState(), 'seed-bracket', { ids }); }
 function chooseSongs(s, m) {
   if (m.id === 'GF') {
@@ -158,5 +160,172 @@ test('store persists valid commands, rejects stale writes, and does not save fai
     const before = fs.readFileSync(store.file, 'utf8');
     assert.throws(() => store.commit({ type: 'set-event', payload: { title: '' } }, 1), /required/);
     assert.equal(fs.readFileSync(store.file, 'utf8'), before); assert.equal(store.state.revision, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('all current-match actions identify their original match after selecting another match', () => {
+  const s = seeded();
+  for (const type of CURRENT_MATCH_ACTIONS) {
+    assert.throws(() => applyAction(s, { type, payload: {} }), error => error.code === 'MATCH_CHANGED', type);
+    assert.throws(() => applyAction(s, { type, payload: { matchId: 'W2' } }), error => error.code === 'MATCH_CHANGED', type);
+  }
+  act(s, 'select-match', { matchId: 'W2' });
+  const before = structuredClone(s);
+  assert.throws(() => act(s, 'draw-candidates', { matchId: 'W1' }), error => error.code === 'MATCH_CHANGED');
+  assert.deepEqual(s, before);
+  act(s, 'draw-candidates'); assert.equal(s.tournament.matches.find(m => m.id === 'W2').candidates.length, 6);
+});
+test('a fresh revision cannot authorize a queued command from the previously selected match', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-match-binding-'));
+  try {
+    const store = new StateStore(dir);
+    store.commit({ type: 'seed-bracket', payload: { ids: store.state.qualifier.players.map(p => p.id) } }, 0);
+    store.commit({ type: 'select-match', payload: { matchId: 'W2' } }, 1);
+    const before = fs.readFileSync(store.file, 'utf8');
+    assert.throws(() => store.commit({ type: 'draw-candidates', payload: { matchId: 'W1' } }, 2), error => error.code === 'MATCH_CHANGED');
+    assert.equal(fs.readFileSync(store.file, 'utf8'), before); assert.equal(store.state.revision, 2);
+    assert.equal(store.state.tournament.matches.find(m => m.id === 'W2').candidates.length, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('vacancy lotteries run before either entry match starts selection', () => {
+  const s = seeded(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', null]);
+  act(s, 'select-match', { matchId: 'W2' }); chooseSongs(s, s.tournament.matches[1]);
+  act(s, 'select-match', { matchId: 'W1' }); const before = structuredClone(s);
+  assert.throws(() => act(s, 'lottery-bye', { playerId: 'p4' }), /before drawing candidates/);
+  assert.deepEqual(s, before);
+  act(s, 'select-match', { matchId: 'W2' }); act(s, 'reset-current-match');
+  act(s, 'select-match', { matchId: 'W1' }); act(s, 'lottery-bye', { playerId: 'p4' });
+  assert.deepEqual(s.tournament.matches[1].players, ['p1', 'p5']); assert.equal(s.tournament.matches[1].songs.length, 0);
+});
+test('scored qualifier charts keep their identity while artwork and future eligibility remain editable', () => {
+  const s = createDefaultState(); delete s.correctionLog;
+  act(s, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 0 });
+  const song = s.library[0];
+  for (const change of [{ title: 'Replacement chart' }, { artist: 'Other artist' }, { difficulty: 'AT' }, { level: 20 }]) {
+    assert.throws(() => act(s, 'upsert-song', { song: { ...song, ...change } }), /metadata is locked/);
+  }
+  act(s, 'upsert-song', { song: { ...song, art: 'assets/song/actual-chart.webp', eligible: false } });
+  assert.equal(s.library[0].title, song.title); assert.equal(s.qualifier.players[0].scores[0], 0);
+  assert.equal(s.library[0].art, 'assets/song/actual-chart.webp'); assert.equal(s.library[0].eligible, false);
+  act(s, 'upsert-song', { song: { ...s.library[1], title: 'Unscored Group B chart' } });
+  assert.equal(s.library[1].title, 'Unscored Group B chart');
+});
+test('stable player renaming preserves scores, group, displayed slots, seeds and recorded results', () => {
+  const s = createDefaultState(); act(s, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 999999 });
+  act(s, 'seed-bracket', { ids: s.qualifier.players.map(p => p.id) }); complete(s, 'W1');
+  const before = structuredClone(s), player = s.qualifier.players.find(p => p.id === 'p1');
+  act(s, 'rename-player', { playerId: 'p1', name: 'Corrected player' });
+  assert.equal(player.name, 'Corrected player'); assert.equal(player.group, 'A'); assert.equal(player.scores[0], 999999);
+  assert.deepEqual(s.qualifier.activePlayers, before.qualifier.activePlayers);
+  assert.deepEqual(s.tournament, before.tournament); assert.deepEqual(s.result, before.result);
+  assert.throws(() => act(s, 'rename-player', { playerId: 'p1', name: 'Player 02' }), /unique/);
+  assert.throws(() => act(s, 'rename-player', { playerId: 'p1', name: '  ' }), /required/);
+});
+test('bulk roster replacement cannot silently remove or rename a scored player', () => {
+  const s = createDefaultState(); act(s, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 999999 });
+  const before = structuredClone(s);
+  assert.throws(() => act(s, 'set-roster', { group: 'A', names: ['Corrected Player 01', 'Player 02', 'Player 03', 'Player 04'] }), /Rename player/);
+  assert.deepEqual(s, before);
+  act(s, 'set-roster', { group: 'A', names: ['Player 01', 'New unscored player'] });
+  assert.equal(s.qualifier.players.find(p => p.id === 'p1').scores[0], 999999);
+  assert.equal(s.qualifier.players.filter(p => p.group === 'A').length, 2);
+});
+test('correction preview is read-only and includes every logical winner and loser descendant', () => {
+  const s = seeded(); complete(s, 'W1'); const before = structuredClone(s);
+  const impact = resultCorrectionImpact(s, 'W1');
+  assert.deepEqual(impact.affectedMatchIds, ['W5', 'L1', 'W7', 'L3', 'L4', 'L5', 'L6', 'GF']);
+  assert.equal(impact.requiresConfirmation, false); assert.equal(impact.blockedReason, null); assert.deepEqual(s, before);
+  assert.throws(() => resultCorrectionImpact(s), /Choose/);
+});
+test('correction clears scored descendants after an explicit, current preview and preserves independent results', () => {
+  const s = seeded(); ['W1', 'W2', 'W3', 'W4', 'W5'].forEach(id => complete(s, id));
+  act(s, 'select-match', { matchId: 'L1' }); chooseSongs(s, s.tournament.matches.find(m => m.id === 'L1'));
+  act(s, 'set-match-score', { playerIndex: 0, songIndex: 0, score: 990000 });
+  const impact = resultCorrectionImpact(s, 'W1'), before = structuredClone(s), target = s.tournament.matches[0];
+  assert.equal(impact.requiresConfirmation, true);
+  for (const payload of [{ reason: '', affectedMatchIds: impact.affectedMatchIds, confirmClear: true },
+    { reason: 'Score transcribed incorrectly', affectedMatchIds: [] },
+    { reason: 'Score transcribed incorrectly', affectedMatchIds: [...impact.affectedMatchIds, 'W5'], confirmClear: true },
+    { reason: 'Score transcribed incorrectly', affectedMatchIds: impact.affectedMatchIds }]) {
+    assert.throws(() => act(s, 'reopen-result', { matchId: 'W1', ...payload })); assert.deepEqual(s, before);
+  }
+  act(s, 'reopen-result', { matchId: 'W1', reason: 'Score transcribed incorrectly', affectedMatchIds: impact.affectedMatchIds, confirmClear: true });
+  assert.equal(target.status, 'live'); assert.deepEqual(target.songs, before.tournament.matches[0].songs);
+  assert.deepEqual(target.scores, before.tournament.matches[0].scores); assert.equal(target.winnerId, null); assert.equal(s.result, null);
+  for (const m of s.tournament.matches.filter(m => impact.affectedMatchIds.includes(m.id))) {
+    assert.deepEqual(m.scores, [Array(m.id === 'GF' ? 3 : 2).fill(null), Array(m.id === 'GF' ? 3 : 2).fill(null)]);
+    assert.equal(m.songs.length, 0); assert.equal(m.candidates.length, 0); assert.equal(m.winnerId, null); assert.equal(m.loserId, null);
+  }
+  for (const id of ['W2', 'W3', 'W4']) assert.deepEqual(s.tournament.matches.find(m => m.id === id), before.tournament.matches.find(m => m.id === id));
+  for (let songIndex = 0; songIndex < 2; songIndex++) act(s, 'set-match-score', { playerIndex: 1, songIndex, score: 999999 });
+  act(s, 'record-result'); assert.equal(target.winnerId, 'p8');
+  assert.deepEqual(s.tournament.matches.find(m => m.id === 'W5').players, ['p8', 'p4']);
+  for (const m of s.tournament.matches) if (m.status !== 'complete') complete(s, m.id);
+  assert.equal(s.result.placements.p8, 'Champion'); assert.equal(s.tournament.matches.filter(m => m.status === 'complete').length, 14);
+});
+test('correcting an upstream result invalidates both lottery matches and rejects a pre-lottery impact list', () => {
+  const s = seeded(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', null]);
+  act(s, 'record-bye'); ['W2', 'W3', 'W4'].forEach(id => complete(s, id));
+  const oldImpact = resultCorrectionImpact(s, 'W2');
+  act(s, 'select-match', { matchId: 'L1' }); act(s, 'lottery-bye', { playerId: 'p7' });
+  act(s, 'select-match', { matchId: 'L2' }); chooseSongs(s, s.tournament.matches.find(m => m.id === 'L2'));
+  act(s, 'set-match-score', { playerIndex: 0, songIndex: 0, score: 999999 });
+  const impact = resultCorrectionImpact(s, 'W2'), before = structuredClone(s);
+  assert.ok(!oldImpact.affectedMatchIds.includes('L2') && impact.affectedMatchIds.includes('L2'));
+  assert.throws(() => act(s, 'reopen-result', { matchId: 'W2', reason: 'Changed referee result', affectedMatchIds: oldImpact.affectedMatchIds, confirmClear: true }), /affected match list changed/);
+  assert.deepEqual(s, before);
+  act(s, 'reopen-result', { matchId: 'W2', reason: 'Changed referee result', affectedMatchIds: impact.affectedMatchIds, confirmClear: true });
+  for (const id of ['L1', 'L2']) {
+    const m = s.tournament.matches.find(m => m.id === id); assert.equal(m.overridePlayers, null); assert.equal(m.songs.length, 0);
+    assert.deepEqual(m.scores, [[null, null], [null, null]]); assert.equal(m.resultType, null);
+  }
+  assert.equal(s.tournament.drawLog.length, 0); assert.equal(s.correctionLog[0].removedDrawLog.length, 1);
+});
+test('lottery roots cannot be reopened by a single-match correction', () => {
+  const s = seeded(['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', null]); act(s, 'lottery-bye', { playerId: 'p4' });
+  complete(s, 'W2');
+  for (const id of ['W1', 'W2']) {
+    const impact = resultCorrectionImpact(s, id), before = structuredClone(s); assert.match(impact.blockedReason, /vacancy lottery/);
+    assert.throws(() => act(s, 'reopen-result', { matchId: id, reason: 'Changed result', affectedMatchIds: impact.affectedMatchIds, confirmClear: true }), /vacancy lottery/);
+    assert.deepEqual(s, before);
+  }
+});
+test('reopening a final preserves all three songs and scores while removing the old podium', () => {
+  const s = seeded(); for (const m of s.tournament.matches) complete(s, m.id);
+  const original = structuredClone(s.tournament.matches.at(-1));
+  act(s, 'reopen-result', { matchId: 'GF', reason: 'Final score correction', affectedMatchIds: [] });
+  const gf = s.tournament.matches.at(-1);
+  assert.deepEqual(gf.songs, original.songs); assert.deepEqual(gf.scores, original.scores);
+  assert.deepEqual(gf.hostPick, original.hostPick); assert.equal(gf.hostRevealed, true); assert.equal(s.result, null);
+  assert.ok(publicState(s).tournament.standings.every(p => p.placement !== 'Champion'));
+  for (let songIndex = 0; songIndex < 3; songIndex++) act(s, 'set-match-score', { playerIndex: 1, songIndex, score: 999999 });
+  act(s, 'record-result'); assert.equal(s.result.placements.p8, 'Champion');
+});
+test('old states can be corrected and public broadcasts contain no audit, recovery or source-check details', () => {
+  const s = seeded(); complete(s, 'W1'); delete s.correctionLog;
+  act(s, 'reopen-result', { matchId: 'W1', reason: 'Private correction reason', affectedMatchIds: resultCorrectionImpact(s, 'W1').affectedMatchIds });
+  s.auditLog = [{ reason: 'Private audit note' }]; s.recovery = { preservedFile: '/private/recovery-file' };
+  s.broadcast = { showHandcams: true, sourceSlots: { private: true }, sourceCheck: { reason: 'Source operator' }, sourceStatus: { private: true } };
+  const publicCopy = publicState(s);
+  for (const key of ['auditLog', 'correctionLog', 'recovery']) assert.equal(key in publicCopy, false);
+  assert.deepEqual(publicCopy.broadcast, { showHandcams: true }); assert.equal(s.correctionLog[0].reason, 'Private correction reason');
+});
+test('bracket source objects are isolated from other brackets and the shared definitions', () => {
+  const a = seeded(), b = seeded(); a.tournament.matches[0].sources[0].value = 99;
+  assert.equal(b.tournament.matches[0].sources[0].value, 1); assert.equal(seeded().tournament.matches[0].sources[0].value, 1);
+});
+test('redrawing final candidates after viewing song three resets the empty-song cursor and persists', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-final-redraw-'));
+  try {
+    const fixture = seeded(); for (const m of fixture.tournament.matches.filter(m => m.id !== 'GF')) complete(fixture, m.id);
+    act(fixture, 'select-match', { matchId: 'GF' });
+    const store = new StateStore(dir); store.write(fixture); store.state = fixture;
+    const commit = (type, payload = {}) => store.commit({ type, payload: { matchId: 'GF', ...payload } }, store.state.revision);
+    commit('set-final-candidates', { ids: store.state.library.slice(0, 8).map(song => song.id) });
+    commit('set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+    commit('reveal-host-song'); commit('set-song-progress', { index: 2 });
+    commit('set-final-candidates', { ids: store.state.library.slice(1, 9).map(song => song.id) });
+    const reloaded = new StateStore(dir).state.tournament.matches.at(-1);
+    assert.equal(reloaded.currentSong, 0); assert.equal(reloaded.songs.length, 0);
+    assert.equal(reloaded.hostPick, null); assert.equal(reloaded.hostRevealed, false); assert.equal(reloaded.candidates.length, 8);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

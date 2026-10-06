@@ -6,8 +6,9 @@ const os = require('node:os');
 const { randomBytes, randomInt, timingSafeEqual, createHmac } = require('node:crypto');
 const { Server } = require('socket.io');
 const { StateStore } = require('./lib/store');
-const { publicState } = require('./lib/tournament');
+const { publicState, resultCorrectionImpact } = require('./lib/tournament');
 const { getBranding } = require('./lib/branding');
+const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
@@ -30,8 +31,15 @@ function createBroadcastServer(options = {}) {
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb' }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
   const controls = io.of('/control'); const overlays = io.of('/overlay');
+  function controlState() { return { ...store.state, broadcast: { ...store.state.broadcast, sourceStatus: sourceStatus(store.state) } }; }
   function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
   function notifyStatus() { controls.emit('connections', connectionStatus()); }
+  function publishState(beforeScene) {
+    controls.emit('state', controlState()); overlays.emit('state', publicState(store.state));
+    if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
+    notifyStatus();
+  }
+  function requestFailure(res, error) { return res.status(error.code === 'STALE' ? 409 : 400).json({ error: error.message, code: error.code || 'INVALID', revision: store.state.revision }); }
   function authenticated(req, res, next) {
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
     if (!validToken(token)) return res.status(401).json({ error: 'Control pairing required.' }); next();
@@ -48,23 +56,37 @@ function createBroadcastServer(options = {}) {
     }
     attempts.delete(key); const nonce = randomBytes(32).toString('hex'); res.json({ token: nonce + '.' + sign(nonce) });
   });
-  app.get('/api/control-state', authenticated, (req, res) => res.json(store.state));
+  app.get('/api/control-state', authenticated, (req, res) => res.json(controlState()));
   app.get('/api/export', authenticated, (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename="match-state-backup.json"'); res.json(store.state); });
+  app.get('/api/backups', authenticated, (req, res) => res.json({ backups: store.listBackups(), recovery: store.state.recovery || null }));
+  app.get('/api/backups/:id/preview', authenticated, (req, res) => {
+    try { res.json(store.previewBackup(req.params.id)); } catch (error) { requestFailure(res, error); }
+  });
+  app.post('/api/restore', authenticated, (req, res) => {
+    try {
+      const beforeScene = store.state.scene;
+      store.restore(req.body?.backupId, req.body?.expectedRevision, req.body?.reason);
+      publishState(beforeScene); res.json({ ok: true, revision: store.state.revision });
+    } catch (error) { requestFailure(res, error); }
+  });
+  app.get('/api/result-correction/:matchId', authenticated, (req, res) => {
+    try { res.json({ revision: store.state.revision, impact: resultCorrectionImpact(store.state, req.params.matchId) }); }
+    catch (error) { requestFailure(res, error); }
+  });
   app.get('/', (req, res) => res.redirect('/control/'));
   app.use(express.static(path.join(__dirname, 'public')));
   controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error('PAIRING_REQUIRED')));
   controls.on('connection', socket => {
-    socket.emit('state', store.state); notifyStatus();
+    socket.emit('state', controlState()); notifyStatus();
     socket.on('command', (request, ack) => {
       if (typeof ack !== 'function') return;
       try {
         const beforeScene = store.state.scene;
         store.commit(request.action, request.expectedRevision);
-        controls.emit('state', store.state); overlays.emit('state', publicState(store.state));
-        if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
-        ack({ ok: true, revision: store.state.revision }); notifyStatus();
+        publishState(beforeScene);
+        ack({ ok: true, revision: store.state.revision });
       } catch (error) {
-        if (error.code === 'STALE') socket.emit('state', store.state);
+        if (error.code === 'STALE') socket.emit('state', controlState());
         ack({ ok: false, error: error.message, code: error.code || 'INVALID' });
       }
     });

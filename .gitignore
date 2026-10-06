@@ -4,6 +4,8 @@ data/.control-pin
 data/.session-key
 data/match-state.json
 data/match-state.json.*
+data/backups/
+data/match-state-damaged-*.json
 *.log
 test-results/
 .DS_Store

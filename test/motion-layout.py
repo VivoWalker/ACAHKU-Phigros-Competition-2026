@@ -55,7 +55,7 @@ PROBE = r"""() => {
     if(!probe.active)return;
     const roots=mount?[mount]:Array.from(document.querySelectorAll('.cover-window'));
     const animations=roots.flatMap(root=>root.getAnimations({subtree:true})).filter(a=>a.playState==='running'||a.pending).map(a=>({
-      key:a.effect.target?.dataset.motionKey||'',easing:a.effect.getTiming().easing,
+      key:a.effect.target?.dataset.motionKey||a.effect.target?.dataset.motionFor||'',easing:a.effect.getTiming().easing,
       progress:a.effect.getComputedTiming().progress,frames:a.effect.getKeyframes().map(f=>({easing:f.easing,transform:f.transform,opacity:f.opacity}))
     }));
     const ghosts=Array.from(mount?.querySelectorAll('[data-motion-ghost]')||[]).filter(visible).map(el=>el.dataset.motionGhost);
@@ -198,7 +198,7 @@ def directed_scene_walk():
 with tempfile.TemporaryDirectory(prefix='acahku-motion-') as data_dir:
     code = """
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'motion-fixture-code'});
-const cmd=(type,payload={})=>s.store.commit({type,payload},s.store.state.revision);
+const cmd=(type,payload={})=>s.store.commit({type,payload:{matchId:s.store.state.tournament.currentMatchId,...payload}},s.store.state.revision);
 for(const player of s.store.state.qualifier.players)for(let i=0;i<3;i++)
  cmd('set-qualifier-score',{playerId:player.id,songIndex:i,score:990000-Number(player.id.slice(1))*1000-i*100});
 cmd('qualify');cmd('draw-candidates');let m=s.store.state.tournament.matches[0];
@@ -235,7 +235,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
               let state;await new Promise(resolve=>socket.once('state',s=>{state=s;resolve()}));
               socket.on('state',s=>state=s);
               window.__fixtureCommand=(type,payload={})=>new Promise((resolve,reject)=>socket.emit('command',
-                {expectedRevision:state.revision,action:{type,payload}},r=>r.ok?resolve(r):reject(new Error(r.error))));
+                {expectedRevision:state.revision,action:{type,payload:{matchId:state.tournament.currentMatchId,...payload}}},r=>r.ok?resolve(r):reject(new Error(r.error))));
             }''')
 
             def command(type_, payload=None):

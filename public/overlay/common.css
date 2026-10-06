@@ -27,3 +27,6 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .ranking-tables.compact table{font-size:32px;line-height:1.2}.ranking-tables.compact td{padding-block:8px}.ranking-tables.compact th{padding-block:10px}
 
 .ranking-tables h2{display:flex;align-items:baseline;justify-content:space-between}.rank-range{font-size:26px;letter-spacing:0;color:#b8a7c2}
+
+/* Keep legal long song titles within the waiting scene's fixed safe area. */
+.waiting-song h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

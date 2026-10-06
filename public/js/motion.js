@@ -29,10 +29,34 @@
     const rect = anchor.getBoundingClientRect();
     return { x: rect.width / (anchor.offsetWidth || rect.width || 1) || 1, y: rect.height / (anchor.offsetHeight || rect.height || 1) || 1 };
   }
-  function measure(node) {
-    const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
-    return { rect, fontSize: style.fontSize, lineHeight: style.lineHeight, transform: style.transform === 'none' ? '' : style.transform,
-      width: style.width, height: style.height, visibility: style.visibility, opacity: style.opacity };
+  function measure(node, mount, scale) {
+    const bounds = node.getBoundingClientRect(), origin = mount.getBoundingClientRect(), style = getComputedStyle(node);
+    // Snapshot in canvas coordinates now: the viewport can change during exit.
+    const logical = rect => ({ left: (rect.left - origin.left) / scale.x, top: (rect.top - origin.top) / scale.y,
+      width: rect.width / scale.x, height: rect.height / scale.y });
+    const result = { rect: logical(bounds), fontSize: style.fontSize, lineHeight: style.lineHeight,
+      transform: style.transform === 'none' ? '' : style.transform, width: style.width, height: style.height,
+      visibility: style.visibility, opacity: style.opacity };
+    if (node.localName === 'span' && node.textContent) {
+      const range = document.createRange(); range.selectNodeContents(node);
+      const text = range.getBoundingClientRect(); result.textRect = logical(text);
+      let left = bounds.left, right = bounds.right, top = bounds.top, bottom = bounds.bottom;
+      result.textOverflow = style.textOverflow;
+      for (let parent = node; parent && parent !== mount; parent = parent.parentElement) {
+        const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+        if (['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowX)) {
+          left = Math.max(left, rect.left + parseFloat(css.borderLeftWidth) * scale.x);
+          right = Math.min(right, rect.right - parseFloat(css.borderRightWidth) * scale.x);
+          if (css.textOverflow === 'ellipsis') result.textOverflow = 'ellipsis';
+        }
+        if (['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowY)) {
+          top = Math.max(top, rect.top + parseFloat(css.borderTopWidth) * scale.y);
+          bottom = Math.min(bottom, rect.bottom - parseFloat(css.borderBottomWidth) * scale.y);
+        }
+      }
+      result.visibleRect = logical({ left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) });
+    }
+    return result;
   }
   function attributes(node, source) {
     for (const attribute of [...node.attributes]) if (!source.hasAttribute(attribute.name)) node.removeAttribute(attribute.name);
@@ -135,8 +159,8 @@
       const template = document.createElement('template'); template.innerHTML = record.html;
       const oldKeys = keyed(mount), targetKeys = keyed(template.content);
       const shared = new Set([...targetKeys].filter(([key, node]) => compatible(oldKeys.get(key), node)).map(([key]) => key));
-      const before = new Map([...oldKeys].map(([key, node]) => [key, measure(node)]));
       const scale = scaleFor(mount, canvas), initial = markup === undefined;
+      const before = new Map([...oldKeys].map(([key, node]) => [key, measure(node, mount, scale)]));
       const changedScene = !initial && scene !== record.scene;
       if (changedScene && !forced) {
         phase('exit');
@@ -156,18 +180,27 @@
       if (token !== epoch) return;
       commit(record, template, oldKeys);
       if (initial || forced || reduce.matches) { clearTransient(); return; }
-      const afterKeys = keyed(mount), after = new Map([...afterKeys].map(([key, node]) => [key, measure(node)]));
+      const afterScale = scaleFor(mount, canvas), afterKeys = keyed(mount);
+      const after = new Map([...afterKeys].map(([key, node]) => [key, measure(node, mount, afterScale)]));
       const entryBlocks = changedScene ? blocks(mount) : [];
       const entering = topTargets([...afterKeys].filter(([key, node]) => !shared.has(key) && !isStatic(node)).map(([, node]) => node))
         .filter(node => !entryBlocks.some(block => block.contains(node)));
       const entryGhosts = [], entryRestores = [];
       for (const node of [...entryBlocks, ...entering]) {
-        entryGhosts.push(ghost(node, mount, scale, shared, 'enter'));
+        entryGhosts.push(ghost(node, mount, afterScale, shared, 'enter'));
         entryRestores.push(hide(node, shared));
       }
-      const moves = [], floated = [];
+      const moves = [], floated = [], movingNames = [];
       let imageLayer;
-      function floatImage(node, a, b, text = false) {
+      function liveLayer() {
+        if (!imageLayer) {
+          imageLayer = document.createElement('div'); imageLayer.dataset.motionLive = '';
+          Object.assign(imageLayer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '50' }); mount.append(imageLayer);
+          cleanup(() => imageLayer.remove());
+        }
+        return imageLayer;
+      }
+      function floatImage(node, a, b) {
         const style = getComputedStyle(node), originalStyle = node.getAttribute('style');
         const placeholder = document.createElement('span'); placeholder.dataset.motionPlaceholder = '';
         for (const property of ['position', 'display', 'float', 'clear', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
@@ -175,31 +208,115 @@
           placeholder.style.setProperty(property, style.getPropertyValue(property));
         }
         if (style.display === 'inline') placeholder.style.display = 'inline-block';
-        Object.assign(placeholder.style, { width: `${b.rect.width / scale.x}px`, height: `${b.rect.height / scale.y}px`, visibility: 'hidden', pointerEvents: 'none', boxSizing: 'border-box' });
+        Object.assign(placeholder.style, { width: `${b.rect.width}px`, height: `${b.rect.height}px`, visibility: 'hidden', pointerEvents: 'none', boxSizing: 'border-box' });
         for (const property of style) node.style.setProperty(property, style.getPropertyValue(property));
-        if (!imageLayer) {
-          imageLayer = document.createElement('div'); imageLayer.dataset.motionLive = '';
-          Object.assign(imageLayer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '50' }); mount.append(imageLayer);
-          cleanup(() => imageLayer.remove());
-        }
-        node.replaceWith(placeholder); imageLayer.append(node);
-        const origin = mount.getBoundingClientRect();
-        const from = { left: `${(a.rect.left - origin.left) / scale.x}px`, top: `${(a.rect.top - origin.top) / scale.y}px`,
-          width: `${a.rect.width / scale.x}px`, height: `${a.rect.height / scale.y}px`, opacity: a.opacity };
-        const to = { left: `${(b.rect.left - origin.left) / scale.x}px`, top: `${(b.rect.top - origin.top) / scale.y}px`,
-          width: `${b.rect.width / scale.x}px`, height: `${b.rect.height / scale.y}px`, opacity: b.opacity };
-        if (text) {
-          from.fontSize = a.fontSize; to.fontSize = b.fontSize;
-          if (a.lineHeight !== 'normal' && b.lineHeight !== 'normal') { from.lineHeight = a.lineHeight; to.lineHeight = b.lineHeight; }
-        }
+        node.replaceWith(placeholder); liveLayer().append(node);
+        const from = { left: `${a.rect.left}px`, top: `${a.rect.top}px`, width: `${a.rect.width}px`, height: `${a.rect.height}px`, opacity: a.opacity };
+        const to = { left: `${b.rect.left}px`, top: `${b.rect.top}px`, width: `${b.rect.width}px`, height: `${b.rect.height}px`, opacity: b.opacity };
         Object.assign(node.style, { position: 'absolute', left: to.left, top: to.top, right: 'auto', bottom: 'auto', width: to.width, height: to.height,
           margin: '0px', boxSizing: 'border-box', flex: 'none' });
-        if (text) node.style.display = 'block';
         floated.push(cleanup(() => {
           if (placeholder.isConnected) placeholder.replaceWith(node);
           if (originalStyle === null) node.removeAttribute('style'); else node.setAttribute('style', originalStyle);
         }));
         return { node, from, to };
+      }
+      function floatText(node, a, b) {
+        const style = getComputedStyle(node), originalStyle = node.getAttribute('style');
+        const placeholder = document.createElement('span'); placeholder.dataset.motionPlaceholder = '';
+        placeholder.setAttribute('aria-hidden', 'true'); placeholder.textContent = node.textContent;
+        const wrapper = document.createElement('div'); wrapper.dataset.motionText = ''; wrapper.dataset.motionFor = node.dataset.motionKey;
+        for (const property of style) {
+          const value = style.getPropertyValue(property);
+          placeholder.style.setProperty(property, value); node.style.setProperty(property, value); wrapper.style.setProperty(property, value);
+        }
+        // Keep the target's inline line box in place; an inline-block placeholder
+        // with the font bounding-box height would shift the surrounding baseline.
+        Object.assign(placeholder.style, { visibility: 'hidden', pointerEvents: 'none' });
+        Object.assign(wrapper.style, { position: 'absolute', left: '0px', top: '0px', right: 'auto', bottom: 'auto',
+          margin: '0px', padding: '0px', border: '0px', display: 'block', flex: 'none', minWidth: '0px', maxWidth: 'none',
+          boxSizing: 'border-box', overflow: 'hidden', textOverflow: b.textOverflow || 'clip', transform: 'none' });
+        Object.assign(node.style, { position: 'static', display: 'inline', width: 'auto', height: 'auto', minWidth: '0px', maxWidth: 'none',
+          margin: '0px', padding: '0px', border: '0px', transform: 'none', overflow: 'visible', textOverflow: 'clip',
+          fontSize: 'inherit', lineHeight: 'inherit', letterSpacing: 'inherit', whiteSpace: 'inherit', verticalAlign: 'baseline', opacity: '1' });
+        node.replaceWith(placeholder); wrapper.append(node); liveLayer().append(wrapper);
+        function frame(snapshot) {
+          const visible = snapshot.visibleRect || snapshot.rect;
+          Object.assign(wrapper.style, { width: `${visible.width}px`, height: `${visible.height}px`, fontSize: snapshot.fontSize, lineHeight: snapshot.lineHeight });
+          let lineHeight = snapshot.lineHeight;
+          if (lineHeight === 'normal') {
+            // WAAPI treats normal <-> px as a discrete switch. Resolve the
+            // font's actual single-line strut before interpolating the baseline.
+            const probe = document.createElement('div'), font = getComputedStyle(wrapper);
+            for (const property of ['font-family', 'font-weight', 'font-style', 'font-stretch', 'font-size', 'font-variant', 'letter-spacing']) probe.style.setProperty(property, font.getPropertyValue(property));
+            Object.assign(probe.style, { position: 'absolute', visibility: 'hidden', pointerEvents: 'none', whiteSpace: 'nowrap',
+              width: 'max-content', height: 'auto', padding: '0px', border: '0px', margin: '0px', lineHeight: 'normal' });
+            probe.textContent = node.textContent; liveLayer().append(probe);
+            lineHeight = `${probe.getBoundingClientRect().height / scaleFor(mount, canvas).y}px`; probe.remove();
+            wrapper.style.lineHeight = lineHeight;
+          }
+          const range = document.createRange(); range.selectNodeContents(node);
+          const scale = scaleFor(mount, canvas), glyph = range.getBoundingClientRect(), box = wrapper.getBoundingClientRect();
+          const offsetX = (glyph.left - box.left) / scale.x, offsetY = (glyph.top - box.top) / scale.y;
+          // Inline glyphs extend outside their line box. Anchor their measured
+          // Range, rather than turning the span's font box into a block box.
+          return { left: `${(snapshot.textRect || snapshot.rect).left - offsetX}px`, top: `${(snapshot.textRect || snapshot.rect).top - offsetY}px`,
+            width: `${visible.width}px`, height: `${visible.height}px`, fontSize: snapshot.fontSize, lineHeight, opacity: snapshot.opacity };
+        }
+        const from = frame(a), to = frame(b);
+        Object.assign(wrapper.style, to);
+        if (node.dataset.motionKey?.startsWith('player-')) movingNames.push({ node, wrapper,
+          clipped: a.rect.width > (a.visibleRect?.width || a.rect.width) + .5 || b.rect.width > (b.visibleRect?.width || b.rect.width) + .5 });
+        floated.push(cleanup(() => {
+          if (placeholder.isConnected) placeholder.replaceWith(node);
+          if (originalStyle === null) node.removeAttribute('style'); else node.setAttribute('style', originalStyle);
+          wrapper.remove();
+        }));
+        return { node: wrapper, from, to };
+      }
+      function guardNames() {
+        const longNames = movingNames.filter(item => item.clipped);
+        if (!longNames.length) return () => {};
+        const names = [...afterKeys].filter(([key]) => key.startsWith('player-')).map(([, node]) => node);
+        let raf;
+        function visibleText(node) {
+          if (getComputedStyle(node).visibility !== 'visible') return null;
+          const range = document.createRange(); range.selectNodeContents(node);
+          const bounds = range.getBoundingClientRect();
+          let left = bounds.left, right = bounds.right, top = bounds.top, bottom = bounds.bottom;
+          for (let parent = node.parentElement; parent && parent !== mount; parent = parent.parentElement) {
+            const style = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+            if (['hidden', 'clip', 'scroll', 'auto'].includes(style.overflowX)) { left = Math.max(left, rect.left); right = Math.min(right, rect.right); }
+            if (['hidden', 'clip', 'scroll', 'auto'].includes(style.overflowY)) { top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom); }
+          }
+          return right > left && bottom > top ? { left, right, top, bottom } : null;
+        }
+        function tick() {
+          // Only long, moving names need this bounded check. Reset their last
+          // frame's caps before measuring, so a past collision cannot linger.
+          for (const { wrapper } of longNames) { wrapper.style.maxWidth = 'none'; wrapper.style.clipPath = 'none'; }
+          const bounds = new Map(names.map(node => [node, visibleText(node)])), scale = scaleFor(mount, canvas);
+          for (const { node, wrapper } of [...longNames].sort((a, b) => a.wrapper.getBoundingClientRect().left - b.wrapper.getBoundingClientRect().left)) {
+            const own = bounds.get(node), rect = wrapper.getBoundingClientRect();
+            if (!own) continue;
+            let right = rect.width / scale.x, left = 0;
+            for (const [other, box] of bounds) {
+              if (other === node || !box || own.top >= box.bottom || own.bottom <= box.top || own.left >= box.right || own.right <= box.left) continue;
+              if (box.left > own.left + .5) right = Math.min(right, (box.left - rect.left) / scale.x - 12);
+              else left = Math.max(left, (box.right - rect.left) / scale.x + 12);
+            }
+            wrapper.style.maxWidth = `${Math.max(0, right)}px`;
+            if (left) wrapper.style.clipPath = `inset(0px 0px 0px ${left}px)`;
+            const visible = { ...own, left: Math.max(own.left, rect.left + left * scale.x), right: Math.min(own.right, rect.left + Math.max(0, right) * scale.x) };
+            bounds.set(node, visible.right > visible.left ? visible : null);
+          }
+          if (token === epoch && mount.dataset.motionPhase === 'move') raf = requestAnimationFrame(tick);
+        }
+        const stop = cleanup(() => {
+          cancelAnimationFrame(raf);
+          for (const { wrapper } of longNames) { wrapper.style.maxWidth = 'none'; wrapper.style.clipPath = 'none'; }
+        });
+        tick(); return stop;
       }
       for (const [key, node] of afterKeys) {
         if (!shared.has(key) || isStatic(node)) continue;
@@ -210,20 +327,24 @@
           continue;
         }
         if (node.localName === 'span' && (Math.abs(a.rect.left - b.rect.left) > .25 || Math.abs(a.rect.top - b.rect.top) > .25 || a.fontSize !== b.fontSize)) {
-          moves.push(floatImage(node, a, b, true)); continue;
+          moves.push(floatText(node, a, b)); continue;
         }
-        let dx = (a.rect.left - b.rect.left) / scale.x, dy = (a.rect.top - b.rect.top) / scale.y;
+        let dx = a.rect.left - b.rect.left, dy = a.rect.top - b.rect.top;
         const parent = node.parentElement?.closest(KEY);
         if (parent && shared.has(parent.dataset.motionKey) && !isStatic(parent)) {
           const pa = before.get(parent.dataset.motionKey), pb = after.get(parent.dataset.motionKey);
-          dx -= (pa.rect.left - pb.rect.left) / scale.x; dy -= (pa.rect.top - pb.rect.top) / scale.y;
+          dx -= pa.rect.left - pb.rect.left; dy -= pa.rect.top - pb.rect.top;
         }
         const from = { transform: `translate(${dx}px, ${dy}px) ${b.transform}` }, to = { transform: b.transform || 'none' };
         if (a.fontSize !== b.fontSize && node.localName !== 'img') { from.fontSize = a.fontSize; to.fontSize = b.fontSize; }
         if (a.opacity !== b.opacity) { from.opacity = a.opacity; to.opacity = b.opacity; }
         if (Math.abs(dx) > .25 || Math.abs(dy) > .25 || Object.keys(from).length > 1) moves.push({ node, from, to });
       }
-      if (moves.length) { phase('move'); await Promise.all(moves.map(({ node, from, to }) => animate(node, [from, to], 240))); }
+      if (moves.length) {
+        phase('move');
+        const runningMoves = moves.map(({ node, from, to }) => animate(node, [from, to], 240)), stopGuard = guardNames();
+        await Promise.all(runningMoves); stopGuard();
+      }
       if (token !== epoch) return;
       floated.forEach(restore => restore()); imageLayer?.remove();
       if (entryGhosts.length) {
