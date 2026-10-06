@@ -21,7 +21,7 @@
   --phi-chapter: 400ms;
   --phi-scene: 320ms;
   --phi-ambient: 520ms;
-  --phi-ease: cubic-bezier(.22, 1, .36, 1);
+  --phi-ease: linear;
   --phi-font: "Saira", "Source Han Sans SC", "Noto Sans SC",
               "PingFang SC", "Microsoft YaHei", sans-serif;
   position: relative;
@@ -144,7 +144,7 @@
   font-size: 22px;
   line-height: 1.1;
   text-decoration: none;
-  transition: color var(--phi-micro), filter var(--phi-micro);
+  transition: color var(--phi-micro) linear, filter var(--phi-micro) linear;
 }
 .phi-app .phi-button.is-primary { --phi-surface-fill: #fff; color: #101319; }
 @media (hover: hover) {
@@ -238,7 +238,7 @@
   justify-content: normal;
   color: var(--phi-ink);
 }
-.phi-app .phi-song-row::before { opacity: 0; transition: opacity var(--phi-select); }
+.phi-app .phi-song-row::before { opacity: 0; transition: opacity var(--phi-select) linear; }
 .phi-app .phi-song-row[aria-selected="true"]::before,
 .phi-app .phi-song-row.is-selected::before { opacity: 1; }
 .phi-app .phi-song-row[aria-selected="true"],
@@ -281,7 +281,7 @@
   padding-inline: 0;
   color: #11151b;
   line-height: 1;
-  transition: color var(--phi-select);
+  transition: color var(--phi-select) linear;
 }
 .phi-app .phi-chip + .phi-chip {
   margin-inline-start: calc(var(--phi-chip-h, 60px) * var(--phi-slope) * -1);

@@ -18,6 +18,17 @@ OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results'))
 OUT.mkdir(exist_ok=True)
 SCENES = ['start', 'qualifier-waiting', 'double-elimination-waiting', 'qualifier-match', 'double-elimination-match', 'result', 'bracket', 'song-selection']
 
+
+def motion_idle(page, scene=None):
+    """Measure settled layout, after the scene's exit/move/enter sequence."""
+    page.wait_for_function('''scene=>{
+      const mount=document.querySelector('#scene'),canvas=document.querySelector('#canvas');
+      return mount?.dataset.motionPhase==='idle'&&(!scene||canvas.dataset.renderedScene===scene)
+        &&!mount.querySelector('[data-motion-ghost],[data-motion-live],[data-motion-placeholder]')
+        &&!mount.getAnimations({subtree:true}).some(animation=>animation.playState==='running'||animation.pending);
+    }''', arg=scene)
+
+
 with tempfile.TemporaryDirectory(prefix='acahku-browser-') as data_dir:
     code = """
 const {createBroadcastServer}=require('./server');
@@ -71,6 +82,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             crew.click('.tabs [data-tab="broadcast"]')
             revision = state()['revision']; crew.click('[data-scene="result"]'); saved_after(revision)
             live.wait_for_selector('.ranking-tables')
+            motion_idle(live, 'result')
             assert state()['stage'] == 'qualifier'
             assert live.locator('.ranking-tables table').count() == 2
             assert live.locator('.ranking-tables tbody tr').count() == 8
@@ -87,6 +99,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             revision = state()['revision']; crew.click('[data-command="pick-songs"]'); saved_after(revision)
             revision = state()['revision']; crew.click('[data-scene="song-selection"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="song-selection"]')
+            motion_idle(live, 'song-selection')
             m = state()['tournament']['matches'][0]; assert len(m['songs']) == 2
             for song in m['songs']:
                 assert song['title'] in live.locator('.selection-detail').inner_text()
@@ -102,6 +115,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             crew.locator('#result-details summary').click()
             revision = state()['revision']; crew.click('#result-form button[type="submit"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="result"]')
+            motion_idle(live, 'result')
             assert state()['result']['matchId'] == 'W1'
             assert len(navigations) == 1, 'Live overlay must update without navigating or reloading.'
 
@@ -131,6 +145,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             assert 'hostPick' not in final
             revision = state()['revision']; crew.click('[data-scene="song-selection"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="song-selection"]')
+            motion_idle(live, 'song-selection')
             assert 'MC PICK — SEALED' in live.locator('.selection-detail .picks').inner_text()
             revision = state()['revision']; crew.click('[data-reveal-host]'); saved_after(revision)
             crew.click('.tabs [data-tab="bracket"]')
@@ -139,6 +154,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 for song in range(3): fill_score(f'#ms-{player}-{song}', 990000 if player == 0 else 980000)
             revision = state()['revision']; crew.click('[data-scene="double-elimination-match"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="double-elimination-match"]')
+            motion_idle(live, 'double-elimination-match')
             assert live.locator('.score-row').count() == 0
             assert live.locator('.player-info').count() == 2
             assert live.locator('.song-band').count() == 1
@@ -161,6 +177,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 if actual_branding['visual']:
                     overlay.wait_for_selector('[data-branding="visual"]')
                     overlay.wait_for_function('Array.from(document.querySelectorAll(".key-visual img")).every(i=>i.complete&&i.naturalWidth>0)')
+                motion_idle(overlay, scene)
                 assert overlay.evaluate('getComputedStyle(document.body).backgroundColor') == 'rgba(0, 0, 0, 0)'
                 assert overlay.locator('#canvas').evaluate('(e)=>e.offsetWidth===1920&&e.offsetHeight===1080')
                 png = overlay.screenshot(path=str(OUT/f'overlay-{scene}.png'), omit_background=True, animations='disabled')
@@ -203,6 +220,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 overlay.goto(base + f'/overlay/{scene}.html?fixed=1' + options)
                 overlay.wait_for_selector(f'[data-rendered-scene="{scene}"]')
                 overlay.evaluate('document.fonts.ready')
+                motion_idle(overlay, scene)
                 captures = overlay.locator('[data-capture]').all()
                 assert len(captures) == len(expected)
                 expected_scores = (9 if scene == 'qualifier-match' else 6) if '&details=1' in options else 0
@@ -233,11 +251,13 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 brand_page.goto(base + f'/overlay/{scene}.html?fixed=1')
                 brand_page.wait_for_selector('[data-branding="visual"]')
                 brand_page.wait_for_function('Array.from(document.querySelectorAll(".key-visual img,.phigros-logo")).every(i=>i.complete&&i.naturalWidth>0)')
+                motion_idle(brand_page, scene)
                 assert brand_page.locator('.key-visual img').count() == 1
                 assert brand_page.locator('.phigros-logo').count() == 1
                 assert brand_page.locator('.key-visual img').evaluate('(el)=>getComputedStyle(el).objectFit') == 'contain'
             brand_page.goto(base + '/overlay/qualifier-match.html?fixed=1')
             brand_page.wait_for_selector('[data-branding="visual"]')
+            motion_idle(brand_page, 'qualifier-match')
             branded_png = Image.open(io.BytesIO(brand_page.screenshot(omit_background=True, animations='disabled'))).convert('RGBA')
             for el in brand_page.locator('[data-capture]').all():
                 box = el.bounding_box()

@@ -40,10 +40,12 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 1. Add each player's capture-card source to an OBS scene. Add their handcam source as well if you want to use dual view, and position both using the rectangles below.
 2. Add a **Browser Source** above those sources. Disable **Local file**, use `http://localhost:3000/overlay/start.html`, and set **Width 1920 / Height 1080**.
 3. Keep the Browser Source active. Prefer leaving **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked; scene changes arrive over Socket.IO.
-4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes immediately without a reload. It does not switch your OBS capture sources or OBS scenes automatically.
+4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes without a reload. Shared logos, artwork and player names move to their new positions; other content exits before the new content slides in. It does not switch your OBS capture sources or OBS scenes automatically.
 5. In **Broadcast → 畫面顯示**, select **單畫面** for capture card only or **雙畫面** for capture card plus each player's handcam. This setting updates all connected overlays immediately and is saved across restarts. Capture-card positions stay fixed; single view covers the handcam areas with the overlay background. Keep both sources beneath the Browser Source. The interface does not capture video or move OBS sources. Different player counts may use separate OBS scenes with the matching source arrangement.
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
+
+Page and cover motion uses a consistent **linear** curve: old content exits over 100 ms, shared elements move over 240 ms when their position or size changes, then new content slides in over 160 ms. Capture frames and the transparency mask stay fixed during the transition. Score updates preserve the current layout. Rapid scene changes retain only the latest queued screen, so intermediate screens do not accumulate. Song artwork slides vertically inside its fixed slanted window, using at most two images, and follows forward/backward selection. The control panel keeps keyboard focus and its live preview while selections update. With the browser or operating system's **Reduce motion** setting enabled, these transitions become immediate updates.
 
 ### Overlay documents
 
@@ -186,6 +188,14 @@ python3 test/browser-smoke.py
 ```
 
 It exercises real controls against temporary data, checks 8 overlay scenes, 1920×1080 / 720p / 540p scaling, iPad landscape/portrait and phone widths, alpha in every capture frame, offline reconnection, no navigation during state updates, local-only requests, keyboard selection and reduced-motion. Screenshots go to ignored `test-results/`. Browser emulation is not a physical iPad or OBS/CEF hardware test; rehearse those devices and actual capture sources before the event.
+
+The motion regression samples intermediate animation frames for all 56 directed page changes, checks shared DOM identity and linear positions, rapid switching, cover loading and replacement, reduced motion, and transparent captures at smaller viewport sizes. It also uses temporary data:
+
+```sh
+python3 test/motion-layout.py
+```
+
+Set `MOTION_TEST_SCOPE=scenes` or `MOTION_TEST_SCOPE=covers` for a focused run. `MOTION_RECORD_PREVIEW=1` records a real browser WebM; outputs use `BROADCAST_TEST_OUTPUT` or `test-results/`.
 
 An independent long-roster browser regression checks 32 players per group, eight-row pages, fixed and out-of-range page requests, row visibility and automatic rotation through every player. It accelerates only the 12-second ranking timer for the test and uses temporary tournament data:
 

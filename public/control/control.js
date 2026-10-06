@@ -2,6 +2,11 @@
   const B = Broadcast, e = B.escape, $ = id => document.getElementById(id);
   let state, socket, activeTab = 'broadcast', connections = { overlays: 0, controls: 0 }, focusSongId, editingSongId = null;
   let queue = Promise.resolve(), toastTimer, token = sessionStorage.getItem('broadcast-token');
+  let lastRenderedTab, tabAnimation;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches) { tabAnimation?.cancel(); tabAnimation = null; }
+  });
   const button = (label, attrs = '', primary = false) => {
     const extra = attrs.match(/class="([^"]*)"/)?.[1] || '';
     return `<button class="phi-surface phi-button ${primary ? 'is-primary' : ''} ${extra}" ${attrs.replace(/class="[^"]*"/g, '')}>${label.replace(/[↗→]/g, B.icon('next'))}</button>`;
@@ -105,18 +110,22 @@
     const keyboardSelector = active?.tagName === 'BUTTON' ? focusAttributes.filter(key => active.hasAttribute(key)).map(key => `[${key}="${CSS.escape(active.getAttribute(key))}"]`).join('') : '';
     const focused = active && active.id && $('content').contains(active) && ['INPUT', 'TEXTAREA'].includes(active.tagName) ? { id: active.id, value: active.value, start: active.selectionStart, end: active.selectionEnd } : null;
     const openDetails = [...$('content').querySelectorAll('details[open][id]')].map(el => el.id);
-    const previousCover = $('content').querySelector('.cover-window img');
-    const previousSrc = previousCover?.getAttribute('src');
+    const previousArtWindow = $('content').querySelector('.cover-window');
+    const previousSrc = previousArtWindow?.querySelector('img:not([data-motion-cover-old])')?.getAttribute('src');
     const previousFocus = $('content').querySelector('.candidate-row.focused')?.dataset.focusSong;
     const nextHTML = pages[activeTab]();
+    const template = document.createElement('template'); template.innerHTML = nextHTML;
+    const nextArtWindow = template.content.querySelector('.cover-window'), desiredCover = nextArtWindow?.querySelector('img');
+    const requestedCover = desiredCover ? { src: desiredCover.getAttribute('src'), alt: desiredCover.getAttribute('alt') || '' } : null;
+    // Preserve the decoded bitmaps and active movement until the newest logical cover is ready.
+    if (previousArtWindow && nextArtWindow) nextArtWindow.replaceWith(previousArtWindow);
     if (activeTab === 'broadcast' && $('program-preview')) {
       // Keep the iframe attached: replacing or moving it would reload its source.
-      const template = document.createElement('template'); template.innerHTML = nextHTML;
       for (const selector of ['.page-heading', '.broadcast-display-panel', '.status-strip', '.current-bar', 'aside.panel']) {
         $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
       }
     } else {
-      $('content').innerHTML = nextHTML;
+      $('content').replaceChildren(...template.content.childNodes);
       if ($('preview-container')) {
         const iframe = document.createElement('iframe'); iframe.id = 'program-preview'; iframe.title = 'Live broadcast program preview';
         iframe.src = '../overlay/live.html?preview=1'; $('preview-container').append(iframe);
@@ -124,17 +133,28 @@
     }
     for (const id of openDetails) if ($(id)) $(id).open = true;
     const artWindow = $('content').querySelector('.cover-window');
-    const newCover = artWindow?.querySelector('img');
-    if (newCover && previousSrc && newCover.getAttribute('src') !== previousSrc && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (artWindow && requestedCover) {
       const candidates = B.currentMatch(state)?.candidates || [];
-      const direction = candidates.findIndex(s => s.id === focusSongId) < candidates.findIndex(s => s.id === previousFocus) ? -1 : 1;
-      const old = newCover.cloneNode(); old.src = previousSrc; old.setAttribute('aria-hidden', 'true'); old.style.cssText = 'position:absolute;inset:0;width:100%;height:100%'; artWindow.append(old);
-      newCover.animate([{ transform: `translateY(${direction * 100}%)` }, { transform: 'translateY(0)' }], { duration: 260, easing: 'cubic-bezier(.22,1,.36,1)' });
-      old.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${-direction * 100}%)` }], { duration: 260, easing: 'cubic-bezier(.22,1,.36,1)' }).finished.then(() => old.remove()).catch(() => old.remove());
+      const nextFocus = $('content').querySelector('.candidate-row.focused')?.dataset.focusSong;
+      const previousIndex = candidates.findIndex(s => s.id === previousFocus), nextIndex = candidates.findIndex(s => s.id === nextFocus);
+      const direction = previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? -1 : 1;
+      BroadcastMotion.coverSlide(artWindow, previousSrc, direction, requestedCover);
     }
     if (focused && $(focused.id)) { const next = $(focused.id); next.value = focused.value; next.focus({ preventScroll: true }); try { if (focused.start !== null) next.setSelectionRange(focused.start, focused.end); } catch (_) {} }
     else if (keyboardSelector) $('content').querySelector(`button${keyboardSelector}`)?.focus({ preventScroll: true });
     document.querySelectorAll('.tabs [data-tab]').forEach(el => el.setAttribute('aria-selected', el.dataset.tab === activeTab));
+    const changedTab = lastRenderedTab !== undefined && lastRenderedTab !== activeTab;
+    lastRenderedTab = activeTab;
+    if (changedTab) {
+      tabAnimation?.cancel(); tabAnimation = null;
+      if (!reducedMotion.matches) {
+        const animation = $('content').animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(0px)' }], { duration: 160, easing: 'linear', fill: 'both' });
+        tabAnimation = animation;
+        animation.finished.catch(() => {}).then(() => {
+          if (tabAnimation === animation) { animation.cancel(); tabAnimation = null; }
+        });
+      }
+    }
     refreshConnections();
   }
   document.addEventListener('click', event => {
