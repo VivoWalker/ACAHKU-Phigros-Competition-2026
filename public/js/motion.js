@@ -1,8 +1,9 @@
 (function () {
   'use strict';
-  const KEY = '[data-motion-key]', BLOCK = '[data-motion-block]', STATIC = '[data-motion-static]';
+  const KEY = '[data-motion-key]', STATIC = '[data-motion-static]';
+  const DURATION = 2400, EASING = 'cubic-bezier(.45, 0, .55, 1)';
+  const LOGOS = new Set(['phigros-logo', 'phigros-wordmark', 'club-soc', 'club-kirameki']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  let ghostId = 0;
   const coverControllers = new WeakMap();
   const activeCovers = new Set();
   const sceneControllers = new Set();
@@ -16,13 +17,6 @@
       if (key && !result.has(key)) result.set(key, node);
     }
     return result;
-  }
-  function topTargets(nodes) {
-    const selected = new Set(nodes);
-    return nodes.filter(node => {
-      for (let parent = node.parentElement; parent; parent = parent.parentElement) if (selected.has(parent)) return false;
-      return true;
-    });
   }
   function scaleFor(mount, canvas) {
     const anchor = canvas || mount;
@@ -75,70 +69,52 @@
     }
     return [...fragment.childNodes].map(materialize);
   }
-  function blocks(root) {
-    return topTargets([...root.querySelectorAll(BLOCK)].filter(node => !node.matches(KEY) && !isStatic(node) && !node.querySelector(STATIC) && !node.closest('[data-motion-ghost]')));
-  }
-  function ghost(node, mount, scale, hiddenKeys, phase) {
-    const sourceNodes = [node, ...node.querySelectorAll('*')];
-    const copy = node.cloneNode(true), copiedNodes = [copy, ...copy.querySelectorAll('*')];
-    const ids = new Map(), suffix = `motion-${++ghostId}-`;
-    for (let i = 0; i < sourceNodes.length; i++) {
-      const original = sourceNodes[i], target = copiedNodes[i], style = getComputedStyle(original);
-      for (const property of style) target.style.setProperty(property, style.getPropertyValue(property));
-      if (target.id) { ids.set(target.id, suffix + target.id); target.id = suffix + target.id; }
-      const sharedAncestor = original.closest(KEY);
-      if (original.matches(STATIC) || original.closest(STATIC) || hiddenKeys.has(original.dataset.motionKey) ||
-        sharedAncestor && hiddenKeys.has(sharedAncestor.dataset.motionKey)) target.style.visibility = 'hidden';
-      target.removeAttribute('data-motion-key'); target.removeAttribute('data-motion-block'); target.removeAttribute('data-motion-static');
-      target.removeAttribute('autofocus'); target.setAttribute('tabindex', '-1');
-    }
-    // Local SVG references get unique IDs too; the live scene keeps its one mask.
-    for (const target of copiedNodes) for (const attribute of [...target.attributes]) {
-      let value = attribute.value;
-      for (const [before, after] of ids) {
-        value = value.replaceAll(`url(#${before})`, `url(#${after})`).replaceAll(`url("#${before}")`, `url("#${after}")`);
-        if ((attribute.name === 'href' || attribute.name === 'xlink:href') && value === '#' + before) value = '#' + after;
-      }
-      if (value !== attribute.value) target.setAttributeNS(attribute.namespaceURI, attribute.name, value);
-    }
-    const rect = node.getBoundingClientRect(), parent = mount.getBoundingClientRect();
-    const wrapper = document.createElement('div');
-    wrapper.dataset.motionGhost = phase; wrapper.setAttribute('aria-hidden', 'true'); wrapper.inert = true;
-    Object.assign(wrapper.style, { position: 'absolute', left: `${(rect.left - parent.left) / scale.x}px`, top: `${(rect.top - parent.top) / scale.y}px`,
-      width: `${rect.width / scale.x}px`, height: `${rect.height / scale.y}px`, pointerEvents: 'none', zIndex: '40' });
-    Object.assign(copy.style, { position: 'relative', left: '0px', top: '0px', right: 'auto', bottom: 'auto', margin: '0px',
-      width: `${rect.width / scale.x}px`, height: `${rect.height / scale.y}px`, transform: 'none' });
-    if (getComputedStyle(node).display === 'inline') copy.style.display = 'block';
-    wrapper.append(copy);
-    return wrapper;
-  }
   function createScene(mount, { canvas } = {}) {
     let markup, scene, pending = null, current = null, running = false, epoch = 0, forced = false;
-    const animations = new Set(), cleanups = new Set(), idleWaiters = [];
+    const animations = new Set(), activeMoves = new Map(), cleanups = new Set(), idleWaiters = [];
     mount.dataset.motionPhase = 'idle';
     function cleanup(callback) {
       let done = false;
       const once = () => { if (!done) { done = true; cleanups.delete(once); callback(); } };
       cleanups.add(once); return once;
     }
-    function keepStyle(node, property, value) {
-      const before = node.style.getPropertyValue(property), priority = node.style.getPropertyPriority(property);
-      node.style.setProperty(property, value);
-      return cleanup(() => before ? node.style.setProperty(property, before, priority) : node.style.removeProperty(property));
-    }
-    function hide(node, shared) {
-      const restore = [keepStyle(node, 'visibility', 'hidden')];
-      for (const child of [node, ...node.querySelectorAll(KEY)]) if (shared.has(child.dataset.motionKey)) restore.push(keepStyle(child, 'visibility', 'visible'));
-      return cleanup(() => restore.forEach(callback => callback()));
-    }
     function clearTransient() { for (const callback of [...cleanups]) callback(); }
     function phase(value) { mount.dataset.motionPhase = value; }
     function settleIdle() { phase('idle'); for (const resolve of idleWaiters.splice(0)) resolve(); }
-    function animate(node, frames, duration) {
+    function animate(move) {
+      const { node, from, to, key, before, target, resumeTime } = move;
       if (forced || reduce.matches || !node.isConnected) return Promise.resolve();
-      const animation = node.animate(frames, { duration, easing: 'linear', fill: 'both' });
-      animations.add(animation);
-      return animation.finished.catch(() => {}).then(() => { animations.delete(animation); animation.cancel(); });
+      const animation = node.animate([from, to], { duration: DURATION, easing: EASING, fill: 'both' });
+      // A score/state update can rebuild the surrounding scene while a logo is
+      // moving. Preserve its timeline when its destination has not changed.
+      if (resumeTime != null) animation.currentTime = Math.min(DURATION, resumeTime);
+      animations.add(animation); activeMoves.set(key, { animation, before, target });
+      return animation.finished.catch(() => {}).then(() => {
+        animations.delete(animation);
+        if (activeMoves.get(key)?.animation === animation) activeMoves.delete(key);
+        animation.cancel();
+      });
+    }
+    function sameTarget(a, b) {
+      return ['left', 'top', 'width', 'height'].every(property => Math.abs(a.rect[property] - b.rect[property]) < .25)
+        && ['fontSize', 'lineHeight', 'opacity', 'transform'].every(property => a[property] === b[property]);
+    }
+    function snapshot() {
+      const scale = scaleFor(mount, canvas);
+      return new Map([...keyed(mount)].map(([key, node]) => [key, measure(node, mount, scale)]));
+    }
+    function interrupt(record) {
+      // Measure before removing floated nodes or cancelling WAAPI, so a new
+      // destination starts at the exact visible position rather than jumping.
+      record.before = snapshot();
+      record.resumes = new Map([...activeMoves].map(([key, move]) => [key, {
+        before: move.before, target: move.target, time: Number(move.animation.currentTime) || 0
+      }]));
+      epoch++;
+      for (const animation of animations) animation.cancel();
+      animations.clear(); activeMoves.clear(); clearTransient();
+      current?.resolve({ superseded: true }); pending?.resolve({ superseded: true });
+      current = pending = null; running = false; forced = false;
     }
     function commitContext(record) {
       const cover = mount.querySelector('[data-motion-cover-window], .selection-art, .cover-window');
@@ -160,45 +136,85 @@
       const oldKeys = keyed(mount), targetKeys = keyed(template.content);
       const shared = new Set([...targetKeys].filter(([key, node]) => compatible(oldKeys.get(key), node)).map(([key]) => key));
       const scale = scaleFor(mount, canvas), initial = markup === undefined;
-      const before = new Map([...oldKeys].map(([key, node]) => [key, measure(node, mount, scale)]));
+      const before = record.before || new Map([...oldKeys].map(([key, node]) => [key, measure(node, mount, scale)]));
       const changedScene = !initial && scene !== record.scene;
-      if (changedScene && !forced) {
-        phase('exit');
-        const exits = blocks(mount);
-        const missing = topTargets([...oldKeys].filter(([key, node]) => !shared.has(key) && !isStatic(node)).map(([, node]) => node))
-          .filter(node => !exits.some(block => block.contains(node)));
-        const restores = [], ghosts = [];
-        for (const node of [...exits, ...missing]) {
-          const copy = ghost(node, mount, scale, shared, 'exit'); mount.append(copy); ghosts.push(copy);
-          restores.push(hide(node, shared));
-          cleanup(() => copy.remove());
-        }
-        await Promise.all(ghosts.map(node => animate(node, [{ opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(-16px)' }], 100)));
-        if (token !== epoch) return;
-        restores.forEach(restore => restore()); ghosts.forEach(node => node.remove());
-      }
       if (token !== epoch) return;
+      // Scene content changes immediately; only the three shared branding
+      // assets travel between scenes. Camera holes and masks are always live.
       commit(record, template, oldKeys);
       if (initial || forced || reduce.matches) { clearTransient(); return; }
       const afterScale = scaleFor(mount, canvas), afterKeys = keyed(mount);
       const after = new Map([...afterKeys].map(([key, node]) => [key, measure(node, mount, afterScale)]));
-      const entryBlocks = changedScene ? blocks(mount) : [];
-      const entering = topTargets([...afterKeys].filter(([key, node]) => !shared.has(key) && !isStatic(node)).map(([, node]) => node))
-        .filter(node => !entryBlocks.some(block => block.contains(node)));
-      const entryGhosts = [], entryRestores = [];
-      for (const node of [...entryBlocks, ...entering]) {
-        entryGhosts.push(ghost(node, mount, afterScale, shared, 'enter'));
-        entryRestores.push(hide(node, shared));
-      }
       const moves = [], floated = [], movingNames = [];
-      let imageLayer;
+      let imageLayer, brandingLayer;
       function liveLayer() {
         if (!imageLayer) {
           imageLayer = document.createElement('div'); imageLayer.dataset.motionLive = '';
-          Object.assign(imageLayer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '50' }); mount.append(imageLayer);
+          Object.assign(imageLayer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '50' });
+          // Moving hero logos may cross a game's camera aperture. Keep those
+          // apertures transparent throughout the movement, just like the SVG
+          // backdrop; the branding travels behind the OBS video sources.
+          const width = mount.offsetWidth || canvas?.offsetWidth || 1920;
+          const height = mount.offsetHeight || canvas?.offsetHeight || 1080;
+          const outer = `M0 0H${width}V${height}H0Z`;
+          const holes = [...mount.querySelectorAll('[data-capture]')].map(node => {
+            const r = measure(node, mount, afterScale).rect;
+            return `M${r.left} ${r.top}H${r.left + r.width}V${r.top + r.height}H${r.left}Z`;
+          }).join(' ');
+          if (holes) imageLayer.style.clipPath = `path(evenodd, "${outer} ${holes}")`;
+          mount.append(imageLayer);
           cleanup(() => imageLayer.remove());
         }
         return imageLayer;
+      }
+      function layerFor(node) {
+        const layer = liveLayer();
+        if (!LOGOS.has(node.dataset.motionKey)) return layer;
+        if (!brandingLayer) {
+          brandingLayer = document.createElement('div'); brandingLayer.dataset.motionBranding = '';
+          Object.assign(brandingLayer.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+          const width = mount.offsetWidth || canvas?.offsetWidth || 1920;
+          const height = mount.offsetHeight || canvas?.offsetHeight || 1080;
+          const origin = mount.getBoundingClientRect(), foreground = [];
+          const selectors = '.event-title, .event-copy h1, .event-copy .event-line, .event-copy .organiser, '
+            + '.waiting-copy h1, .waiting-copy .section-label, .waiting-players p, .waiting-song h2, '
+            + '.player-name h2, .song-band h2, .scene-head h1, .scene-head p, '
+            + '.winner-panel h1, .winner-panel .section-label, .selection-detail h2';
+          for (const text of mount.querySelectorAll(selectors)) {
+            if (!text.textContent.trim() || getComputedStyle(text).visibility !== 'visible') continue;
+            const range = document.createRange(); range.selectNodeContents(text);
+            const bounds = range.getBoundingClientRect();
+            let left = bounds.left, right = bounds.right, top = bounds.top, bottom = bounds.bottom;
+            for (let parent = text; parent && parent !== mount; parent = parent.parentElement) {
+              const style = getComputedStyle(parent), rect = parent.getBoundingClientRect();
+              if (['hidden', 'clip', 'scroll', 'auto'].includes(style.overflowX)) { left = Math.max(left, rect.left); right = Math.min(right, rect.right); }
+              if (['hidden', 'clip', 'scroll', 'auto'].includes(style.overflowY)) { top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom); }
+            }
+            if (right <= left || bottom <= top) continue;
+            const rect = { left: Math.max(0, (left - origin.left) / afterScale.x - 4),
+              top: Math.max(0, (top - origin.top) / afterScale.y - 4),
+              right: Math.min(width, (right - origin.left) / afterScale.x + 4),
+              bottom: Math.min(height, (bottom - origin.top) / afterScale.y + 4) };
+            if (rect.right > rect.left && rect.bottom > rect.top) foreground.push(rect);
+          }
+          // Overlapping even-odd apertures would cancel each other. Merge
+          // touching glyph bounds so their anti-aliased edges stay protected.
+          for (let i = 0; i < foreground.length; i++) {
+            for (let j = i + 1; j < foreground.length; j++) {
+              const a = foreground[i], b = foreground[j];
+              if (a.left > b.right || a.right < b.left || a.top > b.bottom || a.bottom < b.top) continue;
+              foreground[i] = { left: Math.min(a.left, b.left), top: Math.min(a.top, b.top),
+                right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom) };
+              foreground.splice(j, 1); i = -1; break;
+            }
+          }
+          const holes = foreground.map(r => `M${r.left} ${r.top}H${r.right}V${r.bottom}H${r.left}Z`).join(' ');
+          if (holes) brandingLayer.style.clipPath = `path(evenodd, "M0 0H${width}V${height}H0Z ${holes}")`;
+          // Branding passes behind current foreground copy, while other
+          // same-scene moving text/art keeps its own normal floating layer.
+          layer.append(brandingLayer);
+        }
+        return brandingLayer;
       }
       function floatImage(node, a, b) {
         const style = getComputedStyle(node), originalStyle = node.getAttribute('style');
@@ -210,7 +226,7 @@
         if (style.display === 'inline') placeholder.style.display = 'inline-block';
         Object.assign(placeholder.style, { width: `${b.rect.width}px`, height: `${b.rect.height}px`, visibility: 'hidden', pointerEvents: 'none', boxSizing: 'border-box' });
         for (const property of style) node.style.setProperty(property, style.getPropertyValue(property));
-        node.replaceWith(placeholder); liveLayer().append(node);
+        node.replaceWith(placeholder); layerFor(node).append(node);
         const from = { left: `${a.rect.left}px`, top: `${a.rect.top}px`, width: `${a.rect.width}px`, height: `${a.rect.height}px`, opacity: a.opacity };
         const to = { left: `${b.rect.left}px`, top: `${b.rect.top}px`, width: `${b.rect.width}px`, height: `${b.rect.height}px`, opacity: b.opacity };
         Object.assign(node.style, { position: 'absolute', left: to.left, top: to.top, right: 'auto', bottom: 'auto', width: to.width, height: to.height,
@@ -239,7 +255,7 @@
         Object.assign(node.style, { position: 'static', display: 'inline', width: 'auto', height: 'auto', minWidth: '0px', maxWidth: 'none',
           margin: '0px', padding: '0px', border: '0px', transform: 'none', overflow: 'visible', textOverflow: 'clip',
           fontSize: 'inherit', lineHeight: 'inherit', letterSpacing: 'inherit', whiteSpace: 'inherit', verticalAlign: 'baseline', opacity: '1' });
-        node.replaceWith(placeholder); wrapper.append(node); liveLayer().append(wrapper);
+        node.replaceWith(placeholder); wrapper.append(node); layerFor(node).append(wrapper);
         function frame(snapshot) {
           const visible = snapshot.visibleRect || snapshot.rect;
           Object.assign(wrapper.style, { width: `${visible.width}px`, height: `${visible.height}px`, fontSize: snapshot.fontSize, lineHeight: snapshot.lineHeight });
@@ -319,15 +335,19 @@
         tick(); return stop;
       }
       for (const [key, node] of afterKeys) {
-        if (!shared.has(key) || isStatic(node)) continue;
-        const a = before.get(key), b = after.get(key);
+        if (!shared.has(key) || isStatic(node) || changedScene && !LOGOS.has(key)) continue;
+        const b = after.get(key), continuation = record.resumes?.get(key);
+        const resume = continuation && sameTarget(continuation.target, b);
+        const a = resume ? continuation.before : before.get(key);
+        const metadata = { key, before: a, target: b, resumeTime: resume ? continuation.time : null };
+        if (!a) continue;
         if (['img', 'svg', 'picture', 'figure'].includes(node.localName)) {
           if (Math.abs(a.rect.left - b.rect.left) > .25 || Math.abs(a.rect.top - b.rect.top) > .25 ||
-            Math.abs(a.rect.width - b.rect.width) > .25 || Math.abs(a.rect.height - b.rect.height) > .25 || a.opacity !== b.opacity) moves.push(floatImage(node, a, b));
+            Math.abs(a.rect.width - b.rect.width) > .25 || Math.abs(a.rect.height - b.rect.height) > .25 || a.opacity !== b.opacity) moves.push({ ...floatImage(node, a, b), ...metadata });
           continue;
         }
         if (node.localName === 'span' && (Math.abs(a.rect.left - b.rect.left) > .25 || Math.abs(a.rect.top - b.rect.top) > .25 || a.fontSize !== b.fontSize)) {
-          moves.push(floatText(node, a, b)); continue;
+          moves.push({ ...floatText(node, a, b), ...metadata }); continue;
         }
         let dx = a.rect.left - b.rect.left, dy = a.rect.top - b.rect.top;
         const parent = node.parentElement?.closest(KEY);
@@ -338,23 +358,16 @@
         const from = { transform: `translate(${dx}px, ${dy}px) ${b.transform}` }, to = { transform: b.transform || 'none' };
         if (a.fontSize !== b.fontSize && node.localName !== 'img') { from.fontSize = a.fontSize; to.fontSize = b.fontSize; }
         if (a.opacity !== b.opacity) { from.opacity = a.opacity; to.opacity = b.opacity; }
-        if (Math.abs(dx) > .25 || Math.abs(dy) > .25 || Object.keys(from).length > 1) moves.push({ node, from, to });
+        if (Math.abs(dx) > .25 || Math.abs(dy) > .25 || Object.keys(from).length > 1) moves.push({ node, from, to, ...metadata });
       }
       if (moves.length) {
         phase('move');
-        const runningMoves = moves.map(({ node, from, to }) => animate(node, [from, to], 240)), stopGuard = guardNames();
+        const runningMoves = moves.map(animate), stopGuard = guardNames();
         await Promise.all(runningMoves); stopGuard();
       }
       if (token !== epoch) return;
       floated.forEach(restore => restore()); imageLayer?.remove();
-      if (entryGhosts.length) {
-        phase('enter');
-        for (const copy of entryGhosts) { mount.append(copy); cleanup(() => copy.remove()); }
-        await Promise.all(entryGhosts.map(node => animate(node,
-          [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(0px)' }], 160)));
-        if (token !== epoch) return;
-      }
-      entryRestores.forEach(restore => restore()); clearTransient();
+      clearTransient();
     }
     async function drain(record, token) {
       running = true;
@@ -372,7 +385,7 @@
       }
     }
     function immediate(record) {
-      epoch++; for (const animation of animations) animation.cancel(); animations.clear(); clearTransient();
+      epoch++; for (const animation of animations) animation.cancel(); animations.clear(); activeMoves.clear(); clearTransient();
       if (current !== record) current?.resolve({ superseded: true });
       if (pending !== record) pending?.resolve({ superseded: true });
       current = pending = null;
@@ -384,8 +397,17 @@
       const record = { html, scene: nextScene, onCommit };
       const promise = new Promise((resolve, reject) => { record.resolve = resolve; record.reject = reject; });
       if (reduce.matches) immediate(record);
-      else if (running) { pending?.resolve({ superseded: true }); pending = record; }
-      else drain(record, epoch);
+      else if (html === markup && nextScene === scene) {
+        // Duplicate socket messages may advance the revision but must not
+        // restart a movement or discard its currently decoded cover layers.
+        try {
+          if (onCommit) onCommit(commitContext(record));
+          record.resolve({ superseded: false });
+        } catch (error) { record.reject(error); }
+      } else {
+        if (running) interrupt(record);
+        drain(record, epoch);
+      }
       return promise;
     }
     function idle() { return running || pending ? new Promise(resolve => idleWaiters.push(resolve)) : Promise.resolve(); }
@@ -475,7 +497,7 @@
     }
     applyCover(controller, record); controller.active.started = true; controller.windowEl.append(old);
     controller.windowEl.dataset.coverMotionPhase = 'move';
-    const options = { duration: 240, easing: 'linear', fill: 'both' };
+    const options = { duration: DURATION, easing: EASING, fill: 'both' };
     const incoming = controller.image.animate([{ transform: `translateY(${record.direction * 100}%)` }, { transform: 'translateY(0%)' }], options);
     const outgoing = old.animate([{ transform: 'translateY(0%)' }, { transform: `translateY(${-record.direction * 100}%)` }], options);
     controller.active.animations = [incoming, outgoing];
@@ -504,10 +526,10 @@
     }
     // The requested song is separate from the still-visible, decoded bitmap.
     // Repeated state messages only remount the two owned image nodes.
-    if (!reduce.matches && windowEl.isConnected && controller.pending?.src === requestedSrc) {
+    if (!requested?.immediate && !reduce.matches && windowEl.isConnected && controller.pending?.src === requestedSrc) {
       controller.pending.attrs = attrs; mountCover(controller); return controller.pending.promise;
     }
-    if (!reduce.matches && windowEl.isConnected && controller.active?.record.src === requestedSrc) {
+    if (!requested?.immediate && !reduce.matches && windowEl.isConnected && controller.active?.record.src === requestedSrc) {
       controller.active.record.attrs = attrs; controller.pending?.resolve(); controller.pending = null;
       if (controller.active.started) applyCover(controller, controller.active.record);
       mountCover(controller); return controller.active.record.promise;
@@ -515,7 +537,7 @@
     const loader = new Image(); loader.src = requestedSrc;
     const record = { src: requestedSrc, attrs, direction: direction < 0 ? -1 : 1, loader, ready: decoded(loader) };
     const promise = new Promise(resolve => { record.resolve = resolve; }); record.promise = promise;
-    if (reduce.matches || !windowEl.isConnected || !oldSrc || requestedSrc === controller.renderedSrc && !controller.active) {
+    if (reduce.matches || !windowEl.isConnected || requested?.immediate || !oldSrc || requestedSrc === controller.renderedSrc && !controller.active) {
       stopCover(controller, record); return promise;
     }
     mountCover(controller);

@@ -2,9 +2,11 @@
 
 Requires Playwright, Pillow and Chromium. A scored temporary fixture is created
 through tournament commands; the real event state and pairing files are unused.
-MOTION_TEST_SCOPE=scenes|covers|all selects a focused suite (default: all).
+MOTION_TEST_SCOPE=scenes|covers|all|preview selects a suite (default: all).
 BROADCAST_TEST_OUTPUT chooses the screenshot/report directory. Set
-MOTION_RECORD_PREVIEW=1 to save an actual 720p Playwright recording as a WebM.
+MOTION_RECORD_PREVIEW=1 to save an actual 720p Playwright recording as a WebM
+and a contact sheet. The preview scope records without repeating the suite;
+Playwright's ffmpeg binary (or a configured system ffmpeg) is required.
 """
 import io
 import json
@@ -13,6 +15,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 from urllib.parse import urlsplit
 
 from PIL import Image
@@ -22,9 +25,10 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results'))
 OUT.mkdir(exist_ok=True, parents=True)
 SCOPE = os.environ.get('MOTION_TEST_SCOPE', 'all')
-assert SCOPE in ['scenes', 'covers', 'all']
+assert SCOPE in ['scenes', 'covers', 'all','preview']
 SCENES = ['start', 'qualifier-waiting', 'double-elimination-waiting', 'qualifier-match',
           'double-elimination-match', 'result', 'bracket', 'song-selection']
+LOGOS = {'phigros-logo', 'phigros-wordmark', 'club-soc', 'club-kirameki'}
 
 PROBE = r"""() => {
   if (window.__motionProbe?.stop) window.__motionProbe.stop();
@@ -56,7 +60,8 @@ PROBE = r"""() => {
     const roots=mount?[mount]:Array.from(document.querySelectorAll('.cover-window'));
     const animations=roots.flatMap(root=>root.getAnimations({subtree:true})).filter(a=>a.playState==='running'||a.pending).map(a=>({
       key:a.effect.target?.dataset.motionKey||a.effect.target?.dataset.motionFor||'',easing:a.effect.getTiming().easing,
-      progress:a.effect.getComputedTiming().progress,frames:a.effect.getKeyframes().map(f=>({easing:f.easing,transform:f.transform,opacity:f.opacity}))
+      progress:a.effect.getComputedTiming().progress,duration:a.effect.getTiming().duration,currentTime:a.currentTime,
+      frames:a.effect.getKeyframes().map(f=>({easing:f.easing,transform:f.transform,opacity:f.opacity}))
     }));
     const ghosts=Array.from(mount?.querySelectorAll('[data-motion-ghost]')||[]).filter(visible).map(el=>el.dataset.motionGhost);
     const covers=Array.from(document.querySelectorAll('.selection-art,.cover-window')).map(el=>({
@@ -113,20 +118,25 @@ def stop_trace(page):
     return page.evaluate('window.__motionProbe.stop()')
 
 
-def validate_trace(trace, label, scene_motion=True):
+def validate_trace(trace, label, scene_motion=True, cross_scene=False, logos_only_identity=False):
     assert trace['frames'], (label, 'No animation-frame observations')
-    assert all(item['same'] for item in trace['identities']), (label, 'Shared DOM node was replaced', trace['identities'])
+    identities=[item for item in trace['identities'] if not logos_only_identity or item['key'] in LOGOS]
+    assert all(item['same'] for item in identities), (label, 'Continuously shared DOM node was replaced', identities)
     if scene_motion:
         assert {'phigros-logo','club-soc','club-kirameki'} <= {item['key'] for item in trace['identities']}, (label,'Shared branding was not observed')
     observed_animations = 0
     for frame in trace['frames']:
         if scene_motion:
             assert frame['maskCount'] == 1, (label, 'Duplicated capture mask', frame['maskCount'])
-            assert not ('exit' in frame['ghosts'] and 'enter' in frame['ghosts']), (label, 'Old and new blocks visible together')
+            if cross_scene:
+                assert not frame['ghosts'], (label, 'Cross-scene content ghosted', frame['ghosts'])
         for animation in frame['animations']:
             observed_animations += 1
-            assert animation['easing'] == 'linear', (label, animation)
+            assert animation['easing'].startswith('cubic-bezier('), (label, 'Expected nonlinear smooth easing', animation)
+            assert 2000 <= animation['duration'] <= 3000, (label, 'Motion must last 2–3 seconds', animation)
             assert all(f['easing'] == 'linear' for f in animation['frames']), (label, animation)
+            if cross_scene:
+                assert animation['key'] in LOGOS, (label, 'Cross-scene non-logo animated', animation)
         for cover in frame['covers']:
             assert len(cover['images']) <= 2, (label, 'More than two artwork layers', cover)
     if scene_motion:
@@ -141,11 +151,11 @@ def validate_trace(trace, label, scene_motion=True):
     return observed_animations
 
 
-def validate_linear_paths(trace, label):
+def validate_eased_paths(trace, label):
     count = 0
     for descriptor in set(trace['before']) & set(trace['after']):
         key, tag = descriptor.split('|')
-        if key not in ['phigros-logo', 'club-soc', 'club-kirameki', 'event-art'] and not key.startswith(('player-','song-')):
+        if key not in LOGOS and not key.startswith(('player-','song-')):
             continue
         before, after = trace['before'][descriptor]['box'], trace['after'][descriptor]['box']
         if max(abs(before[name] - after[name]) for name in ['x', 'y', 'width', 'height']) < 2:
@@ -156,6 +166,8 @@ def validate_linear_paths(trace, label):
             animation = next((a for a in frame['animations'] if a['key'] == key and a['progress'] is not None and .15 < a['progress'] < .85), None)
             if not animation:
                 continue
+            # ComputedTiming.progress already includes the effect's easing;
+            # geometry should follow that transformed progress, not wall time.
             progress = animation['progress']
             actual = frame['keys'][descriptor]['box']
             for name in ['x', 'y', 'width', 'height']:
@@ -256,10 +268,10 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             live.on('framenavigated', lambda frame: live_navigations.append(frame.url) if frame == live.main_frame else None)
             crew.evaluate('document.querySelector("#program-preview").dataset.motionTestStable="yes"')
             report = {'scope': SCOPE, 'scene_pairs': 0, 'animation_frame_observations': 0,
-                      'linear_animation_observations': 0, 'linear_geometry_samples': 0}
+                      'nonlinear_animation_observations': 0, 'eased_geometry_samples': 0}
 
             def checked_cover_trace(trace,label,scene_motion=True):
-                report['linear_animation_observations']+=validate_trace(trace,label,scene_motion)
+                report['nonlinear_animation_observations']+=validate_trace(trace,label,scene_motion)
                 report['animation_frame_observations']+=len(trace['frames'])
 
             if SCOPE in ['scenes', 'all']:
@@ -268,26 +280,32 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                     start_trace(live); revision=set_scene(target); idle(live, target, revision)
                     trace = stop_trace(live)
                     label = before + ' → ' + target
-                    report['linear_animation_observations'] += validate_trace(trace, label)
+                    report['nonlinear_animation_observations'] += validate_trace(trace, label, cross_scene=True)
                     report['animation_frame_observations'] += len(trace['frames'])
-                    report['linear_geometry_samples'] += validate_linear_paths(trace, label)
+                    report['eased_geometry_samples'] += validate_eased_paths(trace, label)
                     report['scene_pairs'] += 1
-                assert report['scene_pairs'] == 56 and report['linear_geometry_samples'] > 0
+                assert report['scene_pairs'] == 56 and report['eased_geometry_samples'] > 0
                 assert not preview_navigations and not live_navigations
                 assert crew.evaluate('document.querySelector("#program-preview").dataset.motionTestStable') == 'yes'
 
-                # Each requested scene arrives while the first transition is in
-                # flight. Only that active transition and the newest pending one
-                # may become visible; intermediate queued scenes are obsolete.
+                # Updates interrupt the active motion and render immediately.
+                # A 2.4s logo movement must never delay current match/score data.
                 start_trace(live); set_scene('qualifier-waiting')
                 live.wait_for_function('document.querySelector("#scene").dataset.motionPhase!=="idle"')
                 requested = ['bracket', 'song-selection', 'qualifier-match', 'result', 'double-elimination-match', 'start']
+                sent_at=time.monotonic()
                 revision=crew.evaluate('''async scenes=>{let result;for(const scene of scenes)result=await window.__fixtureCommand('set-scene',{scene});return result.revision}''', requested)
+                batch_ms=(time.monotonic()-sent_at)*1000
+                sent_at=time.monotonic()
+                live.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision',arg=revision,timeout=1000)
+                delivery_ms=(time.monotonic()-sent_at)*1000
+                assert delivery_ms < 1000, ('Latest scene waits for animation',delivery_ms)
                 idle(live, 'start', revision); trace = stop_trace(live)
-                validate_trace(trace, 'rapid scene requests')
-                commits = set(trace['commits']) - {None, ''}
-                assert commits <= {'start', 'qualifier-waiting'}, ('Obsolete pending scene was shown', commits)
-                report['rapid_latest_scene'] = True
+                # Event art is absent from intermediate match/bracket scenes,
+                # so only the branding stays continuously present in this walk.
+                validate_trace(trace, 'rapid scene requests', cross_scene=True,logos_only_identity=True)
+                assert trace['commits'][-1]=='start',trace['commits']
+                report.update(rapid_latest_scene=True, rapid_scene_delivery_ms=round(delivery_ms,2),command_batch_ms=round(batch_ms,2))
 
             if SCOPE in ['covers', 'all']:
                 revision=set_scene('song-selection'); idle(live, 'song-selection', revision)
@@ -381,6 +399,47 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                               duplicate_state_during_decode=True,score_during_cover_motion=True,
                               control_cover_identity=True,duplicate_cover_motion_not_restarted=True)
 
+            # Both actual match layouts have a same-scene single/dual variant.
+            # The changing double-match song title uses nonlinear motion while
+            # capture cutouts remain the committed, transparent target layout.
+            if SCOPE in ['scenes','all']:
+                mode_samples=[]
+                for target in ['qualifier-match','double-elimination-match']:
+                    revision=set_scene(target);idle(live,target,revision)
+                    for cameras in [True,False]:
+                        start_trace(live)
+                        revision=command('set-broadcast-display',{'showHandcams':cameras})['revision']
+                        live.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision',arg=revision,timeout=1000)
+                        assert live.locator('[data-capture]').count()==(3 if target=='qualifier-match' else 2)*(1+int(cameras))
+                        idle(live,target,revision);trace=stop_trace(live)
+                        observations=validate_trace(trace,f'{target} cameras={cameras}')
+                        geometry=validate_eased_paths(trace,f'{target} cameras={cameras}')
+                        if target=='double-elimination-match':
+                            assert observations>0 and geometry>0,('No same-scene nonlinear geometry observed',target,cameras)
+                        else:
+                            assert observations==0,('Static qualifier cutouts caused artificial movement',cameras)
+                        mode_samples.append({'scene':target,'dual':cameras,'animations':observations,'geometry':geometry})
+                report['same_scene_modes']=mode_samples
+
+                # Current score data is delivered during the longer geometry
+                # movement rather than after it settles.
+                current=next(m for m in state()['tournament']['matches'] if m['id']==state()['tournament']['currentMatchId'])
+                if not current['songs']:
+                    command('ban-song',{'playerIndex':0,'songId':current['candidates'][0]['id']})
+                    command('ban-song',{'playerIndex':1,'songId':current['candidates'][1]['id']})
+                    command('pick-songs')
+                    idle(live,'double-elimination-match')
+                command('set-broadcast-display',{'showHandcams':True})
+                live.wait_for_function('document.querySelector("#scene").dataset.motionPhase==="move"')
+                sent_at=time.monotonic()
+                revision=command('set-match-score',{'playerIndex':0,'songIndex':0,'score':999202})['revision']
+                live.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision',arg=revision,timeout=1000)
+                assert '999,202' in live.locator('.player-total').first.inner_text()
+                delivery_ms=(time.monotonic()-sent_at)*1000
+                assert delivery_ms<1000,('Score waits for pending motion',delivery_ms)
+                idle(live,'double-elimination-match',revision)
+                report['score_during_geometry_delivery_ms']=round(delivery_ms,2)
+
             # Reduced motion bypasses transitions and clears any active ghosts.
             live.emulate_media(reduced_motion='reduce'); crew.emulate_media(reduced_motion='reduce')
             set_scene('qualifier-waiting'); idle(live, 'qualifier-waiting')
@@ -411,18 +470,65 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                                     samples += 1
             report['scaled_transparent_samples'] = samples
             if os.environ.get('MOTION_RECORD_PREVIEW') == '1':
+                command('set-broadcast-display',{'showHandcams':False})
+                revision=set_scene('start');idle(live,'start',revision)
+                # An unscored fixture match supplies two distinct covers for a
+                # useful recorded preview, even when the random earlier draw
+                # happened to use the same artwork for both songs.
+                command('select-match',{'matchId':'W3'})
+                for _ in range(20):
+                    command('draw-candidates')
+                    fixture=next(m for m in state()['tournament']['matches'] if m['id']=='W3')
+                    command('ban-song',{'playerIndex':0,'songId':fixture['candidates'][0]['id']})
+                    command('ban-song',{'playerIndex':1,'songId':fixture['candidates'][1]['id']})
+                    command('pick-songs')
+                    fixture=next(m for m in state()['tournament']['matches'] if m['id']=='W3')
+                    if fixture['songs'][0]['art']!=fixture['songs'][1]['art']:break
+                assert fixture['songs'][0]['art']!=fixture['songs'][1]['art'],'No distinct artwork preview fixture'
                 video_context = browser.new_context(viewport={'width':1280,'height':720},
                                                     record_video_dir=str(OUT/'motion-video-raw'),
                                                     record_video_size={'width':1280,'height':720})
                 video = video_context.new_page(); video.goto(base+'/overlay/live.html')
                 video.wait_for_selector('[data-branding="visual"]'); idle(video)
-                for scene in ['start','qualifier-waiting','qualifier-match','double-elimination-waiting','double-elimination-match','bracket','song-selection','start']:
-                    set_scene(scene); idle(video,scene)
-                    video.wait_for_timeout(200)
+                video_frames=[]
+                def film(label,operation):
+                    operation()
+                    started=time.monotonic()
+                    for seconds in [0,.4,.8,1.2,1.8,2.4,2.8]:
+                        remaining=seconds-(time.monotonic()-started)
+                        if remaining>0:video.wait_for_timeout(remaining*1000)
+                        path=OUT/f'preview-{len(video_frames):03}.jpg'
+                        video.screenshot(path=str(path),type='jpeg',quality=85)
+                        video_frames.append((label,seconds,path))
+                    idle(video)
+                film('Start → waiting / logos',lambda:set_scene('qualifier-waiting'))
+                film('Waiting → start / logos',lambda:set_scene('start'))
+                film('Start → match / logos',lambda:set_scene('qualifier-match'))
+                film('Qualifier / dual',lambda:command('set-broadcast-display',{'showHandcams':True}))
+                film('Qualifier / single',lambda:command('set-broadcast-display',{'showHandcams':False}))
+                film('Match → selection / logos',lambda:set_scene('song-selection'))
+                film('Artwork / next song',lambda:command('set-song-progress',{'index':0}))
+                film('Artwork / next song',lambda:command('set-song-progress',{'index':1}))
+                film('Selection → start / logos',lambda:set_scene('start'))
+                film('Start → double / logos',lambda:set_scene('double-elimination-match'))
+                film('Double / dual',lambda:command('set-broadcast-display',{'showHandcams':True}))
+                film('Double / single',lambda:command('set-broadcast-display',{'showHandcams':False}))
+                film('Double → start / logos',lambda:set_scene('start'))
                 recording = video.video
                 video_context.close()
-                shutil.copy2(recording.path(), OUT/'motion-preview.webm')
-                report['actual_video'] = str(OUT/'motion-preview.webm')
+                shutil.copy2(recording.path(), OUT/'nonlinear-motion-preview.webm')
+                report['actual_video'] = str(OUT/'nonlinear-motion-preview.webm')
+                from PIL import ImageDraw
+                tile_w,tile_h=320,202
+                sheet=Image.new('RGB',(tile_w*7,tile_h*((len(video_frames)+6)//7)),'#303440')
+                draw=ImageDraw.Draw(sheet)
+                for i,(label,seconds,path) in enumerate(video_frames):
+                    image=Image.open(path).convert('RGB');image.thumbnail((320,180))
+                    x,y=(i%7)*tile_w,(i//7)*tile_h
+                    sheet.paste(image,(x,y))
+                    draw.text((x+5,y+183),f'{label} {seconds:.1f}s',fill='white')
+                sheet.save(OUT/'nonlinear-motion-contact-sheet.jpg',quality=92)
+                report['contact_sheet']=str(OUT/'nonlinear-motion-contact-sheet.jpg')
             assert not errors, errors
             external = [url for url in requests if urlsplit(url).hostname not in ['127.0.0.1',None]]
             assert not external, external

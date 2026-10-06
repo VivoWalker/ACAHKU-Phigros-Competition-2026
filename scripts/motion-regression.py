@@ -1,6 +1,6 @@
-"""Reproduce text clipping, glyph-baseline and resize motion regressions.
+"""Check nonlinear same-scene motion and logo-only cross-scene transitions.
 
-Run: python3 scripts/motion-regression.py [--scope bugs|smoke|all]
+Run: python3 scripts/motion-regression.py [--scope bugs|smoke|painting|all]
 Requires Playwright, Pillow and Chromium (CHROME_BINARY may override the binary).
 Only a temporary event store is written. Reports/screenshots default to
 /tmp/acahku-motion-regression; --output may select another directory.
@@ -15,9 +15,10 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 from urllib.parse import urlsplit
 
-from PIL import Image
+from PIL import Image, ImageChops
 from playwright.sync_api import sync_playwright
 
 
@@ -26,6 +27,7 @@ SCENES = ['start', 'qualifier-waiting', 'qualifier-match',
           'double-elimination-waiting', 'double-elimination-match',
           'result', 'bracket', 'song-selection']
 PIN = 'motion-regression-fixture'
+LOGOS = {'phigros-logo', 'phigros-wordmark', 'club-soc', 'club-kirameki'}
 FIXTURE = r"""
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'motion-regression-fixture'});
 const cmd=(type,payload={})=>s.store.commit({type,payload},s.store.state.revision);
@@ -43,7 +45,10 @@ cmd('pick-songs',{matchId:m.id});
 for(let player=0;player<2;player++)for(let i=0;i<2;i++)
  cmd('set-match-score',{matchId:m.id,playerIndex:player,songIndex:i,score:player?980000:990000});
 cmd('record-result',{matchId:m.id});cmd('select-match',{matchId:'W2'});
-cmd('draw-candidates',{matchId:'W2'});cmd('set-scene',{scene:'start'});
+cmd('draw-candidates',{matchId:'W2'});m=s.store.state.tournament.matches.find(match=>match.id==='W2');
+cmd('ban-song',{matchId:'W2',playerIndex:0,songId:m.candidates[0].id});
+cmd('ban-song',{matchId:'W2',playerIndex:1,songId:m.candidates[1].id});
+cmd('pick-songs',{matchId:'W2'});cmd('set-scene',{scene:'start'});
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));
 process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 """
@@ -98,8 +103,8 @@ TRACE = r"""() => {
     if(!trace.active)return;
     trace.frames.push({phase:mount.dataset.motionPhase,keys:describe(),
       masks:document.querySelectorAll('[id="capture-mask"]').length,
-      animations:mount.getAnimations({subtree:true}).map(a=>({key:a.effect.target?.dataset.motionKey,
-        easing:a.effect.getTiming().easing,progress:a.effect.getComputedTiming().progress,
+      animations:mount.getAnimations({subtree:true}).map(a=>({key:a.effect.target?.dataset.motionKey||a.effect.target?.dataset.motionFor,
+        easing:a.effect.getTiming().easing,duration:a.effect.getTiming().duration,progress:a.effect.getComputedTiming().progress,
         frames:a.effect.getKeyframes().map(f=>({easing:f.easing}))}))});
     trace.raf=requestAnimationFrame(tick);
   };
@@ -129,8 +134,7 @@ def scale(page, width=1920, height=1080):
 
 
 def arm_phase(page, phase):
-    # Register before the command. Python/CDP must not race the actual 100ms
-    # exit or 240ms move window, particularly while other browser suites run.
+    # Register before the command, without racing the start of real movement.
     page.evaluate(r"""phase=>{
       window.__motionPauseObserver?.disconnect();window.__phasePaused=null;
       const mount=document.querySelector('#scene');
@@ -163,7 +167,7 @@ def at_progress(page, progress):
     page.evaluate(r"""async progress=>{
       for(const animation of window.__pausedMotion)
         animation.currentTime=Number(animation.effect.getTiming().duration)*progress;
-      // The collision guard updates clips in RAF without changing the linear
+      // The collision guard updates clips in RAF without changing the eased
       // geometry animation. Give it two frames after a manually scrubbed time.
       await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
     }""", progress)
@@ -175,6 +179,17 @@ def finish_paused(page):
         if(animation.playState==='paused'||animation.playState==='running')animation.finish();
       window.__pausedMotion=[];
     }""")
+
+
+def eased_progress(page, key):
+    return page.evaluate(r"""key=>{
+      const animation=window.__pausedMotion.find(a=>(a.effect.target?.dataset.motionKey||a.effect.target?.dataset.motionFor)===key);
+      if(!animation)throw new Error('No paused motion for '+key);
+      const timing=animation.effect.getTiming();
+      if(!String(timing.easing).startsWith('cubic-bezier(')||timing.duration<2000||timing.duration>3000)
+        throw new Error('Expected nonlinear 2–3s motion: '+JSON.stringify(timing));
+      return animation.effect.getComputedTiming().progress;
+    }""",key)
 
 
 def compare_boxes(a, b, label, limit=1):
@@ -192,7 +207,7 @@ def intersection(a, b):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scope', choices=['bugs', 'smoke', 'all'], default='all')
+    parser.add_argument('--scope', choices=['bugs', 'smoke', 'painting', 'all'], default='all')
     parser.add_argument('--output', type=Path, default=Path(tempfile.gettempdir()) / 'acahku-motion-regression')
     parser.add_argument('--baseline-ref', help='Serve pre-fix motion/overlay/CSS from this Git revision')
     args = parser.parse_args()
@@ -247,7 +262,7 @@ def main():
                     socket.once('state',s=>{state=s;resolve()});socket.once('connect_error',reject);
                   });socket.on('state',s=>state=s);
                   window.__fixtureCommand=(type,payload={})=>new Promise((resolve,reject)=>socket.emit('command',
-                    {expectedRevision:state.revision,action:{type,payload}},r=>r.ok?resolve(r):reject(new Error(r.error))));
+                    {expectedRevision:state.revision,action:{type,payload:{matchId:state.tournament.currentMatchId,...payload}}},r=>r.ok?resolve(r):reject(new Error(r.error))));
                 }""", token)
                 live = context.new_page(); live.goto(base + '/overlay/live.html')
                 live.wait_for_selector('[data-branding="visual"]'); live.evaluate('document.fonts.ready'); idle(live, 'start')
@@ -312,14 +327,14 @@ def main():
                             typography.evaluate(r"""()=>{
                               const canvas=document.querySelector('#canvas');
                               window.__typographyController=BroadcastMotion.createScene(document.querySelector('#scene'),{canvas});
-                              window.__typographyScene=(html,scene)=>window.__typographyController.update(html,{scene,onCommit(){
-                                canvas.dataset.renderedScene=scene;canvas.dataset.renderedRevision='0';}});
+                              window.__typographyScene=(html,scene)=>window.__typographyController.update(html,{scene:'typography',onCommit(){
+                                canvas.dataset.renderedScene='typography';canvas.dataset.renderedRevision='0';}});
                             }""")
 
                             def short_prepare(html, target):
                                 typography.emulate_media(reduced_motion='reduce')
                                 typography.evaluate('a=>window.__typographyScene(a.html,a.scene)', {'html': html, 'scene': target})
-                                typography.evaluate('document.fonts.ready'); idle(typography, target)
+                                typography.evaluate('document.fonts.ready'); idle(typography, 'typography')
                                 assert typography.locator('[data-motion-key=player-p1]').inner_text() == 'Player 01'
                                 typography.emulate_media(reduced_motion='no-preference')
 
@@ -339,16 +354,17 @@ def main():
                                 for progress in [0, .25, .5, .625, .75, .999999]:
                                     at_progress(typography, progress)
                                     glyph = typography.evaluate(SNAPSHOT, 'player-p1')['glyph']
-                                    expected = {axis: before['glyph'][axis] + (after['glyph'][axis] - before['glyph'][axis]) * progress for axis in ['x', 'y']}
+                                    fraction=eased_progress(typography,'player-p1')
+                                    expected = {axis: before['glyph'][axis] + (after['glyph'][axis] - before['glyph'][axis]) * fraction for axis in ['x', 'y']}
                                     errors_xy = {axis: abs(glyph[axis] - expected[axis]) for axis in ['x', 'y']}
                                     # Saira's fractional font-size metrics quantize
                                     # by about 1.26px, so use the scene suite's 2px
                                     # trajectory tolerance, with stricter endpoints.
-                                    assert max(errors_xy.values()) < 2, ('Short glyph path is not linear', source, target, progress, errors_xy, glyph, expected)
-                                    samples.append({'progress': progress, 'glyph_xy': {axis: glyph[axis] for axis in ['x', 'y']},
+                                    assert max(errors_xy.values()) < 2, ('Short glyph path does not follow easing', source, target, progress, errors_xy, glyph, expected)
+                                    samples.append({'time_fraction': progress, 'eased_fraction': fraction, 'glyph_xy': {axis: glyph[axis] for axis in ['x', 'y']},
                                                     'expected_xy': expected, 'errors_xy': errors_xy})
                                 endpoint = typography.evaluate(SNAPSHOT, 'player-p1')['glyph']
-                                finish_paused(typography); idle(typography, target)
+                                finish_paused(typography); idle(typography, 'typography')
                                 endpoint_delta = compare_boxes(endpoint, typography.evaluate(SNAPSHOT, 'player-p1')['glyph'], 'Short-name endpoint')
                                 assert typography.evaluate('window.__shortPlayer===document.querySelector("[data-motion-key=player-p1]")')
                                 observations.append({'source': source, 'target': target, 'before_font': before['fontSize'], 'after_font': after['fontSize'],
@@ -362,14 +378,29 @@ def main():
                         finally:
                             typography.close()
 
-                    def glyph_endpoint():
-                        prepare('qualifier-waiting'); arm_phase(live, 'move'); revision = scene('qualifier-match')
-                        assert pause_phase(live, 'move') > 0
-                        at_progress(live, .999999)
-                        endpoint = live.evaluate(SNAPSHOT, 'player-p2')
-                        finish_paused(live); idle(live, 'qualifier-match', revision)
-                        resting = live.evaluate(SNAPSHOT, 'player-p2')
-                        return {'glyph_endpoint_delta': compare_boxes(endpoint['glyph'], resting['glyph'], 'Player 02 glyph')}
+                    def cross_scene_logos_only():
+                        prepare('start');live.evaluate(TRACE);arm_phase(live,'move')
+                        revision=scene('qualifier-waiting');assert pause_phase(live,'move')>0
+                        assert live.locator('.waiting-copy').count()==1
+                        assert int(live.locator('#canvas').get_attribute('data-rendered-revision'))>=revision
+                        keys=live.evaluate("window.__pausedMotion.map(a=>a.effect.target.dataset.motionKey||a.effect.target.dataset.motionFor)")
+                        assert set(keys)<=LOGOS and set(keys),('Unexpected cross-scene animated targets',keys)
+                        before=live.evaluate(SNAPSHOT,'phigros-logo')['box']
+                        # Non-logo content is already the destination and does not
+                        # drift throughout the logo movement.
+                        name=live.evaluate(SNAPSHOT,'player-p1')
+                        samples=[]
+                        for progress in [0,.1,.25,.5,.75,.9,.999999]:
+                            at_progress(live,progress);fraction=eased_progress(live,'phigros-logo')
+                            assert live.evaluate("document.querySelectorAll('[data-motion-ghost]').length")==0
+                            compare_boxes(name['glyph'],live.evaluate(SNAPSHOT,'player-p1')['glyph'],'Cross-scene text remains still')
+                            samples.append({'time_fraction':progress,'eased_fraction':fraction,'logo_box':live.evaluate(SNAPSHOT,'phigros-logo')['box']})
+                        assert abs(samples[2]['eased_fraction']-.25)>.05 and abs(samples[4]['eased_fraction']-.75)>.05,samples
+                        endpoint=samples[-1]['logo_box'];finish_paused(live);idle(live,'qualifier-waiting',revision)
+                        compare_boxes(endpoint,live.evaluate(SNAPSHOT,'phigros-logo')['box'],'Logo endpoint')
+                        trace=live.evaluate('window.__regressionTrace.stop()')
+                        assert all(item['same'] for item in trace['identities']),trace['identities']
+                        return {'animated_keys':keys,'samples':samples,'content_rendered_during_motion':True}
 
                     def waiting_safe_area():
                         prepare('qualifier-waiting')
@@ -384,109 +415,160 @@ def main():
                         assert 0 <= geometry['top'] < geometry['bottom'] <= 1080, ('Waiting copy leaves 1080 canvas', geometry)
                         return geometry
 
-                    def long_text_clipping():
-                        prepare('qualifier-waiting')
-                        source = live.evaluate(SNAPSHOT, 'player-p1')['visible']['width']
-                        song_source = live.evaluate(SNAPSHOT, 'song-song-1')['visible']['width']
-                        arm_phase(live, 'move')
-                        revision = scene('qualifier-match'); assert pause_phase(live, 'move') > 0
-                        targets = live.evaluate(r"""()=>({name:document.querySelector('.qualifier .player-1 h2').getBoundingClientRect().width,
-                          song:document.querySelector('.song-band h2').getBoundingClientRect().width})""")
-                        observations = []
-                        for progress in [0, .25, .5, .75, .999999]:
-                            at_progress(live, progress)
-                            name = live.evaluate(SNAPSHOT, 'player-p1')
-                            song = live.evaluate(SNAPSHOT, 'song-song-1')
-                            allowed_name = source + (targets['name'] - source) * progress
-                            assert name['visible']['width'] <= allowed_name + 2, ('Long name loses its animated clip', progress, allowed_name, name)
-                            assert name['floatBox'] and name['floatBox']['width'] <= allowed_name + 2, ('Text float escapes its clip width', progress, name)
-                            assert name['floatStyle'] == {'overflow': 'hidden', 'textOverflow': 'ellipsis', 'whiteSpace': 'nowrap'}, name
-                            assert name['ellipsis'], ('Long name loses ellipsis during movement', progress, name)
-                            assert song['visible']['width'] <= max(song_source, targets['song']) + 2, ('Long song loses its visible clip', progress, song)
-                            others = {key: live.evaluate(SNAPSHOT, key)['visible'] for key in ['player-p2', 'player-p3']}
-                            overlaps = {key: intersection(name['visible'], rect) for key, rect in others.items()}
-                            assert all(rect['width'] <= 1 or rect['height'] <= 1 for rect in overlaps.values()), ('Long name covers another player', progress, overlaps)
-                            observations.append({'progress': progress, 'name_visible_width': name['visible']['width'],
-                                                 'name_allowed_width': allowed_name, 'name_float_width': name['floatBox']['width'],
-                                                 'song_visible_width': song['visible']['width'],
-                                                 'player_visible_rects': {'player-p1': name['visible'], **others},
-                                                 'player_intersections': overlaps})
-                            if progress == .5:
-                                live.screenshot(path=str(args.output / 'long-text-moving.png'), omit_background=True)
-                            if progress == .75:
-                                live.screenshot(path=str(args.output / 'long-text-moving-75.png'), omit_background=True)
-                        endpoint = live.evaluate(SNAPSHOT, 'player-p1')
-                        finish_paused(live); idle(live, 'qualifier-match', revision)
-                        resting = live.evaluate(SNAPSHOT, 'player-p1')
-                        assert resting['ellipsis'] and resting['visible']['width'] <= targets['name'] + 1, resting
-                        compare_boxes(endpoint['visible'], resting['visible'], 'Long name visible bounds')
-                        live.screenshot(path=str(args.output / 'long-text-idle.png'), omit_background=True)
-                        forward_width = resting['visible']['width']
-                        # The same clipped node returns to a vertically stacked
-                        # list. Check the path in both directions, not just idle.
-                        source = forward_width; arm_phase(live, 'move'); revision = scene('qualifier-waiting')
-                        assert pause_phase(live, 'move') > 0
-                        target_width = live.locator('.waiting-players p').first.bounding_box()['width']
-                        reverse = []
-                        for progress in [0, .25, .5, .75, .999999]:
-                            at_progress(live, progress)
-                            name = live.evaluate(SNAPSHOT, 'player-p1')
-                            allowed = source + (target_width - source) * progress
-                            assert name['visible']['width'] <= allowed + 2 and name['ellipsis'], ('Reverse long-name clip', progress, name)
-                            others = {key: live.evaluate(SNAPSHOT, key)['visible'] for key in ['player-p2', 'player-p3']}
-                            overlaps = {key: intersection(name['visible'], rect) for key, rect in others.items()}
-                            assert all(rect['width'] <= 1 or rect['height'] <= 1 for rect in overlaps.values()), ('Reverse long name covers another player', progress, overlaps)
-                            reverse.append({'progress': progress, 'name_visible_width': name['visible']['width'],
-                                            'player_visible_rects': {'player-p1': name['visible'], **others}, 'player_intersections': overlaps})
-                            if progress == .75:
-                                live.screenshot(path=str(args.output / 'long-text-reverse-75.png'), omit_background=True)
-                        endpoint = live.evaluate(SNAPSHOT, 'player-p1')
-                        finish_paused(live); idle(live, 'qualifier-waiting', revision)
-                        compare_boxes(endpoint['visible'], live.evaluate(SNAPSHOT, 'player-p1')['visible'], 'Reverse long-name visible bounds')
-                        return {'samples': observations, 'reverse_samples': reverse, 'resting_name_visible_width': forward_width}
+                    def same_scene_long_text():
+                        # Reuse actual waiting/match HTML in one fixture scene.
+                        # Actual cross-scene names swap immediately; this fixture
+                        # still exercises the same-scene engine's clip guard.
+                        layouts=[]
+                        for target in ['qualifier-waiting','qualifier-match']:
+                            prepare(target);layouts.append(live.locator('#scene').inner_html())
+                        specimen=context.new_page()
+                        try:
+                            specimen.goto(base+'/api/health')
+                            specimen.set_content(f"""<!doctype html><html><head><link rel='stylesheet' href='{base}/overlay/common.css'></head>
+                              <body><main id='canvas' class='phi-app'><div id='scene'></div></main><script src='{base}/js/motion.js'></script></body></html>""")
+                            specimen.evaluate(r"""()=>{
+                              const canvas=document.querySelector('#canvas');
+                              window.__clipController=BroadcastMotion.createScene(document.querySelector('#scene'),{canvas});
+                              window.__clipScene=html=>window.__clipController.update(html,{scene:'clip',onCommit(){canvas.dataset.renderedScene='clip'}});
+                            }""")
+                            def mount(html):
+                                specimen.emulate_media(reduced_motion='reduce');specimen.evaluate('html=>window.__clipScene(html)',html)
+                                specimen.evaluate('document.fonts.ready');idle(specimen,'clip')
+                                specimen.emulate_media(reduced_motion='no-preference')
+                            observations=[]
+                            for source,target in [(layouts[0],layouts[1]),(layouts[1],layouts[0])]:
+                                mount(target);after=specimen.evaluate(SNAPSHOT,'player-p1')
+                                mount(source);before=specimen.evaluate(SNAPSHOT,'player-p1')
+                                arm_phase(specimen,'move');specimen.evaluate('html=>{window.__clipScene(html)}',target)
+                                assert pause_phase(specimen,'move')>0
+                                samples=[]
+                                for progress in [0,.1,.25,.5,.75,.9,.999999]:
+                                    at_progress(specimen,progress);fraction=eased_progress(specimen,'player-p1')
+                                    name=specimen.evaluate(SNAPSHOT,'player-p1')
+                                    allowed=before['visible']['width']+(after['visible']['width']-before['visible']['width'])*fraction
+                                    assert name['ellipsis'] and name['floatBox'],('Long name loses clip during same-scene change',name)
+                                    assert name['visible']['width']<=allowed+2,('Name escapes eased visible bounds',progress,fraction,allowed,name)
+                                    others={key:specimen.evaluate(SNAPSHOT,key)['visible'] for key in ['player-p2','player-p3']}
+                                    overlaps={key:intersection(name['visible'],rect) for key,rect in others.items()}
+                                    assert all(rect['width']<=1 or rect['height']<=1 for rect in overlaps.values()),('Name overlaps other player',progress,overlaps)
+                                    samples.append({'time_fraction':progress,'eased_fraction':fraction,'name':name['visible'],'intersections':overlaps})
+                                    if progress==.5:specimen.screenshot(path=str(args.output/'long-text-moving.png'),omit_background=True)
+                                endpoint=specimen.evaluate(SNAPSHOT,'player-p1');finish_paused(specimen);idle(specimen,'clip')
+                                resting=specimen.evaluate(SNAPSHOT,'player-p1')
+                                compare_boxes(endpoint['glyph'],resting['glyph'],'Same-scene glyph endpoint')
+                                compare_boxes(endpoint['visible'],resting['visible'],'Same-scene clip endpoint')
+                                observations.append({'samples':samples,'endpoint':resting['visible']})
+                            specimen.screenshot(path=str(args.output/'long-text-idle.png'),omit_background=True)
+                            return {'directions':observations}
+                        finally:specimen.close()
 
-                    def cancel_guard():
-                        prepare('qualifier-waiting')
-                        live.evaluate('window.__sharedPlayer=document.querySelector("[data-motion-key=player-p1]")')
-                        arm_phase(live, 'move')
-                        scene('qualifier-match'); assert pause_phase(live, 'move') > 0
-                        at_progress(live, .75)
-                        revision = crew.evaluate(r"""async()=>{
+                    def interrupt_and_reduce():
+                        prepare('start')
+                        live.evaluate("window.__sharedPlayer=document.querySelector('[data-motion-key=phigros-logo]')")
+                        arm_phase(live,'move');scene('double-elimination-match')
+                        assert pause_phase(live,'move')>0;at_progress(live,.35)
+                        previous_time=live.evaluate("window.__pausedMotion.find(a=>a.effect.target.dataset.motionKey==='phigros-logo').currentTime")
+                        sent_at=time.monotonic();revision=command('set-match-score',{'playerIndex':0,'songIndex':0,'score':999765})['revision']
+                        live.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision',arg=revision,timeout=1000)
+                        latency=(time.monotonic()-sent_at)*1000
+                        assert latency<1000,('Latest score waits for previous animation',latency)
+                        assert '999,765' in live.locator('.player-total').first.inner_text()
+                        resumed_time=live.evaluate("document.querySelector('#scene').getAnimations({subtree:true}).find(a=>a.effect.target.dataset.motionKey==='phigros-logo').currentTime")
+                        assert resumed_time>=previous_time-5,('Score restarted logo timeline',previous_time,resumed_time)
+                        revision=crew.evaluate(r"""async()=>{
                           let result;for(const scene of ['start','bracket','qualifier-waiting'])
                             result=await window.__fixtureCommand('set-scene',{scene});return result.revision;
                         }""")
-                        live.wait_for_function('revision=>window.__receivedOverlayRevision>=revision', arg=revision)
-                        live.emulate_media(reduced_motion='reduce'); idle(live, 'qualifier-waiting', revision)
+                        live.wait_for_function('revision=>window.__receivedOverlayRevision>=revision',arg=revision)
+                        live.emulate_media(reduced_motion='reduce');idle(live,'qualifier-waiting',revision)
                         live.evaluate('async()=>{for(let i=0;i<3;i++)await new Promise(requestAnimationFrame)}')
-                        result = live.evaluate(r"""()=>{
-                          const node=document.querySelector('[data-motion-key=player-p1]'),mount=document.querySelector('#scene');
+                        result=live.evaluate(r"""()=>{
+                          const node=document.querySelector('[data-motion-key=phigros-logo]'),mount=document.querySelector('#scene');
                           return {sameNode:node===window.__sharedPlayer,phase:mount.dataset.motionPhase,
                             temporaryNodes:mount.querySelectorAll('[data-motion-text],[data-motion-live],[data-motion-placeholder],[data-motion-ghost]').length,
                             runningAnimations:mount.getAnimations({subtree:true}).filter(a=>a.playState==='running'||a.pending).length,
                             maxWidth:node.style.getPropertyValue('max-width'),clipPath:node.style.getPropertyValue('clip-path')};
                         }""")
-                        assert result == {'sameNode': True, 'phase': 'idle', 'temporaryNodes': 0, 'runningAnimations': 0,
-                                          'maxWidth': '', 'clipPath': ''}, ('Cancelled guard leaves a stale node/style/layer', result)
-                        return result
+                        assert result=={'sameNode':True,'phase':'idle','temporaryNodes':0,'runningAnimations':0,'maxWidth':'','clipPath':''},result
+                        return {**result,'score_delivery_ms':round(latency,2),'logo_time_before_ms':previous_time,'logo_time_after_ms':resumed_time}
 
-                    def resize_during_exit():
-                        prepare('start'); arm_phase(live, 'exit'); revision = scene('qualifier-waiting')
-                        assert pause_phase(live, 'exit') > 0
-                        scale(live, 960, 540); arm_phase(live, 'move'); finish_paused(live)
-                        assert pause_phase(live, 'move') > 0
-                        at_progress(live, .999999)
-                        endpoint = live.evaluate(SNAPSHOT, 'event-art')['box']
-                        finish_paused(live); idle(live, 'qualifier-waiting', revision)
-                        resting = live.evaluate(SNAPSHOT, 'event-art')['box']
-                        return {'viewport': [960, 540], 'logical_endpoint_delta': compare_boxes(endpoint, resting, 'Resized event artwork'),
-                                'resting_logical_box': resting}
+                    def resize_during_motion():
+                        prepare('start');arm_phase(live,'move');revision=scene('qualifier-waiting')
+                        assert pause_phase(live,'move')>0;at_progress(live,.4)
+                        scale(live,960,540);at_progress(live,.999999)
+                        endpoint=live.evaluate(SNAPSHOT,'phigros-logo')['box']
+                        finish_paused(live);idle(live,'qualifier-waiting',revision)
+                        resting=live.evaluate(SNAPSHOT,'phigros-logo')['box']
+                        return {'viewport':[960,540],'logical_endpoint_delta':compare_boxes(endpoint,resting,'Resized logo'),'resting_logical_box':resting}
 
-                    check('short-glyph-linear-path', short_glyph_path)
-                    check('glyph-baseline', glyph_endpoint)
-                    check('waiting-safe-area', waiting_safe_area)
-                    check('long-text-clipping', long_text_clipping)
-                    check('guard-cancel-cleanup', cancel_guard)
-                    check('exit-resize', resize_during_exit)
+                    def transparent_during_logo_motion():
+                        observations=[]
+                        for target in ['qualifier-match','double-elimination-match']:
+                            for cameras in [False,True]:
+                                prepare('start');command('set-broadcast-display',{'showHandcams':cameras});idle(live,'start')
+                                arm_phase(live,'move');revision=scene(target);assert pause_phase(live,'move')>0
+                                for progress in [0,.1,.25,.5,.75,.9,.999999]:
+                                    at_progress(live,progress)
+                                    image=Image.open(io.BytesIO(live.screenshot(omit_background=True))).convert('RGBA')
+                                    for capture in live.locator('[data-capture]').all():
+                                        box=capture.bounding_box()
+                                        interior=(int(box['x'])+2,int(box['y'])+2,int(box['x']+box['width'])-2,int(box['y']+box['height'])-2)
+                                        alpha=image.crop(interior).getchannel('A').getextrema()
+                                        assert alpha==(0,0),('Moving logo occludes capture',target,cameras,progress,capture.get_attribute('data-capture'),box,alpha)
+                                    observations.append({'scene':target,'dual':cameras,'time_fraction':progress,'transparent_slots':live.locator('[data-capture]').count()})
+                                finish_paused(live);idle(live,target,revision)
+                        return {'full_capture_interior_samples':observations}
+
+                    check('short-glyph-eased-path',short_glyph_path)
+                    check('cross-scene-logos-only',cross_scene_logos_only)
+                    check('waiting-safe-area',waiting_safe_area)
+                    check('same-scene-long-text',same_scene_long_text)
+                    check('interrupt-and-reduce',interrupt_and_reduce)
+                    check('motion-resize',resize_during_motion)
+                    check('transparent-during-logo-motion',transparent_during_logo_motion)
+
+                if args.scope in ['painting','all']:
+                    def foreground_painting():
+                        observations=[]
+                        for source,target in [('start','qualifier-waiting'),('start','qualifier-match'),('qualifier-waiting','start')]:
+                            prepare(source);arm_phase(live,'move');revision=scene(target)
+                            assert pause_phase(live,'move')>0
+                            for progress in [.25,.5,.75]:
+                                at_progress(live,progress)
+                                boxes=live.evaluate(r"""()=>{
+                                  const selectors=['.event-title','.event-copy h1','.event-line','.organiser',
+                                    '.waiting-copy h1','.waiting-players p','.player-name h2'];
+                                  const canvas=document.querySelector('#canvas').getBoundingClientRect(),scale=canvas.width/1920;
+                                  return selectors.flatMap(selector=>Array.from(document.querySelectorAll(selector)).flatMap(el=>{
+                                    const range=document.createRange();range.selectNodeContents(el);
+                                    return Array.from(range.getClientRects()).filter(rect=>rect.width>0&&rect.height>0).map(rect=>{
+                                      let left=rect.left,right=rect.right,top=rect.top,bottom=rect.bottom;
+                                      for(let parent=el;parent&&parent.id!=='canvas';parent=parent.parentElement){
+                                        const style=getComputedStyle(parent),clip=parent.getBoundingClientRect();
+                                        if(['hidden','clip','scroll','auto'].includes(style.overflowX)){left=Math.max(left,clip.left);right=Math.min(right,clip.right);}
+                                        if(['hidden','clip','scroll','auto'].includes(style.overflowY)){top=Math.max(top,clip.top);bottom=Math.min(bottom,clip.bottom);}
+                                      }
+                                      return {selector,left:left-2*scale,top:top-2*scale,right:right+2*scale,bottom:bottom+2*scale};
+                                    }).filter(rect=>rect.right>rect.left&&rect.bottom>rect.top);
+                                  }));
+                                }""")
+                                assert boxes,('No foreground glyph areas',source,target)
+                                assert live.locator('[data-motion-branding]').count()==1,'Separate branding layer missing'
+                                shown=Image.open(io.BytesIO(live.screenshot(omit_background=True))).convert('RGBA')
+                                # Floated images carry explicit visible styles;
+                                # opacity hides the whole layer including children.
+                                live.evaluate("document.querySelector('[data-motion-branding]').style.opacity='0'")
+                                try:hidden=Image.open(io.BytesIO(live.screenshot(omit_background=True))).convert('RGBA')
+                                finally:live.evaluate("document.querySelector('[data-motion-branding]').style.removeProperty('opacity')")
+                                for box in boxes:
+                                    crop=(max(0,int(box['left'])),max(0,int(box['top'])),min(shown.width,int(box['right'])),min(shown.height,int(box['bottom'])))
+                                    difference=ImageChops.difference(shown.crop(crop),hidden.crop(crop))
+                                    assert all(extrema==(0,0) for extrema in difference.getextrema()),('Logo alters foreground glyph area',source,target,progress,box,difference.getextrema())
+                                observations.append({'source':source,'target':target,'time_fraction':progress,'unchanged_text_regions':len(boxes)})
+                            finish_paused(live);idle(live,target,revision)
+                        return {'pixel_comparisons':observations}
+                    check('foreground-painting',foreground_painting)
 
                 if args.scope in ['smoke', 'all']:
                     def scene_smoke():
@@ -501,11 +583,12 @@ def main():
                                 assert frame['masks'] == 1, ('Duplicate capture mask', target, frame['masks'])
                                 for animation in frame['animations']:
                                     animations += 1
-                                    assert animation['easing'] == 'linear' and all(f['easing'] == 'linear' for f in animation['frames']), animation
+                                    assert animation['easing'].startswith('cubic-bezier(') and 2000<=animation['duration']<=3000 and all(f['easing']=='linear' for f in animation['frames']),animation
+                                    assert animation['key'] in LOGOS,('Non-logo cross-scene motion',animation)
                                     key = animation['key']
                                     descriptor = key + ('|figure' if key == 'event-art' else '|img') if key else ''
                                     progress = animation['progress']
-                                    if key not in ['phigros-logo', 'club-soc', 'club-kirameki', 'event-art'] or progress is None or not .15 < progress < .85:
+                                    if key not in LOGOS or progress is None or not .15 < progress < .85:
                                         continue
                                     if not all(descriptor in d for d in [trace['before'], trace['after'], frame['keys']]):
                                         continue
@@ -515,7 +598,7 @@ def main():
                                         assert abs(actual[name] - expected) < 2, (target, key, name, actual[name], expected)
                                     samples += 1
                         assert animations > 0 and samples > 0
-                        return {'scene_transitions': 8, 'linear_animation_observations': animations, 'linear_geometry_samples': samples}
+                        return {'scene_transitions': 8, 'nonlinear_animation_observations': animations, 'eased_geometry_samples': samples}
 
                     def transparent_sources():
                         holes = context.new_page(); holes.emulate_media(reduced_motion='reduce'); samples = 0

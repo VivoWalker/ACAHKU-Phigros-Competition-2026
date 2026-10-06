@@ -48,7 +48,7 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
-Page and cover motion uses a consistent **linear** curve: old content exits over 100 ms, shared elements move over 240 ms when their position or size changes, then new content slides in over 160 ms. Capture frames and the transparency mask stay fixed during the transition. Score updates preserve the current layout. Rapid scene changes retain only the latest queued screen, so intermediate screens do not accumulate. Song artwork slides vertically inside its fixed slanted window, using at most two images, and follows forward/backward selection. The control panel keeps keyboard focus and its live preview while selections update. With the browser or operating system's **Reduce motion** setting enabled, these transitions become immediate updates.
+Motion uses a **2.4-second nonlinear curve**, with a gentle start and finish. Within one screen, changes to shared layout elements and song artwork use this curve. When changing screens, only the Phigros and society logos move smoothly; titles, player names, illustration and other content switch immediately. Capture frames and the transparency mask follow the new layout immediately, and moving logos pass behind foreground titles and transparent video windows. Score updates remain immediate, and rapid scene changes use the latest screen without waiting for a previous animation to finish. Song artwork slides vertically inside its fixed slanted window, using at most two images, and follows forward/backward selection; entering another screen sets its artwork immediately. The control panel keeps keyboard focus and its live preview while selections update. With the browser or operating system's **Reduce motion** setting enabled, these transitions become immediate updates.
 
 ### Overlay documents
 
@@ -198,7 +198,7 @@ python3 test/browser-smoke.py
 
 It exercises real controls against temporary data, checks 8 overlay scenes, 1920×1080 / 720p / 540p scaling, iPad landscape/portrait and phone widths, alpha in every capture frame, offline reconnection, no navigation during state updates, local-only requests, keyboard selection and reduced-motion. Screenshots go to ignored `test-results/`. Browser emulation is not a physical iPad or OBS/CEF hardware test; rehearse those devices and actual capture sources before the event.
 
-The motion regression samples intermediate animation frames for all 56 directed page changes, checks shared DOM identity and linear positions, rapid switching, cover loading and replacement, reduced motion, and transparent captures at smaller viewport sizes. It also uses temporary data:
+The motion regression samples intermediate animation frames for all 56 directed page changes, checks that only logos animate across screens, verifies the nonlinear curve and 2–3-second duration within a screen, and checks shared DOM identity, rapid switching, cover loading and replacement, reduced motion, and transparent captures at smaller viewport sizes. It also uses temporary data:
 
 ```sh
 python3 test/motion-layout.py

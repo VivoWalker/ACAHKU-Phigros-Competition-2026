@@ -152,7 +152,9 @@
       canvas.dataset.branding = hasVisual ? 'visual' : 'text';
       canvas.dataset.displayMode = mode;
       const windowEl = mount.querySelector('.selection-art'), src = windowEl ? art(focus) : undefined;
-      if (windowEl && previousScene === scene && committedCover) {
+      if (windowEl && previousScene !== scene) {
+        BroadcastMotion.coverSlide(windowEl, committedCover, 1, { src, alt: focus?.title || 'Song artwork', immediate: true });
+      } else if (windowEl && committedCover) {
         const direction = focusIndex >= 0 && committedFocus >= 0 && focusIndex < committedFocus ? -1 : 1;
         BroadcastMotion.coverSlide(windowEl, committedCover, direction, { src, alt: focus?.title || 'Song artwork' });
       }
