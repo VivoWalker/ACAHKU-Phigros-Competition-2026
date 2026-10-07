@@ -350,8 +350,13 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 trace=stop_trace(live);checked_cover_trace(trace,'duplicate state during artwork decoding')
                 validate_cover_no_flashback(trace,'/'+target['art'])
                 banned = target['id']
-                other = next(c for c in candidates if c['id'] != banned)
-                command('ban-song', {'playerIndex': 1, 'songId': other['id']})
+                # Pick a uniquely illustrated second ban and let it settle.
+                # The random draw must then change the bitmap; duplicate cover
+                # artwork correctly produces no movement and cannot test this.
+                other = next(c for c in candidates if c['id'] != banned and sum(song['art']==c['art'] for song in candidates)==1)
+                revision=command('ban-song', {'playerIndex': 1, 'songId': other['id']})['revision']
+                idle(live,'song-selection',revision);cover_idle(live,'.selection-art')
+                assert live.locator('.selection-art img').get_attribute('src')=='/'+other['art']
                 start_trace(live);command('pick-songs')
                 live.wait_for_function('document.querySelector(".selection-art").dataset.coverMotionPhase==="move"')
                 revision=command('set-match-score',{'playerIndex':0,'songIndex':0,'score':999100})['revision']
