@@ -24,8 +24,9 @@ PROBE=r'''() => {
  const visible=e=>{let opacity=1;for(let p=e;p&&p!==root;p=p.parentElement){const s=getComputedStyle(p);if(s.visibility==='hidden')return false;opacity*=Number(s.opacity);}return opacity>.025};
  const bounds=e=>{const b=e.getBoundingClientRect();let r={left:b.left,top:b.top,right:b.right,bottom:b.bottom};
   if(e.dataset.motionEntryRect){const f=JSON.parse(e.dataset.motionEntryRect),s=canvas.getBoundingClientRect(),scale=s.width/1920;r.left=Math.max(r.left,s.left+f.left*scale);r.right=Math.min(r.right,s.left+(f.left+f.width)*scale);r.top=Math.max(r.top,s.top+f.top*scale);r.bottom=Math.min(r.bottom,s.top+(f.top+f.height)*scale);}
+  if(e.dataset.motionExit){const f=e.parentElement.getBoundingClientRect();r.left=Math.max(r.left,f.left);r.right=Math.min(r.right,f.right);r.top=Math.max(r.top,f.top);r.bottom=Math.min(r.bottom,f.bottom);}
   return r;};
- const selected=()=>{const all=[...root.querySelectorAll(selectors)];return all.filter(e=>!all.some(p=>p!==e&&p.contains(e)))};
+ const selected=()=>{const all=[...root.querySelectorAll(selectors)].filter(e=>!e.closest('[data-motion-exits]'));all.push(...root.querySelectorAll('[data-motion-exit]'));return all.filter(e=>!all.some(p=>p!==e&&p.contains(e)))};
  const trace={frames:0,overlaps:[],timings:[],entries:[],logos:[],outside:[],layerErrors:[],completed:false};
  let active=true;
  const rectOverlap=(a,b)=>Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
@@ -34,7 +35,7 @@ PROBE=r'''() => {
   for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];if(a.node.contains(b.node)||b.node.contains(a.node))continue;const area=rectOverlap(a.box,b.box);if(area>4&&trace.overlaps.length<30)trace.overlaps.push({scene:canvas.dataset.renderedScene,phase:root.dataset.motionPhase,a:a.name,b:b.name,area,ab:a.box,bb:b.box});}
   const stage=canvas.getBoundingClientRect();for(const {box,name} of boxes)if(box.left<stage.left-2||box.right>stage.right+2||box.top<stage.top-2||box.bottom>stage.bottom+2)if(trace.outside.length<10)trace.outside.push({name,box});
   for(const logo of logos()){if(getComputedStyle(logo).clipPath!=='none'||logo.closest('[data-motion-branding]')&&getComputedStyle(logo.closest('[data-motion-branding]')).clipPath!=='none')trace.layerErrors.push('clipped logo');if(Number(getComputedStyle(logo).zIndex)<1000)trace.layerErrors.push('logo not topmost');}
-  for(const a of root.getAnimations({subtree:true})){const target=a.effect.target,t=a.effect.getTiming();if(!trace.timings.some(x=>x.target===target&&x.animation===a)){trace.timings.push({target,animation:a,scene:canvas.dataset.renderedScene,start:a.startTime,key:target.dataset.motionKey||'',entry:target.dataset.motionEntry||'',duration:t.duration,delay:t.delay,easing:t.easing,frames:a.effect.getKeyframes().map(f=>({transform:f.transform,opacity:f.opacity,maskSize:f.maskSize})),order:Number(target.dataset.motionOrder),rect:target.dataset.motionEntryRect?JSON.parse(target.dataset.motionEntryRect):null});}}
+  for(const a of root.getAnimations({subtree:true})){const target=a.effect.target,t=a.effect.getTiming();if(!trace.timings.some(x=>x.target===target&&x.animation===a)){trace.timings.push({target,animation:a,scene:canvas.dataset.renderedScene,start:a.startTime,key:target.dataset.motionKey||'',entry:target.dataset.motionEntry||'',exit:target.dataset.motionExit||'',duration:t.duration,delay:t.delay,easing:t.easing,frames:a.effect.getKeyframes().map(f=>({transform:f.transform,opacity:f.opacity,maskSize:f.maskSize})),order:Number(target.dataset.motionOrder),rect:target.dataset.motionEntryRect||target.dataset.motionExitRect?JSON.parse(target.dataset.motionEntryRect||target.dataset.motionExitRect):null});}}
   requestAnimationFrame(frame);
  }
  trace.stop=()=>{active=false;return {...trace,timings:trace.timings.map(({target,animation,...rest})=>rest),stop:undefined}};window.__trace=trace;requestAnimationFrame(frame);
@@ -68,15 +69,18 @@ def validate(trace,label):
   if a['entry']:
    assert a['frames'][0]['opacity']=='0' and '36px' in a['frames'][0]['transform'],(label,a)
    assert a['frames'][-1]['maskSize']=='100% 100%',(label,a)
- entries=[a for a in trace['timings'] if a['entry']]
+  if a['exit']:
+   assert a['duration']==560 and float(a['frames'][0]['opacity'])>0,(label,a)
+   assert a['frames'][-1]['opacity']=='0' and a['frames'][-1]['transform']=='translateX(-36px)',(label,a)
+ entries=[a for a in trace['timings'] if a['entry'] or a['exit']]
  groups={}
- for a in entries:groups.setdefault((a['scene'],round(a['start']-a['order']*65,2)),[]).append(a)
+ for a in entries:groups.setdefault((a['scene'],bool(a['exit']),round(a['start']-a['order']*65,2)),[]).append(a)
  for items in groups.values():
   byorder=sorted(items,key=lambda a:a['order'])
   for a,b in zip(byorder,byorder[1:]):
    assert a['rect']['left']<=b['rect']['left']+.5,(label,'not left-to-right',a,b)
    assert a['start']<=b['start']+.5,(label,'not staggered',a,b)
- return len(entries)
+ return sum(bool(a['entry']) for a in entries)
 with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
  process=subprocess.Popen(['node','-e',CODE,data],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
  try:
@@ -90,21 +94,21 @@ with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
    driver.evaluate('''async()=>{const r=await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:'motion-fixture-code'})});const {token}=await r.json();const socket=io('/control',{auth:{token}});let state;await new Promise(resolve=>socket.once('state',s=>{state=s;resolve()}));socket.on('state',s=>state=s);window.cmd=(type,payload={})=>new Promise((resolve,reject)=>socket.emit('command',{expectedRevision:state.revision,action:{type,payload:{matchId:state.tournament.currentMatchId,...payload}}},r=>r.ok?resolve(r):reject(Error(r.error))));}''')
    def command(type,payload={}):return driver.evaluate('a=>window.cmd(a.type,a.payload)',{'type':type,'payload':payload})
    page=context.new_page();page.goto(base+'/overlay/live.html');page.wait_for_selector('[data-branding="visual"]');page.evaluate('document.fonts.ready');idle(page)
-   report={'pairs':0,'frames':0,'entrances':0,'viewports':[]}
+   report={'pairs':0,'frames':0,'entrances':0,'exits':0,'viewports':[]}
    def check(target,label=None):
-    page.evaluate(PROBE);command('set-scene',{'scene':target});idle(page,target);trace=page.evaluate('window.__trace.stop()');report['frames']+=trace['frames'];report['entrances']+=validate(trace,label or target);audit=page.evaluate(TEXT_AUDIT);assert not audit['overlaps'],(label or target,'text overlaps',audit);return trace
+    page.evaluate(PROBE);command('set-scene',{'scene':target});idle(page,target);trace=page.evaluate('window.__trace.stop()');report['frames']+=trace['frames'];report['entrances']+=validate(trace,label or target);report['exits']+=sum(bool(a['exit']) for a in trace['timings']);audit=page.evaluate(TEXT_AUDIT);assert not audit['overlaps'],(label or target,'text overlaps',audit);assert not page.locator('[data-motion-exits]').count();return trace
    if os.environ.get('TRANSITION_RECORD')=='1':
     page.add_style_tag(content='html{background:#101218!important}')
     frames=[]
     for target in ['qualifier-waiting','start','qualifier-match','start','double-elimination-match','bracket','song-selection','start']:
      page.evaluate(PROBE);command('set-scene',{'scene':target})
      began=time.monotonic()
-     for seconds in [0,.2,.45,.75,1.,1.4,2.]:
+     for seconds in [0,.3,.65,1.,1.5,2.,3.2]:
       remaining=seconds-(time.monotonic()-began)
       if remaining>0:page.wait_for_timeout(remaining*1000)
       path=OUT/f'{target}-{len(frames):03}.jpg';page.screenshot(path=str(path));frames.append((target,path))
      idle(page,target);trace=page.evaluate('window.__trace.stop()')
-     report['frames']+=trace['frames'];report['entrances']+=validate(trace,target);report['pairs']+=1
+     report['frames']+=trace['frames'];report['entrances']+=validate(trace,target);report['exits']+=sum(bool(a['exit']) for a in trace['timings']);report['pairs']+=1
      audit=page.evaluate(TEXT_AUDIT);assert not audit['overlaps'],(target,'text overlaps',audit)
     video=page.video;context.close();shutil.copyfile(video.path(),OUT/'transition-preview.webm')
     sheet=Image.new('RGB',(320*7,202*8),'#24232e');draw=ImageDraw.Draw(sheet)
@@ -139,9 +143,9 @@ with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
     idle(page);assert '999,876' in page.locator('.player-total').first.inner_text()
     page.evaluate(PROBE)
     for target in ['start','bracket','start','qualifier-match']:command('set-scene',{'scene':target});page.wait_for_timeout(80)
-    idle(page,'qualifier-match');validate(page.evaluate('window.__trace.stop()'),'rapid switching');assert page.locator('[data-motion-live],[data-motion-placeholder],[data-motion-entry]').count()==0
+    idle(page,'qualifier-match');validate(page.evaluate('window.__trace.stop()'),'rapid switching');assert page.locator('[data-motion-live],[data-motion-placeholder],[data-motion-entry],[data-motion-exits]').count()==0
     command('set-scene',{'scene':'start'});page.wait_for_timeout(100);page.emulate_media(reduced_motion='reduce');idle(page,'start')
-    assert page.locator('[data-motion-live],[data-motion-placeholder],[data-motion-entry]').count()==0
+    assert page.locator('[data-motion-live],[data-motion-placeholder],[data-motion-entry],[data-motion-exits]').count()==0
     assert not page.evaluate('document.querySelector("#scene").getAnimations({subtree:true}).some(a=>a.playState==="running")')
     page.emulate_media(reduced_motion='no-preference')
     for match_id in [m['id'] for m in context.request.get(base+'/api/state').json()['tournament']['matches'] if m['status']!='complete']:
@@ -160,6 +164,7 @@ with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
       for si in [0,1]:command('set-match-score',{'playerIndex':pi,'songIndex':si,'score':990000-pi*10000})
      command('record-result')
     report.update(live_score=True,rapid_latest=True,reduced_motion=True,transparent_captures=True,grand_final=True)
+   assert report['exits']>0,report
    assert not errors,errors;report.update(result='PASS',browser_errors=errors)
    (OUT/'report.json').write_text(json.dumps(report,indent=2));print(json.dumps(report));browser.close()
  finally:

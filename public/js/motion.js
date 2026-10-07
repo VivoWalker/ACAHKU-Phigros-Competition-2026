@@ -75,7 +75,7 @@
     + '.ranking-tables > section, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
     + '.selection-art, .selection-detail > h2, .picks, .selection-state, .empty-copy';
   function entryNodes(root) {
-    const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)];
+    const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits]'));
     const selected = new Set(nodes);
     return nodes.filter(node => {
       for (let parent = node.parentElement; parent && parent !== root; parent = parent.parentElement) if (selected.has(parent)) return false;
@@ -150,7 +150,35 @@
         height: `${value.rect.height}px`, opacity: value.opacity, ...(node.localName === 'span' ? { fontSize: value.fontSize } : {}) });
       return [frame(a), frame(b)];
     }
-    async function perform(record, before, previousTracks, previousPresentation, previousLayout, token) {
+    // Freeze only the outgoing presentation. The live tree commits immediately,
+    // so operator commands and score revisions never wait for an exit animation.
+    function snapshotExits(scale) {
+      const result = [];
+      for (const { node, id } of entryNodes(mount)) {
+        const css = getComputedStyle(node), rect = measure(node, mount, scale).rect;
+        if (Number(css.opacity) < .025 || css.visibility === 'hidden' || !rect.width || !rect.height) continue;
+        const clone = node.cloneNode(true);
+        const sources = [node, ...node.querySelectorAll('*')], copies = [clone, ...clone.querySelectorAll('*')];
+        sources.forEach((source, index) => {
+          const copy = copies[index], computed = getComputedStyle(source);
+          for (const property of computed) copy.style.setProperty(property, computed.getPropertyValue(property));
+          for (const attribute of [...copy.attributes])
+            if (attribute.name === 'id' || attribute.name.startsWith('data-motion-')) copy.removeAttribute(attribute.name);
+        });
+        Object.assign(clone.style, { position: 'absolute', left: '0px', top: '0px', right: 'auto', bottom: 'auto',
+          margin: '0px', width: `${rect.width}px`, height: `${rect.height}px`, transform: 'none',
+          animation: 'none', transition: 'none' });
+        const slot = document.createElement('div');
+        Object.assign(slot.style, { position: 'absolute', left: `${rect.left}px`, top: `${rect.top}px`,
+          width: `${rect.width}px`, height: `${rect.height}px`, overflow: 'hidden' });
+        slot.append(clone);
+        result.push({ node: clone, slot, id, rect, opacity: css.opacity });
+      }
+      result.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top || a.id.localeCompare(b.id));
+      const start = clock();
+      return result.map((item, order) => ({ ...item, order, start: start + order * STAGGER }));
+    }
+    async function perform(record, before, previousTracks, previousPresentation, previousLayout, exits, token) {
       const template = document.createElement('template'); template.innerHTML = record.html;
       const initial = markup === undefined, changedScene = scene !== record.scene;
       commit(record, template);
@@ -159,21 +187,38 @@
       lastLayout = new Map(layout.map(item => [item.id, item.rect]));
       if (reduce.matches) { settled(); record.resolve({ superseded: false }); return; }
       const jobs = [], tracks = [];
+      exits = exits.filter(item => item.start + ENTRY_DURATION > now);
+      const exitEnd = Math.max(now, ...exits.map(item => item.start + ENTRY_DURATION));
+      if (exits.length) {
+        const layer = document.createElement('div'); layer.dataset.motionExits = '';
+        layer.setAttribute('aria-hidden', 'true'); layer.inert = true;
+        Object.assign(layer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '2' });
+        mount.append(layer); cleanups.push(() => layer.remove());
+        for (const item of exits) {
+          layer.append(item.slot);
+          item.node.dataset.motionExit = item.id; item.node.dataset.motionOrder = String(item.order);
+          item.node.dataset.motionExitRect = JSON.stringify(item.rect);
+          jobs.push(animate(item.node, [
+            { opacity: item.opacity, transform: 'translateX(0px)' },
+            { opacity: 0, transform: 'translateX(-36px)' }
+          ], ENTRY_DURATION, item.start).then(() => { if (token === epoch) item.slot.remove(); }));
+        }
+      }
       for (const [key, node] of keyed(mount)) {
         if (!LOGOS.has(key)) continue;
         const target = measure(node, mount, scale), old = before.get(key), prior = previousTracks.get(key);
         if (prior && sameRect(prior.target.rect, target.rect) && prior.start + LOGO_DURATION > now) {
-          tracks.push({ key, node, ...prior, target });
+          tracks.push({ key, node, ...prior, target, fresh: false });
         } else if (old && (!sameRect(old.rect, target.rect) || old.fontSize !== target.fontSize)) {
-          tracks.push({ key, node, before: old, target, start: now });
+          tracks.push({ key, node, before: old, target, start: exitEnd, fresh: true });
         } else if (!old && !initial) {
-          tracks.push({ key, node, before: { ...target, opacity: '0' }, target, start: now });
+          tracks.push({ key, node, before: { ...target, opacity: '0' }, target, start: exitEnd, fresh: true });
         }
       }
-      const logoEnd = Math.max(now, ...tracks.map(track => track.start + LOGO_DURATION));
-      const continuing = !changedScene && previousPresentation && !tracks.some(track => track.start === now);
-      presentation = { scene, entries: new Map(continuing?.entries || []) };
-      const newItems = layout.filter(item => initial || changedScene || tracks.length && !continuing ||
+      const logoEnd = Math.max(exitEnd, ...tracks.map(track => track.start + LOGO_DURATION));
+      const continuing = !changedScene && previousPresentation && !tracks.some(track => track.fresh);
+      presentation = { scene, exits, entries: new Map(continuing?.entries || []) };
+      const newItems = layout.filter(item => initial || changedScene || (tracks.length || exits.length) && !continuing ||
         !previousLayout.has(item.id) || !item.node.matches('.player-total') && !sameRect(previousLayout.get(item.id), item.rect));
       newItems.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top || a.id.localeCompare(b.id));
       let order = 0;
@@ -190,19 +235,24 @@
           logoTracks.set(track.key, track);
           jobs.push(animate(track.node, floatLogo(track.node, track.before, track.target, layer), LOGO_DURATION, track.start));
         }
-        // Reserve the transition stage for branding. New video apertures and
-        // labels appear only after the topmost logos have reached their slots.
+      }
+      if (exits.length || tracks.length) {
+        // Video apertures stay closed until the outgoing content and branding
+        // have cleared the stage. They retain their calibrated OBS positions.
         for (const node of mount.querySelectorAll('[data-capture], #capture-mask rect[fill="black"]'))
           jobs.push(animate(node, [{ opacity: 0 }, { opacity: 0 }], Math.max(0, logoEnd - now), now));
-        jobs.push(new Promise(resolve => {
-          const timer = setTimeout(() => { if (token === epoch) mount.dataset.motionPhase = 'enter'; resolve(); }, Math.max(0, logoEnd - now));
+        const phaseAt = (at, phase) => jobs.push(new Promise(resolve => {
+          const timer = setTimeout(() => { if (token === epoch) mount.dataset.motionPhase = phase; resolve(); }, Math.max(0, at - now));
           cleanups.push(() => { clearTimeout(timer); resolve(); });
         }));
+        mount.dataset.motionPhase = exits.length ? 'exit' : 'move';
+        if (exits.length && tracks.length) phaseAt(exitEnd, 'move');
+        phaseAt(logoEnd, 'enter');
       }
       for (const { node, id, rect } of layout) {
         const plan = presentation.entries.get(id);
         if (!plan || now >= plan.start + ENTRY_DURATION) continue;
-        if (!tracks.length) mount.dataset.motionPhase = 'enter';
+        if (!tracks.length && !exits.length) mount.dataset.motionPhase = 'enter';
         node.dataset.motionEntry = id; node.dataset.motionOrder = String(plan.order);
         node.dataset.motionEntryRect = JSON.stringify(rect);
         cleanups.push(() => { delete node.dataset.motionEntry; delete node.dataset.motionOrder; delete node.dataset.motionEntryRect; });
@@ -229,9 +279,13 @@
       const scale = scaleFor(mount, canvas);
       const before = new Map([...keyed(mount)].filter(([key]) => LOGOS.has(key)).map(([key, node]) => [key, measure(node, mount, scale)]));
       const previousTracks = new Map(logoTracks), previousPresentation = presentation, previousLayout = lastLayout;
+      const exits = reduce.matches ? [] : [
+        ...(previousPresentation?.exits || []).filter(item => item.start + ENTRY_DURATION > clock()),
+        ...(markup !== undefined && nextScene !== scene ? snapshotExits(scale) : [])
+      ];
       cancel(); logoTracks.clear(); running = true; current = record;
       const token = epoch;
-      perform(record, before, previousTracks, previousPresentation, previousLayout, token).catch(error => {
+      perform(record, before, previousTracks, previousPresentation, previousLayout, exits, token).catch(error => {
         if (token !== epoch) return;
         restoreAll(); settled(); current = null; record.reject(error);
       });
