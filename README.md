@@ -48,7 +48,7 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
-Motion uses a **2.4-second nonlinear curve**, with a gentle start and finish. Within one screen, changes to shared layout elements and song artwork use this curve. When changing screens, only the Phigros and society logos move smoothly; titles, player names, illustration and other content switch immediately. Capture frames and the transparency mask follow the new layout immediately, and moving logos pass behind foreground titles and transparent video windows. Score updates remain immediate, and rapid scene changes use the latest screen without waiting for a previous animation to finish. Song artwork slides vertically inside its fixed slanted window, using at most two images, and follows forward/backward selection; entering another screen sets its artwork immediately. The control panel keeps keyboard focus and its live preview while selections update. With the browser or operating system's **Reduce motion** setting enabled, these transitions become immediate updates.
+Logos move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 2.4-second nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
 
 ### Overlay documents
 
@@ -198,7 +198,7 @@ python3 test/browser-smoke.py
 
 It exercises real controls against temporary data, checks 8 overlay scenes, 1920×1080 / 720p / 540p scaling, iPad landscape/portrait and phone widths, alpha in every capture frame, offline reconnection, no navigation during state updates, local-only requests, keyboard selection and reduced-motion. Screenshots go to ignored `test-results/`. Browser emulation is not a physical iPad or OBS/CEF hardware test; rehearse those devices and actual capture sources before the event.
 
-The motion regression samples intermediate animation frames for all 56 directed page changes, checks that only logos animate across screens, verifies the nonlinear curve and 2–3-second duration within a screen, and checks shared DOM identity, rapid switching, cover loading and replacement, reduced motion, and transparent captures at smaller viewport sizes. It also uses temporary data:
+The motion regression checks all 56 directed page changes frame by frame: logo duration/layering, left-to-right entrance order, right-to-left fade/slide, element overlap, stage bounds, rapid updates, reduced motion and transparent captures. Cover loading, replacement and keyboard interaction use a separate suite. Both operate on temporary event data:
 
 ```sh
 python3 test/motion-layout.py
@@ -213,7 +213,7 @@ python3 test/control-drafts.py
 python3 scripts/motion-regression.py
 ```
 
-The operator test checks per-match drafts, complete forms and dropdown/checkbox focus, conflicting edits, reviewed result correction and backup restore, player renaming, source verification and preview continuity. The motion edge test checks actual text positions, long-name clipping, long song titles and resizing during transitions.
+The operator test checks per-match drafts, complete forms and dropdown/checkbox focus, conflicting edits, reviewed result correction and backup restore, player renaming, source verification and preview continuity. The motion edge test repeats the current choreography checks with long player names, song titles and event headings.
 
 An independent long-roster browser regression checks 32 players per group, eight-row pages, fixed and out-of-range page requests, row visibility and automatic rotation through every player. It accelerates only the 12-second ranking timer for the test and uses temporary tournament data:
 
