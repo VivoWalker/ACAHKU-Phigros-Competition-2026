@@ -48,7 +48,7 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
-On a scene change, the old content first slides **left and fades out**, starting with the leftmost element. Exits use the same nonlinear easing, 560 ms duration and 65 ms stagger as entrances. Outgoing snapshots are clipped to their original slots and removed automatically; score and state revisions continue to commit immediately. Logos then move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 2.4-second nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
+The filtered background stays mounted between scenes; only the transparent capture apertures change. Exit snapshots copy only the appearance/layout styles they use, keeping scene switches lightweight. On a scene change, the old content first slides **left and fades out**, starting with the leftmost element. Exits use the same nonlinear easing, 560 ms duration and 65 ms stagger as entrances. Outgoing snapshots are clipped to their original slots and removed automatically; score and state revisions continue to commit immediately. Logos then move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 2.4-second nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
 
 ### Overlay documents
 
@@ -202,6 +202,7 @@ The motion regression checks all 56 directed page changes frame by frame: logo d
 
 ```sh
 python3 test/motion-layout.py
+python3 test/background-continuity.py
 ```
 
 Set `MOTION_TEST_SCOPE=scenes` or `MOTION_TEST_SCOPE=covers` for a focused run. `MOTION_RECORD_PREVIEW=1` records a real browser WebM; outputs use `BROADCAST_TEST_OUTPUT` or `test-results/`.

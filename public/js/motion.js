@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const KEY = '[data-motion-key]', STATIC = '[data-motion-static]';
+  const KEY = '[data-motion-key]';
   const DURATION = 2400, LOGO_DURATION = 760, ENTRY_DURATION = 560, STAGGER = 65, EASING = 'cubic-bezier(.45, 0, .55, 1)';
   const LOGOS = new Set(['phigros-logo', 'phigros-wordmark', 'club-soc', 'club-kirameki']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -8,7 +8,6 @@
   const activeCovers = new Set();
   const sceneControllers = new Set();
   const compatible = (a, b) => a && a.localName === b.localName && a.namespaceURI === b.namespaceURI;
-  const isStatic = node => !!node.closest(STATIC);
   const ownKeys = root => [...root.querySelectorAll(KEY)].filter(node => !node.closest('[data-motion-ghost]'));
   function keyed(root) {
     const result = new Map();
@@ -31,25 +30,6 @@
     const result = { rect: logical(bounds), fontSize: style.fontSize, lineHeight: style.lineHeight,
       transform: style.transform === 'none' ? '' : style.transform, width: style.width, height: style.height,
       visibility: style.visibility, opacity: style.opacity };
-    if (node.localName === 'span' && node.textContent) {
-      const range = document.createRange(); range.selectNodeContents(node);
-      const text = range.getBoundingClientRect(); result.textRect = logical(text);
-      let left = bounds.left, right = bounds.right, top = bounds.top, bottom = bounds.bottom;
-      result.textOverflow = style.textOverflow;
-      for (let parent = node; parent && parent !== mount; parent = parent.parentElement) {
-        const css = getComputedStyle(parent), rect = parent.getBoundingClientRect();
-        if (['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowX)) {
-          left = Math.max(left, rect.left + parseFloat(css.borderLeftWidth) * scale.x);
-          right = Math.min(right, rect.right - parseFloat(css.borderRightWidth) * scale.x);
-          if (css.textOverflow === 'ellipsis') result.textOverflow = 'ellipsis';
-        }
-        if (['hidden', 'clip', 'scroll', 'auto'].includes(css.overflowY)) {
-          top = Math.max(top, rect.top + parseFloat(css.borderTopWidth) * scale.y);
-          bottom = Math.min(bottom, rect.bottom - parseFloat(css.borderBottomWidth) * scale.y);
-        }
-      }
-      result.visibleRect = logical({ left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) });
-    }
     return result;
   }
   function attributes(node, source) {
@@ -87,8 +67,19 @@
       return { node, id: identity + (node.matches('.player-total,.song-scores') ? '' : ':' + node.textContent.trim()) };
     });
   }
+  // Copy the properties that establish a snapshot's geometry and appearance.
+  // Enumerating every computed property (including hundreds of unused defaults)
+  // made large ranking/bracket scenes block the render thread during a switch.
+  const SNAPSHOT_STYLES = ('display position left top right bottom box-sizing width height min-width min-height max-width max-height '
+    + 'margin padding border-top border-right border-bottom border-left border-radius border-collapse border-spacing table-layout background color opacity visibility overflow overflow-x overflow-y '
+    + 'font-family font-size font-weight font-style font-variant line-height letter-spacing text-align text-transform text-decoration '
+    + 'text-overflow white-space overflow-wrap word-break vertical-align '
+    + 'flex flex-direction flex-wrap align-items align-self justify-content justify-self order gap '
+    + 'grid-template-columns grid-template-rows grid-column grid-row grid-auto-flow '
+    + 'object-fit object-position transform transform-origin clip-path mask-image mask-size mask-position mask-repeat '
+    + 'filter box-shadow text-shadow z-index -webkit-line-clamp -webkit-box-orient').split(' ');
   function createScene(mount, { canvas } = {}) {
-    let markup, scene, epoch = 0, running = false, current, presentation, lastLayout = new Map();
+    let backdrop, markup, scene, epoch = 0, running = false, current, presentation, lastLayout = new Map();
     const animations = new Set(), cleanups = [], waiters = [], logoTracks = new Map();
     const clock = () => document.timeline.currentTime ?? performance.now();
     mount.dataset.motionPhase = 'idle';
@@ -111,8 +102,26 @@
       return { previousScene: scene, scene: record.scene, initial: markup === undefined,
         oldCoverSrc: mount.querySelector('.selection-art img:not([data-motion-cover-old])')?.getAttribute('src') || null };
     }
+    function syncBackdrop(template) {
+      const next = template.content.querySelector('.broadcast-backdrop');
+      if (!next) return;
+      next.remove();
+      if (!backdrop) {
+        // This expensive filtered artwork stays attached across every scene.
+        // Only its capture apertures change; it is never an exit snapshot.
+        backdrop = next; mount.before(backdrop); return;
+      }
+      const mask = backdrop.querySelector('#capture-mask'), nextMask = next.querySelector('#capture-mask');
+      if (mask.innerHTML !== nextMask.innerHTML) mask.replaceChildren(...nextMask.childNodes);
+      const image = backdrop.querySelector('image'), nextImage = next.querySelector('image');
+      if (image?.getAttribute('href') !== nextImage?.getAttribute('href')) {
+        if (image) image.remove();
+        if (nextImage) backdrop.querySelector('g').insertBefore(nextImage, backdrop.querySelector('g path'));
+      }
+    }
     function commit(record, template) {
       const info = context(record);
+      syncBackdrop(template);
       mount.replaceChildren(...reconcile(template.content, keyed(mount)));
       markup = record.html; scene = record.scene; mount.dataset.motionScene = String(scene || '');
       record.onCommit?.(info);
@@ -161,7 +170,7 @@
         const sources = [node, ...node.querySelectorAll('*')], copies = [clone, ...clone.querySelectorAll('*')];
         sources.forEach((source, index) => {
           const copy = copies[index], computed = getComputedStyle(source);
-          for (const property of computed) copy.style.setProperty(property, computed.getPropertyValue(property));
+          for (const property of SNAPSHOT_STYLES) copy.style.setProperty(property, computed.getPropertyValue(property));
           for (const attribute of [...copy.attributes])
             if (attribute.name === 'id' || attribute.name.startsWith('data-motion-')) copy.removeAttribute(attribute.name);
         });
@@ -239,7 +248,7 @@
       if (exits.length || tracks.length) {
         // Video apertures stay closed until the outgoing content and branding
         // have cleared the stage. They retain their calibrated OBS positions.
-        for (const node of mount.querySelectorAll('[data-capture], #capture-mask rect[fill="black"]'))
+        for (const node of [...mount.querySelectorAll('[data-capture]'), ...(backdrop?.querySelectorAll('#capture-mask rect[fill="black"]') || [])])
           jobs.push(animate(node, [{ opacity: 0 }, { opacity: 0 }], Math.max(0, logoEnd - now), now));
         const phaseAt = (at, phase) => jobs.push(new Promise(resolve => {
           const timer = setTimeout(() => { if (token === epoch) mount.dataset.motionPhase = phase; resolve(); }, Math.max(0, at - now));
