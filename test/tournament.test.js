@@ -114,16 +114,18 @@ test('fourteen-match final is decisive even when the winners-bracket champion lo
 test('final MC choice is private until reveal and final requires three songs', () => {
   const s = seeded(); for (const m of s.tournament.matches.filter(x => x.id !== 'GF')) complete(s, m.id);
   act(s, 'select-match', { matchId: 'GF' });
-  act(s, 'upsert-song', { song: { title: 'Finals exclusive', artist: 'Guest', difficulty: 'AT', level: 17, eligible: false } });
+  act(s, 'upsert-song', { song: { title: 'Finals exclusive', artist: 'Guest', difficulty: 'AT', level: 17, eligible: false, previewAudio: 'assets/song-preview/finals-exclusive.mp3' } });
   const outside = s.library.at(-1); const ids = [...s.library.slice(0, 7).map(s => s.id), outside.id];
   act(s, 'set-final-candidates', { ids }); act(s, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: outside.id });
   const gf = s.tournament.matches.at(-1), redacted = publicState(s).tournament.matches.at(-1);
   assert.equal(gf.hostPick.title, 'Finals exclusive'); assert.equal('hostPick' in redacted, false);
   assert.equal(redacted.songs[2].hidden, true); assert.equal(redacted.songs[2].title, 'MC PICK — SEALED');
+  assert.equal('previewAudio' in redacted.songs[2], false);
   assert.throws(() => act(s, 'set-song-progress', { index: 2 }), /Reveal/);
   assert.throws(() => act(s, 'set-match-score', { playerIndex: 0, songIndex: 2, score: 999999 }), /Reveal/);
   assert.throws(() => act(s, 'record-result'), /every song score/);
   act(s, 'reveal-host-song'); assert.equal(publicState(s).tournament.matches.at(-1).songs[2].title, 'Finals exclusive');
+  assert.equal(publicState(s).tournament.matches.at(-1).songs[2].previewAudio, 'assets/song-preview/finals-exclusive.mp3');
   gf.scores.forEach((row, pi) => row.forEach((_, si) => act(s, 'set-match-score', { playerIndex: pi, songIndex: si, score: pi === 0 ? 990000 : 980000 })));
   act(s, 'record-result'); assert.equal(s.result.totals[0], 2970000);
 });

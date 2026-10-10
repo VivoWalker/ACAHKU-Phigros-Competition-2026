@@ -64,6 +64,7 @@ PROBE = r"""() => {
     const roots=mount?[mount]:Array.from(document.querySelectorAll('.cover-window'));
     const animations=roots.flatMap(root=>root.getAnimations({subtree:true})).filter(a=>a.playState==='running'||a.pending).map(a=>({
       key:a.effect.target?.dataset.motionKey||a.effect.target?.dataset.motionFor||'',easing:a.effect.getTiming().easing,
+      artwork:a.effect.target?.localName==='img'&&!!a.effect.target.closest('.selection-art,.cover-window'),
       progress:a.effect.getComputedTiming().progress,duration:a.effect.getTiming().duration,currentTime:a.currentTime,
       frames:a.effect.getKeyframes().map(f=>({easing:f.easing,transform:f.transform,opacity:f.opacity}))
     }));
@@ -137,7 +138,8 @@ def validate_trace(trace, label, scene_motion=True, cross_scene=False, logos_onl
         for animation in frame['animations']:
             observed_animations += 1
             assert animation['easing'].startswith('cubic-bezier('), (label, 'Expected nonlinear smooth easing', animation)
-            assert (0 < animation['duration'] < 1000 if animation['key'] in LOGOS else animation['duration'] in [560, 2400]), (label, 'Unexpected transition duration', animation)
+            assert (0 < animation['duration'] < 1000 if animation['key'] in LOGOS else animation['duration'] in [560, 550]), (label, 'Unexpected transition duration', animation)
+            if animation['artwork']: assert animation['duration']==550, (label, 'Artwork switch should finish in 550 ms', animation)
             assert all(f['easing'] == 'linear' for f in animation['frames']), (label, animation)
             if cross_scene and animation['key'] in LOGOS:
                 assert animation['duration'] < 1000, (label, 'Slow branding', animation)

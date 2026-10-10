@@ -184,6 +184,7 @@ def main():
                 a.fill('#song-title', 'Draft AT exclusive')
                 a.fill('#song-artist', 'Regression fixture')
                 a.fill('#song-level', '17.6')
+                a.fill('#song-preview-audio', 'assets/song-preview/prepared.mp3')
                 a.select_option('#song-difficulty', 'AT')
                 a.uncheck('#song-eligible')
                 a.focus('#song-difficulty')
@@ -205,13 +206,17 @@ def main():
                 assert a.input_value('#song-artist') == 'Regression fixture'
                 assert a.input_value('#song-difficulty') == 'AT'
                 assert a.input_value('#song-level') == '17.6'
+                assert a.input_value('#song-preview-audio') == 'assets/song-preview/prepared.mp3'
                 assert not a.is_checked('#song-eligible')
                 a.click('#event-form button[type="submit"]')
                 a.wait_for_function('fetch("../api/state").then(response=>response.json()).then(state=>state.event.title === "Local draft title" && state.event.venue === "Local draft venue UG302")')
                 wait_commands(a)
                 assert a.input_value('#song-difficulty') == 'AT' and not a.is_checked('#song-eligible')
+                assert a.input_value('#song-preview-audio') == 'assets/song-preview/prepared.mp3'
                 a.click('#song-form button[type="submit"]')
                 a.wait_for_function('fetch("../api/state").then(response=>response.json()).then(state=>state.library.some(song=>song.title === "Draft AT exclusive" && song.difficulty === "AT" && song.level === 17.6 && song.eligible === false))')
+                assert next(song for song in state()['library'] if song['title']=='Draft AT exclusive')['previewAudio']=='assets/song-preview/prepared.mp3'
+                assert not any('/assets/song-preview/' in url for url in requests), 'Reserved audio field caused an audio request'
                 wait_commands(a)
                 report['event_drafts'] = {'title': state()['event']['title'], 'venue': state()['event']['venue']}
                 saved_song = next(song for song in state()['library'] if song['title'] == 'Draft AT exclusive')

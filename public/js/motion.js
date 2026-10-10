@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   const KEY = '[data-motion-key]';
-  const DURATION = 2400, LOGO_DURATION = 760, ENTRY_DURATION = 560, STAGGER = 65, EASING = 'cubic-bezier(.45, 0, .55, 1)';
+  const DURATION = 550, LOGO_DURATION = 760, ENTRY_DURATION = 560, STAGGER = 65, EASING = 'cubic-bezier(.45, 0, .55, 1)';
   const LOGOS = new Set(['phigros-logo', 'phigros-wordmark', 'club-soc', 'club-kirameki']);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const coverControllers = new WeakMap();
