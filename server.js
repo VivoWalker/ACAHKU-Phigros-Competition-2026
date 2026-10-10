@@ -10,6 +10,7 @@ const { publicState, resultCorrectionImpact } = require('./lib/tournament');
 const { getBranding } = require('./lib/branding');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
+const { context: countdownContext } = require('./public/js/countdown');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
   const store = new StateStore(dataDir);
@@ -31,10 +32,30 @@ function createBroadcastServer(options = {}) {
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb' }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
   const controls = io.of('/control'); const overlays = io.of('/overlay');
+  // A start cue belongs to the live connection, never to a saved match or backup.
+  let countdownCue = null, countdownTimer = null, countdownSources = null, countdownSequence = 0;
+  function clearCountdown() {
+    clearTimeout(countdownTimer); countdownTimer = null;
+    if (!countdownCue) return;
+    countdownCue = null; countdownSources = null; countdownSequence++; publishCountdown();
+  }
+  function countdownMessage() {
+    if (countdownCue && Date.now() >= countdownCue.endsAt) clearCountdown();
+    return { serverNow: Date.now(), sequence: countdownSequence, cue: countdownCue };
+  }
+  function publishCountdown() {
+    const message = countdownMessage();
+    controls.emit('countdown', message); overlays.emit('countdown', message);
+  }
+  function cancelChangedCountdown() {
+    if (countdownCue && (countdownContext(store.state)?.key !== countdownCue.context.key ||
+      JSON.stringify(store.state.broadcast?.sourceSlots || null) !== countdownSources)) clearCountdown();
+  }
   function controlState() { return { ...store.state, broadcast: { ...store.state.broadcast, sourceStatus: sourceStatus(store.state) } }; }
   function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
   function notifyStatus() { controls.emit('connections', connectionStatus()); }
   function publishState(beforeScene) {
+    cancelChangedCountdown();
     controls.emit('state', controlState()); overlays.emit('state', publicState(store.state));
     if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
     notifyStatus();
@@ -66,6 +87,7 @@ function createBroadcastServer(options = {}) {
     try {
       const beforeScene = store.state.scene;
       store.restore(req.body?.backupId, req.body?.expectedRevision, req.body?.reason);
+      clearCountdown();
       publishState(beforeScene); res.json({ ok: true, revision: store.state.revision });
     } catch (error) { requestFailure(res, error); }
   });
@@ -77,7 +99,42 @@ function createBroadcastServer(options = {}) {
   app.use(express.static(path.join(__dirname, 'public')));
   controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error('PAIRING_REQUIRED')));
   controls.on('connection', socket => {
-    socket.emit('state', controlState()); notifyStatus();
+    socket.emit('state', controlState()); socket.emit('countdown', countdownMessage()); notifyStatus();
+    socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
+    socket.on('countdown-command', (request, ack) => {
+      if (typeof ack !== 'function') return;
+      try {
+        store.assertRevision(request?.expectedRevision);
+        if (!['start', 'cancel'].includes(request?.action)) throw new Error('Unknown countdown command.');
+        const context = countdownContext(store.state);
+        if (!context) throw new Error('Show a match with the players and selected song before starting the countdown.');
+        if (request.contextKey !== context.key) {
+          const error = new Error('The match, players, song or broadcast layout changed. Review the current match before starting.');
+          error.code = 'CONTEXT_CHANGED'; throw error;
+        }
+        countdownMessage();
+        if (request.action === 'cancel') {
+          if (request.cueId !== countdownCue?.id) {
+            const error = new Error('The countdown changed. Review the active countdown before cancelling.');
+            error.code = 'CUE_CHANGED'; throw error;
+          }
+          clearCountdown();
+        }
+        else {
+          if (countdownCue) { const error = new Error('A countdown is already running. Cancel it before starting another.'); error.code = 'ALREADY_RUNNING'; throw error; }
+          const startsAt = Date.now() + 350;
+          countdownCue = { id: randomBytes(16).toString('hex'), startsAt, endsAt: startsAt + 3950, context };
+          countdownSequence++;
+          countdownSources = JSON.stringify(store.state.broadcast?.sourceSlots || null);
+          countdownTimer = setTimeout(clearCountdown, countdownCue.endsAt - Date.now());
+          publishCountdown();
+        }
+        ack({ ok: true, revision: store.state.revision });
+      } catch (error) {
+        if (error.code === 'STALE') socket.emit('state', controlState());
+        ack({ ok: false, error: error.message, code: error.code || 'INVALID', revision: store.state.revision });
+      }
+    });
     socket.on('command', (request, ack) => {
       if (typeof ack !== 'function') return;
       try {
@@ -92,11 +149,15 @@ function createBroadcastServer(options = {}) {
     });
     socket.on('disconnect', notifyStatus);
   });
-  overlays.on('connection', socket => { socket.emit('state', publicState(store.state)); notifyStatus(); socket.on('disconnect', notifyStatus); });
+  overlays.on('connection', socket => {
+    socket.emit('state', publicState(store.state)); socket.emit('countdown', countdownMessage()); notifyStatus();
+    socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
+    socket.on('disconnect', notifyStatus);
+  });
   app.use((err, req, res, next) => res.status(400).json({ error: 'Invalid request.' }));
   return { app, server, io, store, pin,
     listen(port = 3000, host = '0.0.0.0') { return new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.removeListener('error', reject); resolve(server.address()); }); }); },
-    close() { return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
+    close() { clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null; return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
   };
 }
 if (require.main === module) {

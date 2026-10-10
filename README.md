@@ -45,6 +45,9 @@ The preview inside the control panel counts as one connected overlay. “Overlay
 4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes without a reload. Shared logos, artwork and player names move to their new positions; other content exits before the new content slides in. It does not switch your OBS capture sources or OBS scenes automatically.
 5. In **Broadcast → 畫面顯示**, select **單畫面** for capture card only or **雙畫面** for capture card plus each player's handcam. This setting updates all connected overlays immediately and is saved across restarts. Capture-card positions stay fixed; single view covers the handcam areas with the overlay background. Keep both sources beneath the Browser Source. The interface does not capture video or move OBS sources. Different player counts may use separate OBS scenes with the matching source arrangement.
 6. In the Broadcast source-check panel, enter the actual OBS capture-card and handcam source names for each slot, save them, inspect the real feeds, and confirm the manual check. Changing entrants, their names, the match, sources, stage or single/dual mode invalidates that confirmation. A restored backup also requires a new check. This records a crew member's visual check; it does not connect to OBS, inspect video, or switch sources automatically.
+7. Once the players are ready, select the qualifier or double-elimination **match screen**, then press **Broadcast → 比賽開始倒計時 → 開始倒計時 · 3 2 1 START**. Each number lasts one second; START displays for 700 ms, followed by a 250 ms fade. The opaque countdown covers the whole Browser Source, including logos and capture windows, and then restores the match. **取消倒計時** removes it immediately. Both single and dual views support it; a Grand Finals MC song must be revealed before its countdown can start.
+
+The countdown uses one server timestamp for all connected sources and the control-panel preview. Refreshing or reconnecting during a countdown resumes the current number; an expired countdown or server restart does not replay it. Changing the scene, match, selected players, current song, single/dual mode or saved source assignments cancels it. Score updates keep its original timing. Countdown commands require a paired staff session and do not change scores, save a revision or create a backup. This is a visual start cue without audio.
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
@@ -208,6 +211,12 @@ npm run dev
 `npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart, local branding lookup, and saved display modes with backwards compatibility for older tournaments. It does not modify the production tournament.
 
 The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
+
+The countdown server regressions use real paired/public Socket.IO clients to check shared timestamps, authorization, duplicate and stale commands, automatic cancellation, refresh/restart behavior, unchanged saved state, and sealed Grand Finals picks. Its optional browser regression requires Python Playwright, Pillow, Chromium and ffmpeg. It checks the real start/cancel controls, number timing and legibility, full-screen coverage, restored transparent captures, synchronized sources, refresh during a cue, reduced motion and responsive controls:
+
+```sh
+python3 test/countdown-layout.py
+```
 
 Optional browser smoke test, if Python Playwright, Pillow and Chromium are installed:
 

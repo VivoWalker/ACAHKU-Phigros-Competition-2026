@@ -2,6 +2,7 @@
   const B = Broadcast, e = B.escape, $ = id => document.getElementById(id);
   let state, socket, activeTab = 'broadcast', connections = { overlays: 0, controls: 0 }, focusSongId, editingSongId = null;
   let queue = Promise.resolve(), toastTimer, token = sessionStorage.getItem('broadcast-token');
+  let countdownClient, countdownPending = false;
   let lastRenderedTab, tabAnimation;
   let backupList = [], backupsLoaded = false, selectedBackupId = '', backupPreview = null, backupEpoch = 0;
   let correctionMatchId = '', correctionPreview = null, correctionEpoch = 0;
@@ -219,8 +220,10 @@
     if (!connected) $('sync-status').textContent = 'Offline · editing paused';
   }
   function connect() {
+    countdownClient?.dispose();
     if (socket) socket.disconnect();
     socket = createBroadcastSocket('/control', { token });
+    countdownClient = BroadcastCountdown.createClient(socket, refreshCountdownControls);
     socket.on('connect', () => { $('pairing').hidden = true; $('workspace').hidden = false; controlStatus(true); });
     socket.on('state', next => { state = next; render(); $('sync-status').textContent = `Saved · revision ${next.revision}`; });
     socket.on('connections', next => { connections = next; refreshConnections(); });
@@ -243,6 +246,33 @@
     if ($('overlay-count')) $('overlay-count').textContent = connections.overlays ? `${connections.overlays} source${connections.overlays === 1 ? '' : 's'} connected` : 'No overlay connected';
     if ($('crew-count')) $('crew-count').textContent = `${connections.controls} control device${connections.controls === 1 ? '' : 's'}`;
   }
+  function refreshCountdownControls() {
+    const current = BroadcastCountdown.context(state), cue = countdownClient?.cue;
+    const phase = BroadcastCountdown.phase(cue, countdownClient?.now() || 0), active = !!phase;
+    const start = document.querySelector('[data-start-countdown]'), cancel = document.querySelector('[data-cancel-countdown]'), status = document.querySelector('[data-countdown-status]');
+    if (start) start.disabled = countdownPending || !socket?.connected || !current || active;
+    if (cancel) cancel.disabled = countdownPending || !socket?.connected || !active;
+    const label = active ? `正在倒計時 · ${phase.label}` : current ? '選手準備完成後，按下開始倒計時。' : '請先切換至比賽畫面並完成選手、曲目設定。';
+    if (status && status.textContent !== label) status.textContent = label;
+  }
+  function countdownPanel() {
+    return `<section class="panel countdown-panel"><div class="section-heading"><div><h2>比賽開始倒計時</h2><p class="secondary">全屏 3 · 2 · 1 · START，結束後恢復比賽畫面。</p></div></div><p class="secondary" data-countdown-status role="status"></p><div class="countdown-actions">${button('開始倒計時 · 3 2 1 START', 'data-start-countdown', true)}${button('取消倒計時', 'data-cancel-countdown')}</div></section>`;
+  }
+  async function sendCountdown(action) {
+    const current = BroadcastCountdown.context(state), cueId = countdownClient?.cue?.id;
+    if (!current || !socket?.connected || countdownPending) return;
+    const requestSocket = socket, connectionId = socket.id;
+    countdownPending = true; refreshCountdownControls();
+    try {
+      await queue;
+      if (!requestSocket.connected || requestSocket !== socket || requestSocket.id !== connectionId) throw new Error('連線已變更，請確認選手準備完成後重新按下倒計時。');
+      if (BroadcastCountdown.context(state)?.key !== current.key) throw new Error('選手、場次或曲目已切換，請重新核對。');
+      const result = await new Promise((resolve, reject) => requestSocket.timeout(8000).emit('countdown-command', { action, expectedRevision: state.revision, contextKey: current.key, cueId }, (error, value) => error ? reject(new Error('未收到倒計時確認，請檢查目前畫面。')) : resolve(value)));
+      if (!result.ok) throw new Error(result.error);
+    } catch (error) { toast(error.message, true); }
+    finally { countdownPending = false; refreshCountdownControls(); }
+  }
+  setInterval(refreshCountdownControls, 100);
   function sourcePanel() {
     const status = state.broadcast?.sourceStatus;
     if (!status) return '<section class="panel broadcast-sources-panel"><h2>OBS 来源人工核对</h2><p class="secondary">等待来源状态。</p></section>';
@@ -277,6 +307,7 @@
     const selected = B.scenes.find(s => s[0] === state.scene), m = B.currentMatch(state), q = state.qualifier;
     const showHandcams = state.broadcast?.showHandcams === true;
     return heading('CONTROL ROOM / 直播控制', 'Your next moment, on air.', 'Manage the show. Keep the rhythm moving.', `<span class="pill"><span>${state.stage === 'qualifier' ? 'QUALIFIERS' : 'DOUBLE ELIMINATION'}</span></span>`) +
+      countdownPanel() +
       `<section class="panel broadcast-display-panel"><div class="section-heading"><div><h2>畫面顯示</h2><p class="secondary">每位選手的直播畫面</p></div></div><div class="display-mode-buttons" role="group" aria-label="選手畫面顯示模式">${button('<strong class="display-mode-title">單畫面</strong><span class="display-mode-description">擷取卡主畫面</span>', `data-broadcast-handcams="false" class="display-mode-button ${showHandcams ? '' : 'selected'}" aria-pressed="${!showHandcams}"`, !showHandcams)}${button('<strong class="display-mode-title">雙畫面</strong><span class="display-mode-description">擷取卡主畫面 + 手元小窗</span>', `data-broadcast-handcams="true" class="display-mode-button ${showHandcams ? 'selected' : ''}" aria-pressed="${showHandcams}"`, showHandcams)}</div><p class="secondary">先在 OBS 擺好擷取卡與手元來源，將網頁 Layout 放在最上層。切換後，網頁即時顯示或隱藏手元小窗。</p></section>` +
       `<div class="broadcast-grid"><section class="preview-panel"><div class="panel-header"><h2>Program preview</h2><span class="on-air"><i class="dot"></i>LIVE STATE</span></div><div class="preview-shell" id="preview-container"></div><div class="preview-caption"><span>1920 × 1080 · transparent overlay</span><a href="../overlay/live.html" target="_blank" rel="noopener">Open overlay ${B.icon('next')}</a></div><div class="status-strip"><div class="status-cell"><span class="micro">Current stage</span><strong>${state.stage === 'qualifier' ? 'Qualifiers' : 'Double elimination'}</strong><small>${state.stage === 'qualifier' ? 'Group ' + q.activeGroup : m ? `R${m.round} · ${m.bracket}` : 'Awaiting seeding'}</small></div><div class="status-cell"><span class="micro">Current match</span><strong>${state.stage === 'qualifier' ? `${q.activePlayers.length} players` : m?.id || '—'}</strong><small>${state.stage === 'qualifier' ? 'Three-player layout' : m?.label || 'Eight qualifying seeds'}</small></div><div class="status-cell"><span class="micro">Song progress</span><strong>${state.stage === 'qualifier' ? q.currentSong + 1 + ' / 3' : m ? `${m.currentSong + 1} / ${m.id === 'GF' ? 3 : 2}` : '—'}</strong><small>${e(state.stage === 'qualifier' ? B.song(state, q.groups[q.activeGroup].songs[q.currentSong])?.title : m?.songs[m.currentSong]?.title || 'Awaiting selection')}</small></div></div><div class="current-bar"><div><span class="micro">On air now</span><h3>${e(selected[1])}</h3><p>${e(state.event.title)} · ${e(state.event.venue)}</p></div><div>${button('Edit match ' + B.icon('next'), `data-tab="${state.stage === 'qualifier' ? 'qualifiers' : 'bracket'}"`)}</div></div></section><aside class="panel"><div class="panel-header"><h2>Scenes <span class="secondary">畫面</span></h2><span class="micro">${String(B.scenes.findIndex(s => s[0] === state.scene) + 1).padStart(2, '0')} / 08</span></div><div class="scene-list">${B.scenes.map(([id, title, zh], i) => `<button class="scene-button" data-scene="${id}" aria-pressed="${id === state.scene}"><span class="scene-number">${String(i + 1).padStart(2, '0')}</span><span><span class="scene-name">${title}</span><small>${zh}</small></span><span class="scene-arrow">${id === state.scene ? '●' : B.icon('next')}</span></button>`).join('')}</div><div class="scene-section-note"><div id="overlay-count">Overlay status</div><div id="crew-count" style="margin-top:5px">Control devices</div><div style="margin-top:10px">OBS WebSocket · not configured</div></div></aside></div>` + sourcePanel();
   }
@@ -371,10 +402,12 @@
     }
     $('content').dataset.matchId = state.tournament.currentMatchId || '';
     if (state.recovery?.message) { const notice = document.createElement('div'); notice.className = 'notice recovery-alert'; notice.setAttribute('role', 'alert'); notice.innerHTML = `<strong>赛事数据已自动恢复</strong><p>${e(state.recovery.message)}</p><p>请核对当前名单、分数及赛果。原文件已保留：${e(state.recovery.preservedFile || '')}</p>`; $('content').prepend(notice); }
-    refreshDraftNotice(); refreshConnections();
+    refreshDraftNotice(); refreshConnections(); refreshCountdownControls();
   }
   document.addEventListener('click', event => {
     const target = event.target.closest('button,[data-focus-song]'); if (!target || target.disabled || !state) return;
+    if (target.hasAttribute('data-start-countdown')) { sendCountdown('start'); return; }
+    if (target.hasAttribute('data-cancel-countdown')) { sendCountdown('cancel'); return; }
     if (target.dataset.draftResolution) {
       for (const key of target.closest('.draft-notice')?._conflictKeys || []) { const record = drafts.get(key); if (!record?.conflict) continue;
         if (target.dataset.draftResolution === 'server') drafts.delete(key);

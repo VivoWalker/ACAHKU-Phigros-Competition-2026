@@ -12,6 +12,10 @@
   let rankingTick = 0;
   let state, committedCover, committedFocus, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
   const motion = BroadcastMotion.createScene(mount, { canvas });
+  const countdownLayer = BroadcastCountdown.createLayer(canvas);
+  let countdownClient;
+  const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
+  const refreshCountdown = () => countdownLayer.update(countdownClient, state, shownScene());
   const requestedRound = Number(query.get('round'));
   const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
   const url = path => '/' + encodeURI(path);
@@ -136,6 +140,7 @@
   function render() {
     if (!state) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
+    refreshCountdown();
     bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
     const mode = showHandcams(state) ? 'dual' : 'single', hasVisual = !!branding.visual, revision = state.revision;
@@ -167,6 +172,7 @@
     branding = result; render();
   }).catch(() => {});
   const socket = createBroadcastSocket('/overlay');
+  countdownClient = BroadcastCountdown.createClient(socket, refreshCountdown);
   socket.on('state', next => { state = next; render(); });
   socket.on('connect', () => canvas.classList.remove('is-offline'));
   socket.on('disconnect', () => canvas.classList.add('is-offline'));
