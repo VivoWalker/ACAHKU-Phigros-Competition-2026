@@ -19,7 +19,7 @@ for(const m of s.store.state.tournament.matches)for(const song of [...m.candidat
 cmd('set-scene',{scene:'start'});""")
 PROBE=r'''() => {
  const root=document.querySelector('#scene'), canvas=document.querySelector('#canvas');
- const selectors='.event-title,.topmeta,.event-copy h1,.event-line,.organiser,.key-visual,.waiting-copy>.section-label,.waiting-copy>h1,.waiting-players>p,.waiting-song,.player-name>h2,.player-total,.song-scores,.handcam-label,.song-band,.scene-head,.ranking-tables>section,.footer,.winner-panel,.result-row,.bracket-column,.candidate,.selection-art,.selection-detail>h2,.picks,.selection-state,.empty-copy,[data-capture]';
+ const selectors='.event-title,.topmeta,.event-copy h1,.event-line,.organiser,.key-visual,.waiting-copy>.section-label,.waiting-copy>h1,.waiting-players>p,.waiting-song,.player-name>h2,.player-total,.song-scores,.handcam-label,.song-band,.scene-head,.ranking-tables>section,.footer,.winner-panel,.result-row,.bracket-column,.bracket-page-heading,.bracket-rail,.bracket-focus,.bracket-destinations,.candidate,.selection-art,.selection-detail>h2,.picks,.selection-state,.empty-copy,[data-capture]';
  const logos=()=>[...root.querySelectorAll('.phigros-logo,.phigros-wordmark,.club-logo')];
  const visible=e=>{let opacity=1;for(let p=e;p&&p!==root;p=p.parentElement){const s=getComputedStyle(p);if(s.visibility==='hidden')return false;opacity*=Number(s.opacity);}return opacity>.025};
  const bounds=e=>{const b=e.getBoundingClientRect();let r={left:b.left,top:b.top,right:b.right,bottom:b.bottom};

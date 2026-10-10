@@ -60,7 +60,7 @@ The filtered background stays mounted between scenes; only the transparent captu
 | Three-player qualifier match | `/overlay/qualifier-match.html` |
 | Two-player double elimination match, including the three-song final | `/overlay/double-elimination-match.html` |
 | Group A / B qualifier rankings or double elimination result | `/overlay/result.html` |
-| Complete bracket progress | `/overlay/bracket.html` |
+| Current-round bracket focus and advancement destinations | `/overlay/bracket.html` |
 | Additional requested song-selection screen | `/overlay/song-selection.html` |
 
 `/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). Thus there are seven main screens plus the separately requested selection screen.
@@ -156,7 +156,11 @@ Completed results lock against ordinary editing. To correct one, preview its dow
 | R5 | L6 | Winner to GF; loser is **Third place** |
 | R6 | GF | Champion vs. First Runner-up |
 
-L3 pairs the L1 winner with the W6 loser, and L4 pairs the L2 winner with the W5 loser to reduce immediate rematches. The progress overlay shows all fourteen matches with player names, match states and compact bye markers. Detailed seeds, losses, advancement paths and adjudication notes remain available in the control panel. Two losses mark elimination.
+L3 pairs the L1 winner with the W6 loser, and L4 pairs the L2 winner with the W5 loser to reduce immediate rematches. The progress overlay gives the current round a large, readable panel, with its actual destination matches alongside it and a six-round progress rail above. Winners and advancing players use green, losers transferring to the losers' bracket use amber, and eliminated players use red. Each completed player's route names the destination group, round and match; paired highlights connect the source row to its destination row. Final results also identify the champion, runner-up and third-place finisher. Detailed seeds, losses, advancement paths and adjudication notes remain available in the control panel. Two losses mark elimination.
+
+The focus advances only when **every match in the current round** has finished, including both WB and LB matches in R2/R3. Completed-round results remain visible for **3.4 seconds** after their reveal begins. The old round then slides left, shrinks and fades out over **700 ms**; the next round slides in and expands over **950 ms**, using nonlinear easing. Live state revisions retain the original animation timing. Append `?round=1` through `?round=6` to `/overlay/bracket.html` to keep a particular round visible for historical results; that view still receives live data updates.
+
+In the automatic view, a reviewed result correction cancels the current reveal or round transition, removes outgoing panels and returns focus to the earliest unfinished round, with corrected advancement paths. A fixed historical view stays on its requested round. With Reduce motion enabled, round changes and corrected results apply immediately, without the result hold or animation.
 
 The requested **14-match format has one decisive Grand Final and no bracket reset**. If the WB champion loses GF, they finish as runner-up with one loss. This exception is preserved rather than silently introducing a fifteenth match.
 
@@ -206,6 +210,14 @@ python3 test/background-continuity.py
 ```
 
 Set `MOTION_TEST_SCOPE=scenes` or `MOTION_TEST_SCOPE=covers` for a focused run. `MOTION_RECORD_PREVIEW=1` records a real browser WebM; outputs use `BROADCAST_TEST_OUTPUT` or `test-results/`.
+
+The bracket regression plays through all 14 matches and six rounds using real commands against a temporary event. It checks winner/loser destinations, elimination and podium labels, round holds and nonlinear transitions, panel/text overlap, updates during animation, live-source re-entry, reviewed corrections, long names, fixed historical rounds and Reduce motion:
+
+```sh
+python3 test/bracket-focus.py
+```
+
+Set `BRACKET_RECORD=1` to record the browser sequence. Reports and screenshots use `BROADCAST_TEST_OUTPUT` or `test-results/bracket-focus/`; production tournament data is unchanged.
 
 Focused regressions for two simultaneous operators and the motion edge cases use independent temporary events:
 

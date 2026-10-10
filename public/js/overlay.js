@@ -12,6 +12,8 @@
   let rankingTick = 0;
   let state, committedCover, committedFocus, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
   const motion = BroadcastMotion.createScene(mount, { canvas });
+  const requestedRound = Number(query.get('round'));
+  const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
   const url = path => '/' + encodeURI(path);
   const art = song => url(song?.art || 'assets/song/cover-1.svg');
   function fit() {
@@ -115,19 +117,11 @@
     const r = s.result;
     if (!r) return backdrop() + header(s, '比賽結果') + title('等待比賽結果', 'RESULTS');
     const index = r.players.indexOf(r.winnerId), placement = r.placements[r.winnerId] || 'ADVANCES';
-    return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`) + `<div class='result-wrap'><section data-motion-block class='winner-panel'><div class='section-label'>${e(placement)}</div><h1>${r.winnerId ? entrantText(entrant(s, r.winnerId)) : '空缺場次'}</h1>${r.type === 'score' ? `<div class='winner-score'>${B.score(r.totals[index])}</div>` : `<p class='result-note'>${e(r.type === 'draw' ? '抽籤晉級' : '輪空晉級')}</p>`}</section><section class='result-rows'>${r.players.filter(Boolean).map(id => { const i = r.players.indexOf(id); return `<div data-motion-block class='result-row'><h2>${id === r.winnerId ? e(B.name(s, id)) : entrantText(entrant(s, id))}</h2><strong>${r.type === 'score' ? B.score(r.totals[i]) : '—'}</strong><p>${e(r.placements[id] || (id === r.winnerId ? 'ADVANCES' : B.losses(s, id) >= 2 ? 'ELIMINATED' : 'LOSERS’ BRACKET'))}</p></div>`; }).join('')}</section></div>`;
-  }
-  function node(s, m) {
-    const source = x => x.type === 'seed' ? '#' + x.value : (x.type === 'winner' ? 'W ' : 'L ') + x.value;
-    const special = m.resultType && m.resultType !== 'score' ? m.resultType === 'draw' ? '抽籤晉級' : '輪空' : '';
-    return `<article class='bracket-node ${e(m.status)}'><div class='node-label'><span>${e(m.id)}</span><span>${m.status === 'live' ? 'LIVE' : m.status === 'ready' ? 'NEXT' : ''}</span></div>${m.players.map((id, i) => `<div class='node-player ${id && id === m.winnerId ? 'win' : ''}'>${e(id ? B.name(s, id) : m.status === 'pending' ? source(m.sources[i]) : '輪空')}</div>`).join('')}${special ? `<div class='node-note'>${e(special)}</div>` : ''}</article>`;
+    return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`) + `<div class='result-wrap'><section data-motion-block class='winner-panel'><div class='section-label'>${e(placement)}</div><h1>${r.winnerId ? entrantText(entrant(s, r.winnerId)) : '空缺場次'}</h1>${r.type === 'score' ? `<div class='winner-score'>${B.score(r.totals[index])}</div>` : `<p class='result-note'>${e(r.type === 'draw' ? '抽籤晉級' : '輪空晉級')}</p>`}</section><section class='result-rows'>${r.players.filter(Boolean).map(id => { const i = r.players.indexOf(id); return `<div data-motion-block class='result-row result-${BroadcastBracket.destination(s, s.tournament.matches.find(m => m.id === r.matchId), id)?.kind || ''}'><h2>${id === r.winnerId ? e(B.name(s, id)) : entrantText(entrant(s, id))}</h2><strong>${r.type === 'score' ? B.score(r.totals[i]) : '—'}</strong><p>${e(BroadcastBracket.destination(s, s.tournament.matches.find(m => m.id === r.matchId), id)?.label || r.placements[id] || '—')}</p></div>`; }).join('')}</section></div>`;
   }
   function bracket(s) {
     if (!s.tournament.seeded) return backdrop() + header(s, '賽程') + title('等待晉級選手', 'TOURNAMENT BRACKET');
-    return backdrop() + header(s, `賽程 · ${s.tournament.matches.filter(m => m.status === 'complete').length} / 14`) + title('雙淘汰賽賽程', 'TOURNAMENT BRACKET') + `<div class='bracket-wrap'><div class='bracket-grid'>${Array.from({ length: 6 }, (_, i) => `<div data-motion-block class='bracket-column'><div class='round-title'>R${i + 1}</div>${['WB', 'LB', 'GF'].map(type => {
-      const matches = s.tournament.matches.filter(m => m.round === i + 1 && m.bracket === type);
-      return matches.length ? `<div class='bracket-heading'>${type === 'WB' ? 'WINNERS' : type === 'LB' ? 'LOSERS' : 'FINALS'}</div>${matches.map(m => node(s, m)).join('')}` : '';
-    }).join('')}</div>`).join('')}</div></div>`;
+    return backdrop() + header(s, `賽程 · ${s.tournament.matches.filter(m => m.status === 'complete').length} / 14`) + BroadcastBracket.render(s, bracketMotion.round);
   }
   function selection(s) {
     const m = B.currentMatch(s);
@@ -142,11 +136,12 @@
   function render() {
     if (!state) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
+    bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
     const mode = showHandcams(state) ? 'dual' : 'single', hasVisual = !!branding.visual, revision = state.revision;
     const m = B.currentMatch(state), focus = m?.songs[m.currentSong] || m?.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m?.candidates[0];
     const focusIndex = m?.candidates.findIndex(song => song.id === focus?.id);
-    motion.update(next, { scene, onCommit({ previousScene }) {
+    motion.update(next, { scene, animateEntries: scene !== 'bracket', onCommit({ previousScene }) {
       canvas.dataset.renderedScene = scene;
       canvas.dataset.renderedRevision = String(revision);
       canvas.dataset.branding = hasVisual ? 'visual' : 'text';
@@ -159,6 +154,7 @@
         BroadcastMotion.coverSlide(windowEl, committedCover, direction, { src, alt: focus?.title || 'Song artwork' });
       }
       committedCover = src; committedFocus = focusIndex;
+      bracketMotion.afterCommit();
     } });
   }
   setInterval(() => {

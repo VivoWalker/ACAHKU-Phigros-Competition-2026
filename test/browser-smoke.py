@@ -191,10 +191,11 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                                 x = int(box['x']+box['width']*fraction_x); y = int(box['y']+box['height']*fraction_y)
                                 assert image.getpixel((x,y))[3] == 0, scene + ' capture must stay transparent'
                 if scene == 'bracket':
-                    assert overlay.locator('.bracket-node').count() == 14
+                    assert 1 <= overlay.locator('.focus-card').count() <= 4
+                    assert overlay.locator('.round-step').count() == 6
                     boxes = [el.bounding_box() for el in overlay.locator('.bracket-node').all()]
                     geometry['bracket_bottom'] = max(b['y']+b['height'] for b in boxes)
-                    assert geometry['bracket_bottom'] < 950, 'Bracket nodes collide with standings or footer'
+                    assert geometry['bracket_bottom'] <= 1017, 'Focused bracket cards leave the safe area'
                 for width, height in [(1280,720),(960,540),(390,844)]:
                     overlay.set_viewport_size({'width':width,'height':height})
                     overlay.wait_for_function('Math.abs(document.querySelector("#canvas").getBoundingClientRect().width - Math.min(innerWidth / 1920, innerHeight / 1080) * 1920) < .1')

@@ -53,9 +53,9 @@
     + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .waiting-song, '
     + '.player-name > h2, .player-total, .song-scores, .handcam-label, .song-band, .scene-head, '
     + '.ranking-tables > section, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
-    + '.selection-art, .selection-detail > h2, .picks, .selection-state, .empty-copy';
+    + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-detail > h2, .picks, .selection-state, .empty-copy';
   function entryNodes(root) {
-    const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits]'));
+    const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits], [data-motion-ghost]'));
     const selected = new Set(nodes);
     return nodes.filter(node => {
       for (let parent = node.parentElement; parent && parent !== root; parent = parent.parentElement) if (selected.has(parent)) return false;
@@ -227,8 +227,8 @@
       const logoEnd = Math.max(exitEnd, ...tracks.map(track => track.start + LOGO_DURATION));
       const continuing = !changedScene && previousPresentation && !tracks.some(track => track.fresh);
       presentation = { scene, exits, entries: new Map(continuing?.entries || []) };
-      const newItems = layout.filter(item => initial || changedScene || (tracks.length || exits.length) && !continuing ||
-        !previousLayout.has(item.id) || !item.node.matches('.player-total') && !sameRect(previousLayout.get(item.id), item.rect));
+      const newItems = layout.filter(item => (record.animateEntries || initial || changedScene) && (initial || changedScene || (tracks.length || exits.length) && !continuing ||
+        !previousLayout.has(item.id) || !item.node.matches('.player-total') && !sameRect(previousLayout.get(item.id), item.rect)));
       newItems.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top || a.id.localeCompare(b.id));
       let order = 0;
       for (const item of newItems) {
@@ -278,8 +278,8 @@
       if (token !== epoch) return;
       restoreAll(); settled(); current = null; record.resolve({ superseded: false });
     }
-    function update(html, { scene: nextScene = scene, onCommit } = {}) {
-      const record = { html, scene: nextScene, onCommit };
+    function update(html, { scene: nextScene = scene, onCommit, animateEntries = true } = {}) {
+      const record = { html, scene: nextScene, onCommit, animateEntries };
       const promise = new Promise((resolve, reject) => { record.resolve = resolve; record.reject = reject; });
       if (html === markup && nextScene === scene) {
         try { onCommit?.(context(record)); record.resolve({ superseded: false }); } catch (error) { record.reject(error); }
