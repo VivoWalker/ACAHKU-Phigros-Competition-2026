@@ -80,6 +80,7 @@
     + 'filter box-shadow text-shadow z-index -webkit-line-clamp -webkit-box-orient').split(' ');
   function createScene(mount, { canvas } = {}) {
     let backdrop, markup, scene, epoch = 0, running = false, current, presentation, lastLayout = new Map();
+    let apertures = new Map();
     const animations = new Set(), cleanups = [], waiters = [], logoTracks = new Map();
     const clock = () => document.timeline.currentTime ?? performance.now();
     mount.dataset.motionPhase = 'idle';
@@ -102,17 +103,62 @@
       return { previousScene: scene, scene: record.scene, initial: markup === undefined,
         oldCoverSrc: mount.querySelector('.selection-art img:not([data-motion-cover-old])')?.getAttribute('src') || null };
     }
-    function syncBackdrop(template) {
+    function apertureRect(node) {
+      const [left, top, width, height] = JSON.parse(node.dataset.apertureRect);
+      return { left, top, width, height };
+    }
+    function apertureMetadata(node, phase, plan) {
+      node.dataset.aperturePhase = phase;
+      node.dataset.apertureStart = String(plan.start);
+      node.dataset.apertureDuration = String(ENTRY_DURATION);
+      node.dataset.apertureOrder = String(plan.order);
+    }
+    function normalizeApertures() {
+      const targets = new Set(apertures.values());
+      for (const windowEl of backdrop?.querySelectorAll('[data-aperture-window]') || []) {
+        const node = windowEl.querySelector('[data-aperture-key]');
+        if (!targets.has(node)) { windowEl.remove(); continue; }
+        node.removeAttribute('style');
+        for (const key of ['aperturePhase', 'apertureStart', 'apertureDuration', 'apertureOrder']) delete node.dataset[key];
+      }
+      for (const node of mount.querySelectorAll('[data-capture-key]')) {
+        node.style.removeProperty('opacity'); node.style.removeProperty('clip-path');
+      }
+    }
+    function freezeApertures() {
+      // Cancelling a delayed fill-both reveal otherwise exposes its static
+      // final state. Keep the pixels actually on screen until the next plan.
+      for (const node of backdrop?.querySelectorAll('[data-aperture-key]') || []) {
+        const css = getComputedStyle(node);
+        Object.assign(node.style, { opacity: css.opacity, transform: css.transform });
+      }
+    }
+    function syncBackdrop(template, replaceApertures) {
       const next = template.content.querySelector('.broadcast-backdrop');
       if (!next) return;
       next.remove();
       if (!backdrop) {
         // This expensive filtered artwork stays attached across every scene.
         // Only its capture apertures change; it is never an exit snapshot.
-        backdrop = next; mount.before(backdrop); return;
+        backdrop = next; mount.before(backdrop);
+        apertures = new Map([...backdrop.querySelectorAll('[data-aperture-key]')].map(node => [node.dataset.apertureKey, node]));
+        return;
       }
       const mask = backdrop.querySelector('#capture-mask'), nextMask = next.querySelector('#capture-mask');
-      if (mask.innerHTML !== nextMask.innerHTML) mask.replaceChildren(...nextMask.childNodes);
+      const targets = new Map();
+      for (const windowEl of [...nextMask.querySelectorAll('[data-aperture-window]')]) {
+        const key = windowEl.dataset.apertureWindow;
+        let node = !replaceApertures && apertures.get(key);
+        if (!node?.isConnected) {
+          node = windowEl.querySelector('[data-aperture-key]');
+          node.style.opacity = '0';
+          mask.append(windowEl);
+        }
+        targets.set(key, node);
+      }
+      // Outgoing windows remain here until their cover has closed. Replacing
+      // the mask's children at commit would instantly expose/hide OBS sources.
+      apertures = targets;
       const image = backdrop.querySelector('image'), nextImage = next.querySelector('image');
       if (image?.getAttribute('href') !== nextImage?.getAttribute('href')) {
         if (image) image.remove();
@@ -121,7 +167,7 @@
     }
     function commit(record, template) {
       const info = context(record);
-      syncBackdrop(template);
+      syncBackdrop(template, markup !== undefined && scene !== record.scene);
       mount.replaceChildren(...reconcile(template.content, keyed(mount)));
       markup = record.html; scene = record.scene; mount.dataset.motionScene = String(scene || '');
       record.onCommit?.(info);
@@ -161,9 +207,9 @@
     }
     // Freeze only the outgoing presentation. The live tree commits immediately,
     // so operator commands and score revisions never wait for an exit animation.
-    function snapshotExits(scale) {
+    function snapshotExits(scale, apertureKeys, includeContent) {
       const result = [];
-      for (const { node, id } of entryNodes(mount)) {
+      for (const { node, id } of includeContent ? entryNodes(mount) : []) {
         const css = getComputedStyle(node), rect = measure(node, mount, scale).rect;
         if (Number(css.opacity) < .025 || css.visibility === 'hidden' || !rect.width || !rect.height) continue;
         const clone = node.cloneNode(true);
@@ -183,18 +229,36 @@
         slot.append(clone);
         result.push({ node: clone, slot, id, rect, opacity: css.opacity });
       }
+      for (const key of apertureKeys) {
+        const node = apertures.get(key), css = node && getComputedStyle(node);
+        if (!css || Number(css.opacity) < .025) continue;
+        const rect = apertureRect(node), sourceBorder = mount.querySelector(`[data-capture-key="${key}"]`);
+        const border = sourceBorder?.cloneNode(false), borderCss = sourceBorder && getComputedStyle(sourceBorder);
+        if (border) {
+          border.removeAttribute('data-motion-key');
+          Object.assign(border.style, { opacity: borderCss.opacity, clipPath: borderCss.clipPath });
+        }
+        result.push({ kind: 'aperture', node, border, id: `aperture:${key}`, rect,
+          frames: [{ opacity: css.opacity, transform: css.transform === 'none' ? 'translateX(0px)' : css.transform },
+            { opacity: 0, transform: `translateX(${-rect.width}px)` }],
+          borderFrames: border && [{ opacity: borderCss.opacity, clipPath: borderCss.clipPath },
+            { opacity: 0, clipPath: 'inset(0 100% 0 0)' }] });
+      }
       result.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top || a.id.localeCompare(b.id));
       const start = clock();
       return result.map((item, order) => ({ ...item, order, start: start + order * STAGGER }));
     }
     async function perform(record, before, previousTracks, previousPresentation, previousLayout, exits, token) {
-      const template = document.createElement('template'); template.innerHTML = record.html;
+      const template = record.template;
       const initial = markup === undefined, changedScene = scene !== record.scene;
       commit(record, template);
       const scale = scaleFor(mount, canvas), now = clock();
-      const layout = entryNodes(mount).map(item => ({ ...item, rect: measure(item.node, mount, scale).rect }));
+      const layout = [
+        ...entryNodes(mount).map(item => ({ ...item, rect: measure(item.node, mount, scale).rect })),
+        ...[...apertures].map(([key, node]) => ({ kind: 'aperture', node, id: `aperture:${key}`, rect: apertureRect(node) }))
+      ];
       lastLayout = new Map(layout.map(item => [item.id, item.rect]));
-      if (reduce.matches) { settled(); record.resolve({ superseded: false }); return; }
+      if (reduce.matches) { normalizeApertures(); settled(); record.resolve({ superseded: false }); return; }
       const jobs = [], tracks = [];
       exits = exits.filter(item => item.start + ENTRY_DURATION > now);
       const exitEnd = Math.max(now, ...exits.map(item => item.start + ENTRY_DURATION));
@@ -204,6 +268,20 @@
         Object.assign(layer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '2' });
         mount.append(layer); cleanups.push(() => layer.remove());
         for (const item of exits) {
+          if (item.kind === 'aperture') {
+            apertureMetadata(item.node, 'exit', item);
+            Object.assign(item.node.style, item.frames.at(-1));
+            jobs.push(animate(item.node, item.frames, ENTRY_DURATION, item.start).then(() => {
+              if (token === epoch && ![...apertures.values()].includes(item.node)) item.node.parentElement.remove();
+            }));
+            if (item.border) {
+              layer.append(item.border);
+              Object.assign(item.border.style, item.borderFrames.at(-1));
+              jobs.push(animate(item.border, item.borderFrames, ENTRY_DURATION, item.start)
+                .then(() => { if (token === epoch) item.border.remove(); }));
+            }
+            continue;
+          }
           layer.append(item.slot);
           item.node.dataset.motionExit = item.id; item.node.dataset.motionOrder = String(item.order);
           item.node.dataset.motionExitRect = JSON.stringify(item.rect);
@@ -226,9 +304,15 @@
       }
       const logoEnd = Math.max(exitEnd, ...tracks.map(track => track.start + LOGO_DURATION));
       const continuing = !changedScene && previousPresentation && !tracks.some(track => track.fresh);
-      presentation = { scene, exits, entries: new Map(continuing?.entries || []) };
-      const newItems = layout.filter(item => (record.animateEntries || initial || changedScene) && (initial || changedScene || (tracks.length || exits.length) && !continuing ||
-        !previousLayout.has(item.id) || !item.node.matches('.player-total') && !sameRect(previousLayout.get(item.id), item.rect)));
+      // Reintroduced slots need a fresh reveal after the current exits;
+      // only continuously present content may resume its previous timetable.
+      const continuingEntries = continuing ? [...previousPresentation.entries]
+        .filter(([id]) => previousLayout.has(id) && lastLayout.has(id)) : [];
+      presentation = { scene, exits, entries: new Map(continuingEntries) };
+      const newItems = layout.filter(item => item.kind === 'aperture'
+        ? initial || changedScene || tracks.some(track => track.fresh) || !previousLayout.has(item.id)
+        : (record.animateEntries || initial || changedScene) && (initial || changedScene || (tracks.length || exits.length) && !continuing ||
+          !previousLayout.has(item.id) || !item.node.matches('.player-total') && !sameRect(previousLayout.get(item.id), item.rect)));
       newItems.sort((a, b) => a.rect.left - b.rect.left || a.rect.top - b.rect.top || a.id.localeCompare(b.id));
       let order = 0;
       for (const item of newItems) {
@@ -246,10 +330,6 @@
         }
       }
       if (exits.length || tracks.length) {
-        // Video apertures stay closed until the outgoing content and branding
-        // have cleared the stage. They retain their calibrated OBS positions.
-        for (const node of [...mount.querySelectorAll('[data-capture]'), ...(backdrop?.querySelectorAll('#capture-mask rect[fill="black"]') || [])])
-          jobs.push(animate(node, [{ opacity: 0 }, { opacity: 0 }], Math.max(0, logoEnd - now), now));
         const phaseAt = (at, phase) => jobs.push(new Promise(resolve => {
           const timer = setTimeout(() => { if (token === epoch) mount.dataset.motionPhase = phase; resolve(); }, Math.max(0, at - now));
           cleanups.push(() => { clearTimeout(timer); resolve(); });
@@ -258,10 +338,23 @@
         if (exits.length && tracks.length) phaseAt(exitEnd, 'move');
         phaseAt(logoEnd, 'enter');
       }
-      for (const { node, id, rect } of layout) {
+      for (const { node, id, rect, kind } of layout) {
         const plan = presentation.entries.get(id);
         if (!plan || now >= plan.start + ENTRY_DURATION) continue;
         if (!tracks.length && !exits.length) mount.dataset.motionPhase = 'enter';
+        if (kind === 'aperture') {
+          apertureMetadata(node, 'enter', plan);
+          Object.assign(node.style, { opacity: '1', transform: 'translateX(0px)' });
+          jobs.push(animate(node, [{ opacity: 0, transform: `translateX(${rect.width}px)` },
+            { opacity: 1, transform: 'translateX(0px)' }], ENTRY_DURATION, plan.start));
+          const border = mount.querySelector(`[data-capture-key="${node.dataset.apertureKey}"]`);
+          if (border) {
+            Object.assign(border.style, { opacity: '1', clipPath: 'none' });
+            jobs.push(animate(border, [{ opacity: 0, clipPath: 'inset(0 0 0 100%)' },
+              { opacity: 1, clipPath: 'inset(0 0 0 0)' }], ENTRY_DURATION, plan.start));
+          }
+          continue;
+        }
         node.dataset.motionEntry = id; node.dataset.motionOrder = String(plan.order);
         node.dataset.motionEntryRect = JSON.stringify(rect);
         cleanups.push(() => { delete node.dataset.motionEntry; delete node.dataset.motionOrder; delete node.dataset.motionEntryRect; });
@@ -276,7 +369,7 @@
       }
       await Promise.all(jobs);
       if (token !== epoch) return;
-      restoreAll(); settled(); current = null; record.resolve({ superseded: false });
+      restoreAll(); normalizeApertures(); settled(); current = null; record.resolve({ superseded: false });
     }
     function update(html, { scene: nextScene = scene, onCommit, animateEntries = true } = {}) {
       const record = { html, scene: nextScene, onCommit, animateEntries };
@@ -288,15 +381,20 @@
       const scale = scaleFor(mount, canvas);
       const before = new Map([...keyed(mount)].filter(([key]) => LOGOS.has(key)).map(([key, node]) => [key, measure(node, mount, scale)]));
       const previousTracks = new Map(logoTracks), previousPresentation = presentation, previousLayout = lastLayout;
+      const nextTemplate = document.createElement('template'); nextTemplate.innerHTML = html;
+      record.template = nextTemplate;
+      const nextApertures = new Set([...nextTemplate.content.querySelectorAll('[data-aperture-key]')].map(node => node.dataset.apertureKey));
+      const changedScene = markup !== undefined && nextScene !== scene;
+      const departingApertures = new Set([...apertures.keys()].filter(key => changedScene || !nextApertures.has(key)));
       const exits = reduce.matches ? [] : [
         ...(previousPresentation?.exits || []).filter(item => item.start + ENTRY_DURATION > clock()),
-        ...(markup !== undefined && nextScene !== scene ? snapshotExits(scale) : [])
+        ...snapshotExits(scale, departingApertures, changedScene)
       ];
-      cancel(); logoTracks.clear(); running = true; current = record;
+      freezeApertures(); cancel(); logoTracks.clear(); running = true; current = record;
       const token = epoch;
       perform(record, before, previousTracks, previousPresentation, previousLayout, exits, token).catch(error => {
         if (token !== epoch) return;
-        restoreAll(); settled(); current = null; record.reject(error);
+        restoreAll(); normalizeApertures(); settled(); current = null; record.reject(error);
       });
       return promise;
     }
@@ -308,7 +406,7 @@
       if (!reduce.matches || !current) return;
       const record = current; cancel(); logoTracks.clear();
       const template = document.createElement('template'); template.innerHTML = record.html;
-      commit(record, template); settled(); record.resolve({ superseded: false });
+      commit(record, template); normalizeApertures(); settled(); record.resolve({ superseded: false });
     }
     const controller = { update, finish, idle, reduced }; sceneControllers.add(controller); return controller;
   }

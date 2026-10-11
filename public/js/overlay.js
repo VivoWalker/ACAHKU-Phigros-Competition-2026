@@ -36,7 +36,9 @@
     return images ? `<div class='club-logos ${className}' aria-label='社團標誌'>${images}</div>` : '';
   }
   function backdrop(holes = []) {
-    const cutouts = holes.map(([x, y, w, h]) => `<rect x='${x}' y='${y}' width='${w}' height='${h}' fill='black'/>`).join('');
+    // The fixed SVG window clips the moving cutout to its calibrated OBS slot.
+    // Moving the black mask reveals the video below without moving that source.
+    const cutouts = holes.map(([x, y, w, h]) => `<svg data-aperture-window='${x}:${y}:${w}:${h}' x='${x}' y='${y}' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}' overflow='hidden'><rect data-aperture-key='${x}:${y}:${w}:${h}' data-aperture-rect='[${x},${y},${w},${h}]' width='${w}' height='${h}' fill='black'/></svg>`).join('');
     const image = branding.visual ? `<image href='${e(url(branding.visual))}' x='-120' y='-180' width='2160' height='1440' preserveAspectRatio='xMidYMid slice' filter='url(#art-blur)' opacity='.28'/>` : '';
     return `<svg data-motion-static class='broadcast-backdrop' viewBox='0 0 1920 1080' aria-hidden='true'><defs><mask id='capture-mask' maskUnits='userSpaceOnUse' x='0' y='0' width='1920' height='1080'><rect x='12' y='12' width='1896' height='1056' fill='white'/>${cutouts}</mask><linearGradient id='event-gradient' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#321c35'/><stop offset='.55' stop-color='#24232e'/><stop offset='1' stop-color='#111820'/></linearGradient><filter id='art-blur'><feGaussianBlur stdDeviation='48'/></filter></defs><g mask='url(#capture-mask)'><rect width='1920' height='1080' fill='url(#event-gradient)'/>${image}<path d='M 1420 0 L 1130 1080 L 1920 1080 L 1920 0 Z' fill='#080d15' opacity='.17'/><rect x='13' y='13' width='1894' height='1054' fill='none' stroke='#e8e3ef' stroke-opacity='.24' stroke-width='2'/></g></svg>`;
   }
@@ -78,7 +80,7 @@
   }
   function capture(rect, kind = 'gameplay', player = '', playerId = '') {
     const [x, y, width, height] = rect;
-    return `<div data-motion-static class='capture ${kind}' data-capture='${kind}' data-feed='${kind === 'webcam' ? 'handcam' : 'capture-card'}' data-player-id='${e(playerId || '')}' aria-label='${e(player)} ${kind === 'webcam' ? '手元 handcam' : '采集卡 capture card'}' style='left:${x}px;top:${y}px;width:${width}px;height:${height}px'></div>`;
+    return `<div data-motion-key='capture-${x}:${y}:${width}:${height}' data-motion-static class='capture ${kind}' data-capture-key='${x}:${y}:${width}:${height}' data-capture='${kind}' data-feed='${kind === 'webcam' ? 'handcam' : 'capture-card'}' data-player-id='${e(playerId || '')}' aria-label='${e(player)} ${kind === 'webcam' ? '手元 handcam' : '采集卡 capture card'}' style='left:${x}px;top:${y}px;width:${width}px;height:${height}px'></div>`;
   }
   function handcam(rect, name, id) {
     const [x, y, width] = rect;
