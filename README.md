@@ -1,6 +1,6 @@
 # ACAHKU Phigros Broadcast
 
-A local tournament server, transparent OBS overlays and an iPad-friendly control panel. The broadcast uses a quieter presentation with larger, bold titles, player names and totals, plus one shared current-song line. Each player's capture card and handcam can appear together; staff can switch between single and dual views live. Full scoring and tournament controls remain in the staff panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
+A local tournament server, transparent OBS overlays and iPad-friendly main-control and scorekeeper panels with separate pairing codes. The broadcast uses a quieter presentation with larger, bold titles, player names and totals, plus one shared current-song line. Each player's capture card and handcam can appear together; staff can switch between single and dual views live. Main control keeps all scoring, tournament and broadcast controls; scorekeepers receive a separate score-entry panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
 
 ## Quick start
 
@@ -13,15 +13,17 @@ npm start
 
 The downloadable **offline bundle** already includes the verified JavaScript dependencies and local fonts. With Node.js installed, unzip it and run `npm start` directly; `npm install` is only needed to install or refresh dependencies in the source-only package.
 
-Keep that terminal open. It prints the laptop's LAN addresses and a **six-digit control pairing code**. Open the control panel and enter the code:
+Keep that terminal open. It prints the laptop's LAN addresses and **two different six-digit pairing codes**, one for main control and one for scorekeepers. Open the appropriate panel and enter its code:
 
 ```text
-Control Panel:       http://localhost:3000/control/
-iPad on the LAN:     http://192.168.x.x:3000/control/
+Main control:        http://localhost:3000/control/
+Scorekeeper panel:   http://localhost:3000/scorekeeper/
+iPad main control:   http://192.168.x.x:3000/control/
+iPad scorekeeper:    http://192.168.x.x:3000/scorekeeper/
 OBS Browser Source:  http://localhost:3000/overlay/start.html
 ```
 
-The pairing code separates staff-only state from the public broadcast. It is created locally in `data/.control-pin`. The laptop and iPad do not need external accounts. Pairing is retained in that browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` before starting the server. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
+The codes are created locally in `data/.control-pin` and `data/.scorekeeper-pin`. The laptop and iPad do not need external accounts. The two panels retain separate paired sessions in the browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` and `SCOREKEEPER_PIN` before starting the server; explicitly configured codes must differ. Existing main-control codes and paired sessions continue to work after upgrading. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
 
 Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
 
@@ -36,6 +38,16 @@ When upgrading an existing installation, preserve the whole `data/` folder, repl
 5. Check that the control panel says **Connected to laptop**. Changes save after the server acknowledges them; the footer shows the saved revision. Offline controls reject updates and automatically reconnect. Broadcast overlays keep their last saved frame during disconnection.
 
 The preview inside the control panel counts as one connected overlay. “Overlay connected” means a browser source is receiving state; it does not prove OBS itself is connected. OBS WebSocket integration is reserved in `lib/obs-adapter.js`, and is not enabled in this version.
+
+## Main control and scorekeepers
+
+The main panel at `/control/` keeps the existing layout and all tournament and broadcast controls. Give its code to the main operator. The scorekeeper panel at `/scorekeeper/` uses its own code and only offers score entry. Both panels update the same saved tournament, and scores synchronize with every connected panel and overlay after the server acknowledges them. Main control shows separate connected-device counts for the two roles.
+
+The scorekeeper sheet follows the main operator's current stage, qualifier group or selected elimination match. During qualifiers it lists the current group's players and three songs; during elimination it lists the selected match's two players and songs. Enter scores from **0 to 1,000,000**, then press the player's **保存分數** button; an empty field saves as an unentered score. Only edited fields are submitted. Totals are read-only. Qualifier scores lock after seeding, completed matches lock after result confirmation, and the sealed Grand Finals MC score stays disabled until main control reveals that song.
+
+Live updates preserve unsaved drafts and input focus. If another operator changes the same score, review the server value and choose which value to keep before saving. When main control changes the group, match, roster or songs, old drafts remain marked with their original context and cannot be submitted to the new sheet. Disconnected scorekeepers retain drafts and must reconnect before saving; queued actions from an old connection are not replayed automatically. Save a player's edits before moving to the next group or match.
+
+Scorekeeper permissions are enforced by the server: its session can only submit qualifier or match scores for the current sheet. It cannot change players or songs, resolve ties, confirm results, advance the bracket, switch scenes, start a countdown, manage sources, export private data, restore backups or open the main-control session. Main control keeps responsibility for those operations.
 
 ## OBS setup
 
@@ -212,6 +224,14 @@ npm run dev
 
 The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
 
+The scorekeeper server regressions verify independent pairing codes, unchanged existing main-control tokens, role-specific login limits, HTTP and Socket.IO permission isolation, rejected commands without state or backup writes, current-sheet checks, score synchronization, sealed finals picks and persisted codes across restart. Its optional browser regression requires Python Playwright, Pillow and Chromium:
+
+```sh
+python3 test/scorekeeper-layout.py
+```
+
+It uses two independent scorekeeper sessions and a main controller to check draft/focus preservation, explicit saves, conflicting edits, context changes and new edits during multi-field saves, offline reconnection without replay, the full bracket through Grand Finals, password changes and restart. It also checks score controls and save messages for overlap at 390px, 768px and 1194px widths, and verifies transparent capture-card/handcam windows. Screenshots and the JSON report use `BROADCAST_TEST_OUTPUT` or ignored `test-results/`.
+
 The countdown server regressions use real paired/public Socket.IO clients to check shared timestamps, authorization, duplicate and stale commands, automatic cancellation, refresh/restart behavior, unchanged saved state, and sealed Grand Finals picks. Its optional browser regression requires Python Playwright, Pillow, Chromium and ffmpeg. It checks the real start/cancel controls, number timing and legibility, full-screen coverage, restored transparent captures, synchronized sources, refresh during a cue, reduced motion and responsive controls:
 
 ```sh
@@ -272,11 +292,13 @@ lib/tournament.js         Rules, 14-match graph, scoring, lotteries, public reda
 lib/store.js              Revision checks, atomic saves, automatic backups and recovery
 lib/state-validation.js   Complete saved-state structure and reference validation
 lib/broadcast-check.js    Private manual OBS source assignments and check invalidation
+lib/scorekeeper.js        Minimal scoring sheet and score-only command permissions
 lib/default-state.js      Event defaults and editable sample roster/song metadata
 lib/branding.js           Fixed local logo/key-visual discovery for /api/branding
 lib/obs-adapter.js         Optional future OBS WebSocket integration hook
 data/                     Local state and pairing files (runtime data ignored by Git)
 public/control/           Staff panel, responsive CSS and interactions
+public/scorekeeper/       Separate score-only panel and paired browser session
 public/overlay/           Seven main documents + song selection + live alias
 public/js/                Shared display helpers, sockets and overlay rendering
 public/assets/            Local fonts, graphics, mesh and icons

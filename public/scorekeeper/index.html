@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101319">
+  <title>ACAHKU · 計分員面板</title>
+  <link rel="stylesheet" href="./scorekeeper.css">
+</head>
+<body class="phi-app">
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="app-header">
+    <a class="wordmark" href="./">ACA<span>HKU</span><i aria-hidden="true"></i></a>
+    <div class="header-caption">PHIGROS COMPETITION <span>計分員面板</span></div>
+    <div id="connection" class="connection offline" role="status"><i class="dot" aria-hidden="true"></i><span>尚未登入</span></div>
+    <button id="logout" type="button" class="quiet-button" hidden>登出</button>
+  </header>
+  <main>
+    <section id="pairing" class="pairing">
+      <div class="pair-art" aria-hidden="true"><img src="../assets/event/signal.svg" alt=""></div>
+      <div class="pair-copy">
+        <div class="eyebrow">ACAHKU / SCOREKEEPER ACCESS</div>
+        <h1>計分員登入</h1>
+        <p>輸入計分員密碼，記錄主控所選場次的分數。</p>
+        <form id="pair-form">
+          <label for="pin">計分員密碼</label>
+          <input id="pin" name="pin" type="password" autocomplete="current-password" required placeholder="輸入計分員密碼">
+          <button class="primary-button" type="submit">登入計分面板</button>
+        </form>
+        <div id="pair-error" class="error" role="alert"></div>
+        <p class="secondary">請向主控工作人員取得計分員專用密碼。</p>
+      </div>
+    </section>
+    <section id="workspace" hidden>
+      <div class="page-heading">
+        <div><div id="event-title" class="eyebrow">ACAHKU / SCORE ENTRY</div><h1 id="context-title">等候主控設定場次</h1><p id="context-description">正在讀取比賽資料…</p><p id="toast" role="status" aria-live="polite"></p></div>
+        <div class="entry-guidance">分數範圍 <strong>0–1,000,000</strong><span>填寫後按「保存分數」；留空代表尚未計分。</span></div>
+      </div>
+      <section id="draft-notice" class="draft-notice" aria-live="polite" hidden></section>
+      <section id="match-notice" class="match-notice" role="status" hidden></section>
+      <div id="score-list" class="score-list"></div>
+      <footer class="app-footer"><span>ACAHKU · PHIGROS COMPETITION</span><span id="sync-status" role="status">等候同步</span></footer>
+    </section>
+  </main>
+  <script src="../socket.io/socket.io.js"></script>
+  <script src="../js/socket.js"></script>
+  <script src="./scorekeeper.js"></script>
+</body>
+</html>

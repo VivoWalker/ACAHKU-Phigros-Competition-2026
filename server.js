@@ -11,12 +11,21 @@ const { getBranding } = require('./lib/branding');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
 const { context: countdownContext } = require('./public/js/countdown');
+const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
   const store = new StateStore(dataDir);
   const pinFile = path.join(dataDir, '.control-pin');
   const pin = options.pin || process.env.CONTROL_PIN || (fs.existsSync(pinFile) ? fs.readFileSync(pinFile, 'utf8').trim() : String(randomInt(100000, 1000000)));
   if (!options.pin && !process.env.CONTROL_PIN && !fs.existsSync(pinFile)) fs.writeFileSync(pinFile, pin + '\n', { mode: 0o600 });
+  const scorekeeperPinFile = path.join(dataDir, '.scorekeeper-pin');
+  const configuredScorekeeperPin = options.scorekeeperPin || process.env.SCOREKEEPER_PIN;
+  let scorekeeperPin = configuredScorekeeperPin || (fs.existsSync(scorekeeperPinFile) ? fs.readFileSync(scorekeeperPinFile, 'utf8').trim() : null);
+  if (configuredScorekeeperPin === pin) throw new Error('Control and scorekeeper pairing codes must be different.');
+  if (!scorekeeperPin || scorekeeperPin === pin) {
+    do { scorekeeperPin = String(randomInt(100000, 1000000)); } while (scorekeeperPin === pin);
+    fs.writeFileSync(scorekeeperPinFile, scorekeeperPin + '\n', { mode: 0o600 });
+  }
   const keyFile = path.join(dataDir, '.session-key');
   if (!fs.existsSync(keyFile)) fs.writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
   const sessionKey = fs.readFileSync(keyFile);
@@ -26,12 +35,18 @@ function createBroadcastServer(options = {}) {
     const [nonce, signature] = token.split('.');
     return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(sign(nonce), 'hex'));
   };
+  const scorekeeperSign = nonce => createHmac('sha256', sessionKey).update('scorekeeper:' + nonce + ':' + scorekeeperPin).digest('hex');
+  const validScorekeeperToken = token => {
+    if (typeof token !== 'string' || !/^scorekeeper\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(token)) return false;
+    const [, nonce, signature] = token.split('.');
+    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(scorekeeperSign(nonce), 'hex'));
+  };
   const attempts = new Map();
   const app = express(); const server = http.createServer(app);
   const io = new Server(server, { maxHttpBufferSize: 100000, cors: false });
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb' }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
-  const controls = io.of('/control'); const overlays = io.of('/overlay');
+  const controls = io.of('/control'); const overlays = io.of('/overlay'); const scorekeepers = io.of('/scorekeeper');
   // A start cue belongs to the live connection, never to a saved match or backup.
   let countdownCue = null, countdownTimer = null, countdownSources = null, countdownSequence = 0;
   function clearCountdown() {
@@ -52,32 +67,43 @@ function createBroadcastServer(options = {}) {
       JSON.stringify(store.state.broadcast?.sourceSlots || null) !== countdownSources)) clearCountdown();
   }
   function controlState() { return { ...store.state, broadcast: { ...store.state.broadcast, sourceStatus: sourceStatus(store.state) } }; }
-  function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
+  function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, scorekeepers: scorekeepers.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
   function notifyStatus() { controls.emit('connections', connectionStatus()); }
   function publishState(beforeScene) {
     cancelChangedCountdown();
-    controls.emit('state', controlState()); overlays.emit('state', publicState(store.state));
+    controls.emit('state', controlState()); overlays.emit('state', publicState(store.state)); scorekeepers.emit('state', scorekeeperState(store.state));
     if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
     notifyStatus();
   }
   function requestFailure(res, error) { return res.status(error.code === 'STALE' ? 409 : 400).json({ error: error.message, code: error.code || 'INVALID', revision: store.state.revision }); }
   function authenticated(req, res, next) {
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+    if (validScorekeeperToken(token)) return res.status(403).json({ error: 'This operation requires the main control panel.', code: 'FORBIDDEN' });
     if (!validToken(token)) return res.status(401).json({ error: 'Control pairing required.' }); next();
+  }
+  function scorekeeperAuthenticated(req, res, next) {
+    const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+    if (validToken(token)) return res.status(403).json({ error: 'Use the scorekeeper pairing code for this panel.', code: 'FORBIDDEN' });
+    if (!validScorekeeperToken(token)) return res.status(401).json({ error: 'Scorekeeper pairing required.' }); next();
   }
   app.get('/api/health', (req, res) => res.json({ ok: true, revision: store.state.revision }));
   app.get('/api/state', (req, res) => res.json(publicState(store.state)));
   app.get('/api/branding', (req, res) => res.json(getBranding()));
   app.post('/api/session', (req, res) => {
-    const key = req.ip; const now = Date.now(); const failed = (attempts.get(key) || []).filter(t => now - t < 60000);
+    const role = req.body?.role === undefined ? 'control' : req.body.role;
+    if (!['control', 'scorekeeper'].includes(role)) return res.status(400).json({ error: 'Unknown panel role.', code: 'INVALID' });
+    const key = role + ':' + req.ip; const now = Date.now(); const failed = (attempts.get(key) || []).filter(t => now - t < 60000);
     if (failed.length >= 10) return res.status(429).json({ error: 'Too many pairing attempts. Wait one minute.' });
+    const expectedPin = role === 'control' ? pin : scorekeeperPin;
     const candidate = String(req.body?.pin || '');
-    if (Buffer.byteLength(candidate) !== Buffer.byteLength(pin) || !timingSafeEqual(Buffer.from(candidate), Buffer.from(pin))) {
+    if (Buffer.byteLength(candidate) !== Buffer.byteLength(expectedPin) || !timingSafeEqual(Buffer.from(candidate), Buffer.from(expectedPin))) {
       failed.push(now); attempts.set(key, failed); return res.status(401).json({ error: 'Incorrect pairing code.' });
     }
-    attempts.delete(key); const nonce = randomBytes(32).toString('hex'); res.json({ token: nonce + '.' + sign(nonce) });
+    attempts.delete(key); const nonce = randomBytes(32).toString('hex');
+    res.json({ token: role === 'control' ? nonce + '.' + sign(nonce) : 'scorekeeper.' + nonce + '.' + scorekeeperSign(nonce), role });
   });
   app.get('/api/control-state', authenticated, (req, res) => res.json(controlState()));
+  app.get('/api/scorekeeper-state', scorekeeperAuthenticated, (req, res) => res.json(scorekeeperState(store.state)));
   app.get('/api/export', authenticated, (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename="match-state-backup.json"'); res.json(store.state); });
   app.get('/api/backups', authenticated, (req, res) => res.json({ backups: store.listBackups(), recovery: store.state.recovery || null }));
   app.get('/api/backups/:id/preview', authenticated, (req, res) => {
@@ -97,7 +123,7 @@ function createBroadcastServer(options = {}) {
   });
   app.get('/', (req, res) => res.redirect('/control/'));
   app.use(express.static(path.join(__dirname, 'public')));
-  controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error('PAIRING_REQUIRED')));
+  controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error(validScorekeeperToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
   controls.on('connection', socket => {
     socket.emit('state', controlState()); socket.emit('countdown', countdownMessage()); notifyStatus();
     socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
@@ -154,8 +180,29 @@ function createBroadcastServer(options = {}) {
     socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
     socket.on('disconnect', notifyStatus);
   });
+  scorekeepers.use((socket, next) => validScorekeeperToken(socket.handshake.auth?.token) ? next() : next(new Error(validToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
+  scorekeepers.on('connection', socket => {
+    socket.emit('state', scorekeeperState(store.state)); notifyStatus();
+    socket.on('command', (request, ack) => {
+      if (typeof ack !== 'function') return;
+      try {
+        if (!SCORE_ACTIONS.has(request?.action?.type)) { const error = new Error('Scorekeepers may only enter scores.'); error.code = 'FORBIDDEN'; throw error; }
+        store.assertRevision(request.expectedRevision);
+        const action = scorekeeperAction(store.state, request), beforeScene = store.state.scene;
+        store.commit(action, request.expectedRevision); publishState(beforeScene);
+        ack({ ok: true, revision: store.state.revision });
+      } catch (error) {
+        if (error.code === 'STALE' || error.code === 'CONTEXT_CHANGED') socket.emit('state', scorekeeperState(store.state));
+        ack({ ok: false, error: error.message, code: error.code || 'INVALID', revision: store.state.revision });
+      }
+    });
+    socket.on('countdown-command', (request, ack) => {
+      if (typeof ack === 'function') ack({ ok: false, code: 'FORBIDDEN', error: 'Only the main control panel may start or cancel a countdown.', revision: store.state.revision });
+    });
+    socket.on('disconnect', notifyStatus);
+  });
   app.use((err, req, res, next) => res.status(400).json({ error: 'Invalid request.' }));
-  return { app, server, io, store, pin,
+  return { app, server, io, store, pin, scorekeeperPin,
     listen(port = 3000, host = '0.0.0.0') { return new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.removeListener('error', reject); resolve(server.address()); }); }); },
     close() { clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null; return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
   };
@@ -165,8 +212,13 @@ if (require.main === module) {
   broadcast.listen(Number(process.env.PORT || 3000), process.env.HOST || '0.0.0.0').then(address => {
     console.log(`ACAHKU broadcast ready on port ${address.port}`);
     console.log(`Control: http://localhost:${address.port}/control/`);
-    for (const network of Object.values(os.networkInterfaces())) for (const item of network || []) if (item.family === 'IPv4' && !item.internal) console.log(`iPad: http://${item.address}:${address.port}/control/`);
+    console.log(`Scorekeeper: http://localhost:${address.port}/scorekeeper/`);
+    for (const network of Object.values(os.networkInterfaces())) for (const item of network || []) if (item.family === 'IPv4' && !item.internal) {
+      console.log(`Main control iPad: http://${item.address}:${address.port}/control/`);
+      console.log(`Scorekeeper iPad: http://${item.address}:${address.port}/scorekeeper/`);
+    }
     console.log(`Control pairing code: ${broadcast.pin}`);
+    console.log(`Scorekeeper pairing code: ${broadcast.scorekeeperPin}`);
     console.log('Keep this terminal running. State saves locally after every update.');
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => broadcast.close().then(() => process.exit()));

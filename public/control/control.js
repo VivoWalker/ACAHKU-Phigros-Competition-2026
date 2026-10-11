@@ -230,7 +230,7 @@
     socket.on('disconnect', () => controlStatus(false));
     socket.on('connect_error', error => {
       controlStatus(false);
-      if (error.message === 'PAIRING_REQUIRED') { socket.disconnect(); token = null; sessionStorage.removeItem('broadcast-token'); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; }
+      if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionStorage.removeItem('broadcast-token'); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
     });
   }
   $('pair-form').addEventListener('submit', async event => {
@@ -244,7 +244,7 @@
   });
   function refreshConnections() {
     if ($('overlay-count')) $('overlay-count').textContent = connections.overlays ? `${connections.overlays} source${connections.overlays === 1 ? '' : 's'} connected` : 'No overlay connected';
-    if ($('crew-count')) $('crew-count').textContent = `${connections.controls} control device${connections.controls === 1 ? '' : 's'}`;
+    if ($('crew-count')) $('crew-count').textContent = `${connections.controls} 主控 · ${connections.scorekeepers || 0} 計分員`;
   }
   function refreshCountdownControls() {
     const current = BroadcastCountdown.context(state), cue = countdownClient?.cue;
