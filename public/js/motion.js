@@ -34,7 +34,9 @@
   }
   function attributes(node, source) {
     for (const attribute of [...node.attributes]) if (!source.hasAttribute(attribute.name)) node.removeAttribute(attribute.name);
-    for (const attribute of [...source.attributes]) node.setAttributeNS(attribute.namespaceURI, attribute.name, attribute.value);
+    for (const attribute of [...source.attributes])
+      if (node.getAttributeNS(attribute.namespaceURI, attribute.localName) !== attribute.value)
+        node.setAttributeNS(attribute.namespaceURI, attribute.name, attribute.value);
   }
   // Each keyed node is moved into the new tree, never cloned or replaced.
   function reconcile(fragment, oldKeys) {
@@ -81,6 +83,14 @@
   function createScene(mount, { canvas } = {}) {
     let backdrop, markup, scene, epoch = 0, running = false, current, presentation, lastLayout = new Map();
     let apertures = new Map();
+    const content = document.createElement('div'), branding = document.createElement('div'), logoNodes = new Map();
+    content.dataset.motionContent = '';
+    branding.dataset.motionBranding = '';
+    Object.assign(content.style, { position: 'absolute', inset: '0' });
+    Object.assign(branding.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1000' });
+    // Keep decoded logos and their compositor plane attached even when the
+    // scene or a bracket revision rebuilds all of the content beneath them.
+    mount.append(content, branding);
     const animations = new Set(), cleanups = [], waiters = [], logoTracks = new Map();
     const clock = () => document.timeline.currentTime ?? performance.now();
     mount.dataset.motionPhase = 'idle';
@@ -168,9 +178,55 @@
     function commit(record, template) {
       const info = context(record);
       syncBackdrop(template, markup !== undefined && scene !== record.scene);
-      mount.replaceChildren(...reconcile(template.content, keyed(mount)));
+      const slots = [];
+      for (const source of template.content.querySelectorAll(KEY)) {
+        const key = source.dataset.motionKey;
+        if (!LOGOS.has(key)) continue;
+        const attributes = source.cloneNode(false);
+        source.removeAttribute('data-motion-key');
+        source.style.visibility = 'hidden';
+        slots.push({ key, source, attributes });
+      }
+      content.replaceChildren(...reconcile(template.content, new Map([...keyed(content)].filter(([key]) => !LOGOS.has(key)))));
+      syncLogos(slots);
       markup = record.html; scene = record.scene; mount.dataset.motionScene = String(scene || '');
       record.onCommit?.(info);
+    }
+    function syncLogos(slots) {
+      const scale = scaleFor(mount, canvas), wanted = new Set(slots.map(slot => slot.key));
+      for (const [key, node] of logoNodes) {
+        if (!wanted.has(key)) { node.remove(); logoNodes.delete(key); }
+      }
+      // Measure every destination before replacing its prototype. Resolved
+      // slot widths then keep the exact flex/grid allocation of that layout.
+      const targets = slots.map(slot => ({ ...slot, target: measure(slot.source, mount, scale), css: getComputedStyle(slot.source) }));
+      for (const { key, source, attributes: prototype, target, css } of targets) {
+        let node = logoNodes.get(key);
+        if (!compatible(node, prototype)) {
+          node?.remove(); node = prototype.cloneNode(false); node.textContent = source.textContent;
+          logoNodes.set(key, node); branding.append(node);
+        }
+        for (const attribute of [...prototype.attributes]) {
+          if (attribute.name === 'style') continue;
+          if (node.getAttributeNS(attribute.namespaceURI, attribute.localName) !== attribute.value)
+            node.setAttributeNS(attribute.namespaceURI, attribute.name, attribute.value);
+        }
+        const slot = document.createElement('span');
+        slot.dataset.motionSlot = key; slot.setAttribute('aria-hidden', 'true');
+        for (const property of ['display', 'position', 'float', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+          'flex-grow', 'flex-shrink', 'flex-basis', 'order', 'align-self', 'justify-self', 'grid-area', 'vertical-align'])
+          slot.style.setProperty(property, css.getPropertyValue(property));
+        Object.assign(slot.style, { width: `${target.rect.width}px`, height: `${target.rect.height}px`,
+          visibility: 'hidden', boxSizing: 'border-box', flexShrink: '0' });
+        if (css.display === 'inline') slot.style.display = 'inline-block';
+        for (const property of ['object-fit', 'object-position', 'font-family', 'font-weight', 'font-size', 'font-style',
+          'line-height', 'letter-spacing', 'filter', 'color', 'padding', 'border'])
+          node.style.setProperty(property, css.getPropertyValue(property));
+        Object.assign(node.style, { position: 'absolute', left: `${target.rect.left}px`, top: `${target.rect.top}px`,
+          right: 'auto', bottom: 'auto', width: `${target.rect.width}px`, height: `${target.rect.height}px`,
+          margin: '0px', flex: 'none', zIndex: '1000', visibility: 'visible' });
+        source.replaceWith(slot);
+      }
     }
     function sameRect(a, b) {
       return a && b && ['left', 'top', 'width', 'height'].every(property => Math.abs(a[property] - b[property]) < .5);
@@ -184,23 +240,7 @@
       epoch++; for (const animation of animations) animation.cancel(); animations.clear();
       restoreAll(); current?.resolve({ superseded: true }); current = null;
     }
-    function floatLogo(node, a, b, layer) {
-      const css = getComputedStyle(node), original = node.getAttribute('style');
-      const placeholder = document.createElement('span'); placeholder.dataset.motionPlaceholder = '';
-      for (const property of ['position', 'display', 'float', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
-        'flex-grow', 'flex-shrink', 'flex-basis', 'order', 'align-self', 'justify-self', 'grid-area', 'vertical-align', 'left', 'top', 'right', 'bottom'])
-        placeholder.style.setProperty(property, css.getPropertyValue(property));
-      Object.assign(placeholder.style, { width: `${b.rect.width}px`, height: `${b.rect.height}px`, visibility: 'hidden', boxSizing: 'border-box' });
-      if (css.display === 'inline') placeholder.style.display = 'inline-block';
-      for (const property of ['object-fit', 'object-position', 'font-family', 'font-weight', 'font-size', 'font-style', 'line-height', 'letter-spacing', 'filter', 'padding', 'border'])
-        node.style.setProperty(property, css.getPropertyValue(property));
-      node.replaceWith(placeholder); layer.append(node);
-      Object.assign(node.style, { position: 'absolute', left: `${b.rect.left}px`, top: `${b.rect.top}px`, right: 'auto', bottom: 'auto',
-        width: `${b.rect.width}px`, height: `${b.rect.height}px`, margin: '0px', flex: 'none', zIndex: '1000' });
-      cleanups.push(() => {
-        if (placeholder.isConnected) placeholder.replaceWith(node);
-        if (original === null) node.removeAttribute('style'); else node.setAttribute('style', original);
-      });
+    function logoFrames(node, a, b) {
       const frame = value => ({ left: `${value.rect.left}px`, top: `${value.rect.top}px`, width: `${value.rect.width}px`,
         height: `${value.rect.height}px`, opacity: value.opacity, ...(node.localName === 'span' ? { fontSize: value.fontSize } : {}) });
       return [frame(a), frame(b)];
@@ -321,12 +361,9 @@
       }
       if (tracks.length) {
         mount.dataset.motionPhase = 'move';
-        const layer = document.createElement('div'); layer.dataset.motionLive = ''; layer.dataset.motionBranding = '';
-        Object.assign(layer.style, { position: 'absolute', inset: '0', pointerEvents: 'none', zIndex: '1000' });
-        mount.append(layer); cleanups.push(() => layer.remove());
         for (const track of tracks) {
           logoTracks.set(track.key, track);
-          jobs.push(animate(track.node, floatLogo(track.node, track.before, track.target, layer), LOGO_DURATION, track.start));
+          jobs.push(animate(track.node, logoFrames(track.node, track.before, track.target), LOGO_DURATION, track.start));
         }
       }
       if (exits.length || tracks.length) {

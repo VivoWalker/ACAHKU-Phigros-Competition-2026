@@ -67,6 +67,8 @@ The filtered background stays mounted between scenes; its HTML mask covers and r
 
 ### Overlay documents
 
+Decoded Phigros and club logos stay attached to one persistent top branding plane. Scene content uses invisible layout slots to position them, so switching to the bracket or updating its results never removes/reinserts the displayed logo images or rewrites an unchanged image URL. Their 760 ms travel, original layout positions and full-screen countdown coverage remain intact.
+
 | Screen | Path |
 | --- | --- |
 | Start screen / default source that follows scene controls | `/overlay/start.html` |
@@ -262,6 +264,12 @@ python3 test/aperture-motion.py
 ```
 
 Set `APERTURE_RECORD_PREVIEW=1` to record the browser with a labelled mock OBS source beneath the overlay. Reports, screenshots and the optional MP4 use `BROADCAST_TEST_OUTPUT` or ignored `test-results/`. The mock source is only a test preview; the delivered overlay keeps the real OBS source rectangles transparent.
+
+The logo regression checks painted asset pixels and continuous attachment of the branding plane and logo images through bracket switches, revisions and interrupted travel:
+
+```sh
+python3 test/logo-continuity.py
+```
 
 The bracket regression plays through all 14 matches and six rounds using real commands against a temporary event. It checks winner/loser destinations, elimination and podium labels, round holds and nonlinear transitions, panel/text overlap, updates during animation, live-source re-entry, reviewed corrections, long names, fixed historical rounds and Reduce motion:
 
