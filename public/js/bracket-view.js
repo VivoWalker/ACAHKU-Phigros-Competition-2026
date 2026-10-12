@@ -12,7 +12,16 @@
   }
   function destination(state, match, playerId) {
     if (!playerId || match.status !== 'complete') return null;
+    if (state.qualifier.players.find(player => player.id === playerId)?.disqualification)
+      return { kind: 'eliminated', target: null, label: 'DQ · DISQUALIFIED' };
     const won = playerId === match.winnerId;
+    if (state.tournament.ruleset === 'proposal-2026') {
+      const waiting = (match.round === 1 ? [won ? 'W5' : 'L1', won ? 'W6' : 'L2'] :
+        match.round === 2 && (!won && match.bracket === 'WB' || won && match.bracket === 'LB') ? ['L3', 'L4'] : [])
+        .map(id => state.tournament.matches.find(m => m.id === id)).filter(Boolean);
+      if (waiting.some(m => !m.reseeded)) return { kind: won ? 'win' : 'loss', target: null,
+        label: `${won ? '晉級' : '轉入'} ${GROUP[waiting[0].bracket]} · R${waiting[0].round} / 配對待定` };
+    }
     const target = state.tournament.matches.find(m => m.sources.some(source => source.value === match.id && source.type === (won ? 'winner' : 'loser')));
     if (target) return { kind: won ? 'win' : 'loss', target: target.id, round: target.round,
       label: `${won ? '晉級' : '轉入'} ${GROUP[target.bracket]} · R${target.round} / ${target.id}` };
@@ -28,19 +37,21 @@
     const current = matches.filter(m => m.round === round), next = nextMatches(state, round);
     const sourceName = source => source.type === 'seed' ? `種子 #${source.value}` : `${source.value} ${source.type === 'winner' ? '勝者' : '敗者'}`;
     function card(m, preview) {
+      const pendingPair = state.tournament.ruleset === 'proposal-2026' && !m.reseeded && ['W5', 'W6', 'L1', 'L2', 'L3', 'L4'].includes(m.id);
       return `<article class="bracket-node ${preview ? 'destination-card' : 'focus-card'} ${e(m.status)}" data-match="${e(m.id)}">
         <header class="match-heading"><b>${e(m.id)}</b><span>${GROUP[m.bracket]}${preview ? ` · R${m.round}` : ''}</span><em>${m.status === 'complete' ? '已結束' : m.status === 'live' ? '進行中' : m.status === 'ready' ? '待開始' : '待定'}</em></header>
         ${m.players.map((id, index) => {
           const route = destination(state, m, id), won = id && id === m.winnerId;
-          const tone = route?.kind || '', name = id ? B.name(state, id) : m.status === 'pending' ? sourceName(m.sources[index]) : '輪空';
+          const tone = route?.kind || '', name = id ? B.name(state, id) : pendingPair ? '種子配對待定' : m.status === 'pending' ? sourceName(m.sources[index]) : '輪空';
           return `<div class="bracket-player ${e(tone)}" data-bracket-player="${e(id || '')}" data-slot="${m.id}:${index}">
             <div class="player-line"><span class="outcome-mark">${route ? won ? '勝' : '負' : String(index + 1).padStart(2, '0')}</span><strong title="${e(name)}">${e(name)}</strong>${!preview && m.resultType === 'score' ? `<span class="bracket-total">${B.score(B.total(m.scores[index]))}</span>` : ''}</div>
-            ${!preview ? `<div class="bracket-route"${route ? ` data-route="${e(route.kind)}"` : ''}><i aria-hidden="true">${route ? '→' : '·'}</i><span>${e(route?.label || (m.resultType === 'bye' || m.resultType === 'draw' ? '輪空／抽籤晉級' : m.status === 'pending' ? sourceName(m.sources[index]) : '等待賽果'))}</span></div>` : ''}
+            ${!preview ? `<div class="bracket-route"${route ? ` data-route="${e(route.kind)}"` : ''}><i aria-hidden="true">${route ? '→' : '·'}</i><span>${e(route?.label || (m.resultType === 'bye' || m.resultType === 'draw' ? '輪空／抽籤晉級' : pendingPair ? '等待完整場次後按種子配對' : m.status === 'pending' ? sourceName(m.sources[index]) : '等待賽果'))}</span></div>` : ''}
           </div>`;
         }).join('')}
       </article>`;
     }
-    const final = matches.find(m => m.id === 'GF'), champion = final?.winnerId, runner = final?.loserId, third = matches.find(m => m.id === 'L6')?.loserId;
+    const qualified = id => id && !state.qualifier.players.find(player => player.id === id)?.disqualification ? id : null;
+    const final = matches.find(m => m.id === 'GF'), champion = qualified(final?.winnerId), runner = qualified(final?.loserId), third = qualified(matches.find(m => m.id === 'L6')?.loserId);
     return `<div class="bracket-page-heading"><h1>雙淘汰賽進度</h1><p class="bracket-legend"><span>勝者／晉級</span><span>敗者／轉組</span><span>淘汰</span></p></div>
       <nav class="bracket-rail" aria-label="Round progress">${[1,2,3,4,5,6].map(r => {
         const group = matches.filter(m => m.round === r), done = group.filter(m => m.status === 'complete').length;

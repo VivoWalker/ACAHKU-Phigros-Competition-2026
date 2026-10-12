@@ -8,16 +8,21 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const total = values => (values || []).reduce((s, n) => s + (n ?? 0), 0);
   const score = n => n === null || n === undefined ? '—' : n.toLocaleString('en-US');
-  const player = (state, id) => state.qualifier.players.find(p => p.id === id);
+  const qualifierPlayers = (state, group) => window.QualifierRules ? QualifierRules.entries(state, group) : state.qualifier.players.filter(p => p.group === group);
+  const player = (state, id) => state.qualifier.plan ? qualifierPlayers(state, state.qualifier.activeGroup).find(p => p.id === id) || state.qualifier.players.find(p => p.id === id) : state.qualifier.players.find(p => p.id === id);
   const name = (state, id) => player(state, id)?.name || 'Vacant slot';
   const currentMatch = state => state.tournament.matches.find(m => m.id === state.tournament.currentMatchId);
   const seed = (state, id) => state.tournament.seeds.indexOf(id) + 1;
   const losses = (state, id) => id ? state.tournament.matches.filter(m => m.loserId === id && m.status === 'complete').length : 0;
-  const rankings = (state, group) => state.qualifier.players.filter(p => p.group === group).map(p => ({ ...p, total: total(p.scores) }))
+  const legacyRankings = (state, group) => state.qualifier.players.filter(p => p.group === group && !p.disqualification).map(p => ({ ...p, total: total(p.scores) }))
     .sort((a, b) => b.total - a.total || (a.tiePriority ?? 999) - (b.tiePriority ?? 999) || a.id.localeCompare(b.id))
-    .map((p, i) => ({ ...p, rank: i + 1, tied: state.qualifier.players.some(q => q.group === group && q.id !== p.id && total(q.scores) === p.total && (p.tiePriority === null || q.tiePriority === null || p.tiePriority === q.tiePriority)) }));
+    .map((p, i) => ({ ...p, rank: i + 1, tied: state.qualifier.players.some(q => !q.disqualification && q.group === group && q.id !== p.id && total(q.scores) === p.total && (p.tiePriority === null || q.tiePriority === null || p.tiePriority === q.tiePriority)) }));
   const song = (state, id) => state.library.find(s => s.id === id);
   const date = value => new Date(value + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'short' });
   const icon = id => `<svg class="phi-icon" aria-hidden="true"><use href="../assets/icons/icons.svg#phi-${id}"></use></svg>`;
-  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, seed, losses, rankings, song, date, icon };
+  const rankings = (state, group) => state.qualifier.plan && window.QualifierRules ? QualifierRules.rankings(state, group) : legacyRankings(state, group);
+  const qualifierLabel = (state, group = state.qualifier.activeGroup) => state.qualifier.plan === 'A' ? group === 'A' ? 'Qualifier Round 1' : 'Revival Round' : `Group ${group}${state.qualifier.plan === 'B' ? group === 'A' ? ' · Odd numbers' : ' · Even numbers' : ''}`;
+  const qualifierTiebreak = state => { const rounds = state.qualifier.rounds?.[state.qualifier.activeGroup]?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
+  const matchTiebreak = state => { const rounds = currentMatch(state)?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
+  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, seed, losses, rankings, qualifierPlayers, qualifierLabel, qualifierTiebreak, matchTiebreak, song, date, icon };
 })();

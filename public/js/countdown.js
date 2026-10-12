@@ -9,17 +9,23 @@
     if (!state) return null;
     let current;
     if (state.stage === 'qualifier' && state.scene === 'qualifier-match') {
-      const q = state.qualifier, songId = q.groups[q.activeGroup]?.songs[q.currentSong];
+      const q = state.qualifier, rounds = q.rounds?.[q.activeGroup]?.tiebreaks, pending = rounds?.at(-1), tie = pending && !pending.confirmed ? pending : null;
+      const songId = tie?.song.id || q.groups[q.activeGroup]?.songs[q.currentSong];
       if (!q.activePlayers.length || !state.library.some(song => song.id === songId)) return null;
-      current = { scene: state.scene, stage: state.stage, group: q.activeGroup, songIndex: q.currentSong, songId, players: [...q.activePlayers] };
+      if (q.rounds?.[q.activeGroup]?.locked || q.activePlayers.some(id => state.qualifier.players.find(player => player.id === id)?.disqualification)) return null;
+      current = { scene: state.scene, stage: state.stage, group: q.activeGroup, songIndex: tie ? 0 : q.currentSong, songId, players: [...q.activePlayers],
+        ...(tie ? { tiebreakIndex: rounds.length - 1 } : {}) };
     } else if (state.stage === 'double-elimination' && state.scene === 'double-elimination-match') {
-      const m = state.tournament.matches.find(match => match.id === state.tournament.currentMatchId), song = m?.songs[m.currentSong];
+      const m = state.tournament.matches.find(match => match.id === state.tournament.currentMatchId), pending = m?.tiebreaks?.at(-1), tie = pending && !pending.confirmed ? pending : null;
+      const song = tie?.song || m?.songs[m.currentSong];
       if (!m || m.status === 'complete' || m.players.filter(Boolean).length !== 2 || m.songs.length !== (m.id === 'GF' ? 3 : 2) || !song || song.hidden || m.id === 'GF' && m.currentSong === 2 && !m.hostRevealed) return null;
-      current = { scene: state.scene, stage: state.stage, matchId: m.id, songIndex: m.currentSong, songId: song.id, players: [...m.players] };
+      current = { scene: state.scene, stage: state.stage, matchId: m.id, songIndex: tie ? 0 : m.currentSong, songId: song.id, players: [...m.players],
+        ...(tie ? { tiebreakIndex: m.tiebreaks.length - 1 } : {}) };
     } else return null;
     current.showHandcams = state.broadcast?.showHandcams === true;
     // Only public fields: private OBS source assignments never enter this key.
     current.key = JSON.stringify([current.scene, current.stage, current.group || current.matchId, current.songIndex, current.songId, current.players, current.showHandcams]);
+    if (current.tiebreakIndex !== undefined) current.key += ':' + current.tiebreakIndex;
     return current;
   }
   function phase(cue, now) {

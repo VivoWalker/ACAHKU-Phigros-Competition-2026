@@ -128,35 +128,39 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 
 ## Staff workflow
 
-### Qualifiers
+### Proposal rules and qualifiers
 
-1. In **Event & library**, verify event name, organiser, date, time, venue and song metadata.
-2. In **Qualifiers**, edit the Group A and Group B rosters (one name per line). Names unchanged within a group retain their scores. Use **Rename player** to correct a name while keeping its player ID, scores and bracket references, including after seeding. Bulk roster replacement cannot remove a player who already has scores.
-3. Optionally use **Randomise A / B** before any scores have been entered. This balances the two groups. It cannot redistribute scored players.
-4. Select three different group songs for each group. The groups must have different sets; a group's selection is locked once its scoring begins.
-5. Choose up to three on-stage players, select the current song, and use the waiting or match scene. Empty slots remain empty; no fake scores are inserted.
-6. Enter integer Phigros scores from 0 to 1,000,000. Changes save on field change / leaving the input. A blank is unplayed; **zero is a valid score**. Rankings use the three-song sum.
-7. Equal totals need unique **Tie order** values, with `1` first, based on the referee's decision. All scores must be complete and the top-four ordering unambiguous before advancement.
-8. **Advance top four** locks qualifier scores and creates the bracket. Default seeds alternate **A1, B1, A2, B2, A3, B3, A4, B4** because the groups play different songs; they are not ranked together by incomparable totals. Manual seed ordering is available in **Bracket → Seeding & vacancies** before scoring or results begin.
+The [English competition rules](docs/competition-rules.md) are available locally at **`/rules/`**; [the rule audit](docs/proposal-rule-audit.md) maps every competition clause to the proposal and records its inconsistencies. The Phigros body is authoritative; the obsolete Project Sekai registration screenshots are excluded.
+
+1. Verify event information and the actual song library in **Event & library**. The bundled players and tracks are examples; prepare the official six qualifier songs, regular DE pool, and full local song catalogue needed for qualifier tiebreak draws.
+2. In **Qualifiers → 比赛方案与抽签编号**, save the complete roster, apply **Auto** (≤20: Plan A; >20: Plan B), and draw unique participant numbers. Numbers determine batches of at most three and identify entrants throughout the event. Setup is locked after scoring or adjudicated incidents begin.
+3. Plan A puts everyone in Round 1. Confirm its top four after all eligible results and ties are resolved; the remaining entrants enter the revival round with independent blank scores. Confirm its top four to create the bracket. First-round qualifiers default to seeds 1–4, revival qualifiers to 5–8; a reviewed ACA manual seed override requires a reason.
+4. Plan B uses odd numbers in Group A and even numbers in Group B, with separate three-song sets and top four qualifiers in each. Seeds alternate A1/B1/A2/B2/A3/B3/A4/B4, preserving the specified cross-group opening opponents. Do not combine totals from different song sets.
+5. Select three different songs per round/group, with no overlap between sets. Choose on-stage players or **Next ordered batch**, choose the current song, and show waiting/match. Empty slots stay empty.
+6. Save each **score + original screen ACC** together; record Perfect/Good/Bad/Miss when available. All four counts must be provided together. Scores are integers 0–1,000,000; a blank is unplayed and zero is valid. Scorers have the same fields and can enter the active round's or match's tiebreak scores, but cannot draw, confirm, or adjudicate.
+7. Equal three-song totals compare the equally weighted mean original ACC, rounded to four decimals. Missing ACC cannot resolve a tie. Remaining qualification/seed ties use separately recorded random songs from the full local library, with repeated rounds and arbiter confirmation; base totals stay unchanged.
+8. The main operator confirms arbiter review before qualification. Proposal events cannot bypass ties using a manual priority or winner selector. Use **裁判工具** for readiness, ten-minute waits, evidence-based single-song rematches and permanent DQ.
+
+Existing unconfigured schema-1 events retain their legacy two-group scores, manual tie priorities, fixed routes and historical eight-candidate final data. Explicitly apply the proposal plan **before scoring a new event**. Do not replace an existing live `data/` folder during an upgrade. Use Rename player for spelling changes so IDs, round scores and references remain intact.
 
 ### Regular double elimination, R1–R5
 
 1. Select a ready match in **Bracket**. Pending matches cannot start until both incoming paths resolve.
 2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws.
-3. P1 and P2 each ban one different song. A ban can be changed or removed before the final draw. Both sides are clearly labelled with the actual player names.
-4. **Draw 2 match songs** randomly chooses two of the remaining four. These songs automatically populate the match overlay and scoring fields. Picks lock further bans.
+3. In proposal mode, P1 and P2 each record a ban or explicit **Pass**. A ban can be changed before the final draw. Legacy events retain their required two-ban flow.
+4. **Draw 2 match songs** randomly chooses two of the remaining candidates after both decisions. These songs automatically populate the match overlay and scoring fields. Picks lock further bans.
 5. Enter both players' two scores and select Song 1 / 2 or Song 2 / 2. The winner is determined by the two-song total.
-6. In **Record result**, confirm the result. For a tied total, choose a referee winner and provide an adjudication note. All song scores are required; partial totals cannot win.
+6. In **Record result**, confirm the result. In proposal mode, equal totals compare mean ACC, then repeated DE-pool tiebreaks if necessary. The arbiter confirms every tiebreak and the final result. Only legacy events retain the referee-winner selector. All base scores are required; partial totals cannot win.
 7. The result opens incoming winner/loser paths. The live scene changes to result announcement. Select the next ready match to continue.
 
-**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. It preserves entrants, seeding and every other result. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
+**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. It preserves entrants, seeding, every other result and durable rematch allowances. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
 
-Completed results lock against ordinary editing. To correct one, preview its downstream impact in the result-correction panel, enter a reason, and explicitly confirm any affected selections, scores and results that must be cleared. Reopening retains the chosen match's songs and scores for correction, selects it as the active match, and clears its dependent matches before the result is confirmed again. An unrelated newer update invalidates the reviewed preview and requires another review. The automatic backup and private correction log retain the previous data. A result belonging to a vacancy lottery with reassigned entrants must instead be corrected by restoring a backup from before that lottery. There is no one-click whole-tournament reset.
+Completed results lock against ordinary editing. To correct one, preview its downstream impact in the result-correction panel, enter a reason, and explicitly confirm any affected selections, scores and results that must be cleared. Reopening retains the chosen match's base songs and scores, invalidates its old tiebreak decision, and includes whole reseeded fields in the downstream review. It selects it as the active match, and clears its dependent matches before the result is confirmed again. An unrelated newer update invalidates the reviewed preview and requires another review. The automatic backup and private correction log retain the previous data. A result belonging to a vacancy lottery with reassigned entrants must instead be corrected by restoring a backup from before that lottery. There is no one-click whole-tournament reset.
 
 ### Grand Finals, R6
 
 1. Select **GF** after both bracket champions are known.
-2. Set **eight distinct candidates**. You can add songs not in the regular pool via **Event & library**, leaving their regular-draw checkbox off.
+2. Set **six distinct candidates** in proposal mode (eight remain valid for legacy finals). You can add songs not in the regular pool via **Event & library**, leaving their regular-draw checkbox off.
 3. Record two audience picks (from a live vote or the MC's interpretation of audience reactions), then choose the different third **MC pick** in the staff-only controls. This package records the choices; it does not provide a public voting service.
 4. Lock the picks. The staff panel can see the MC selection; public state and overlay broadcasts replace the third selected song with **MC PICK — SEALED**. Candidate titles are still visible as candidates, but no candidate is identified as the hidden MC pick. Staff state and export endpoints require the paired session.
 5. **Reveal MC song to broadcast** explicitly publishes it. The third song cannot be selected as current or scored before reveal.
@@ -173,7 +177,7 @@ Completed results lock against ordinary editing. To correct one, preview its dow
 | R5 | L6 | Winner to GF; loser is **Third place** |
 | R6 | GF | Champion vs. First Runner-up |
 
-L3 pairs the L1 winner with the W6 loser, and L4 pairs the L2 winner with the W5 loser to reduce immediate rematches. The progress overlay gives the current round a large, readable panel, with its actual destination matches alongside it and a six-round progress rail above. Winners and advancing players use green, losers transferring to the losers' bracket use amber, and eliminated players use red. Each completed player's route names the destination group, round and match; paired highlights connect the source row to its destination row. Final results also identify the champion, runner-up and third-place finisher. Detailed seeds, losses, advancement paths and adjudication notes remain available in the control panel. Two losses mark elimination.
+Proposal mode waits for the full field and reseeds R2 WB, R2 LB and R3 LB highest against lowest by the original qualifier seeds. The actual source edges are updated, so public destinations and corrections follow the real opponents. Before a field is complete, the overlay identifies the destination bracket and round with pairing pending. Legacy fixed brackets retain L1 winner/W6 loser in L3 and L2 winner/W5 loser in L4. The progress overlay gives the current round a large, readable panel, with its actual destination matches alongside it and a six-round progress rail above. Winners and advancing players use green, losers transferring to the losers' bracket use amber, and eliminated players use red. Each completed player's route names the destination group, round and match; paired highlights connect the source row to its destination row. Final results also identify the champion, runner-up and third-place finisher. Detailed seeds, losses, advancement paths and adjudication notes remain available in the control panel. Two losses mark elimination.
 
 The focus advances only when **every match in the current round** has finished, including both WB and LB matches in R2/R3. Completed-round results remain visible for **3.4 seconds** after their reveal begins. The old round then slides left, shrinks and fades out over **700 ms**; the next round slides in and expands over **950 ms**, using nonlinear easing. Live state revisions retain the original animation timing. Append `?round=1` through `?round=6` to `/overlay/bracket.html` to keep a particular round visible for historical results; that view still receives live data updates.
 
@@ -185,7 +189,13 @@ The requested **14-match format has one decisive Grand Final and no bracket rese
 
 Use empty manual seed slots to represent absences. In a match with zero or one player, **Record vacant-match bye** advances its available player without inventing a loser or a loss.
 
-For a four-player entry field with exactly three players and one vacancy, open **Vacancy, bye & lottery**. Choose the recorded draw winner or leave the dropdown blank for a random local lottery, then **Draw four-player bye**. The selected entrant advances directly; the other two stay paired in the companion match. Both entry matches must be ready and unscored, and the lottery must happen **before either match draws candidates, bans or selects songs**. Supported fields are W1/W2, W3/W4, and L1/L2. Eligible entrants, chosen player, destination, timestamp and notes are recorded in `drawLog`; the progress overlay marks the draw result. An unrelated player cannot receive the bye.
+For a four-player entry field with exactly three players and one vacancy, open **Vacancy, bye & lottery**. Choose the recorded draw winner or leave the dropdown blank for a random local lottery, then **Draw four-player bye**. The selected entrant advances directly; the other two stay paired in the companion match. Both entry matches must be ready and unscored. Proposal mode can clear already selected but unscored songs only after explicit review; legacy draws must precede song selection. Supported fields are W1/W2, W3/W4, W5/W6, L1/L2 and L3/L4. A single vacancy in a four-player proposal field requires this lottery before a bye. Eligible entrants, chosen player, destination, timestamp and notes are recorded in `drawLog`; the progress overlay marks the draw result. An unrelated player cannot receive the bye.
+
+### Readiness, waiting, DQ and score evidence
+
+The main-only **裁判工具** records device/global-version/headphones/chart/stream-consent checks. Start an absence or chart-unlock wait; its saved deadline is exactly ten minutes. Cancellation records resolution. An expired timer only enables staff review; it never sends an automatic penalty. A DQ permanently removes the entrant from future batches, seeds and WB/LB entries; a normal two-person field forfeits to the opponent, while a three-person four-player field requires its lottery.
+
+For a lost score screen, inspect the livestream recording first. A rematch requires an unintentional departure, all players' agreement and the recorded video check; otherwise record the appropriate ACA decision. Game-error rematches use the other incident reason. One allowance is shared across reasons per qualifier player/round/song, or per DE match/song for both opponents. Only that song's scores/metadata clear; invalidated tiebreak evidence is archived privately. Current unconfirmed tiebreaks have a separate single replay allowance; their replay clears only that extra song, preserving the original totals and earlier confirmed tiebreaks. Resets do not renew an allowance. Readiness, waiting, incident and detailed DQ notes remain staff-only.
 
 ## Data, backups and local resources
 
@@ -264,6 +274,14 @@ python3 test/aperture-motion.py
 ```
 
 Set `APERTURE_RECORD_PREVIEW=1` to record the browser with a labelled mock OBS source beneath the overlay. Reports, screenshots and the optional MP4 use `BROADCAST_TEST_OUTPUT` or ignored `test-results/`. The mock source is only a test preview; the delivered overlay keeps the real OBS source rectangles transparent.
+
+Proposal regressions cover two-stage qualification, odd/even numbering, independent scores and repeat tiebreaks, reseeding, six-candidate finals, DQ/rematch evidence and scorekeeper permissions. `npm test` includes their domain, persistence and corruption checks. These additional real-browser checks use private fixtures and do not touch live event data:
+
+```sh
+python3 test/proposal-master.py
+python3 test/proposal-master-extra.py
+python3 test/proposal-overlay.py
+```
 
 The logo regression checks painted asset pixels and continuous attachment of the branding plane and logo images through bracket switches, revisions and interrupted travel:
 
