@@ -230,6 +230,8 @@ For a lost score screen, inspect the livestream recording first. A rematch requi
 
 ### Adding song artwork and preview clips
 
+The organiser's song list has **47 unique jackets** bundled in [`public/assets/song/song-list-2026/`](public/assets/song/song-list-2026/README.md), matching all 49 input lines. These are original 2048×1080 PNGs from Rhythm Archive, verified against the source catalog's SHA-256. Use [`song-map.csv`](public/assets/song/song-list-2026/song-map.csv) to find each song's local artwork path; duplicate input lines share one file. The folder's manifest preserves source URLs and credits.
+
 The control panel's **Event & library → Song library** form keeps a **Local artwork path** field and adds an optional **Music preview path** field. Copy artwork into `public/assets/song/` and already-trimmed audio clips of about **10 seconds** into `public/assets/song-preview/`, then fill in their paths relative to `public/`:
 
 ```text
