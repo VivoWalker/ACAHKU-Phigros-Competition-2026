@@ -2,7 +2,10 @@ import os, json,shutil,subprocess,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent;OUT=Path(os.environ.get('BROADCAST_TEST_OUTPUT',ROOT/'test-results'/'proposal-control'));OUT.mkdir(parents=True,exist_ok=True)
-CODE="""const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'master-extra-fixture',scorekeeperPin:'score-extra-fixture'});s.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>s.close().then(()=>process.exit()));"""
+CODE="""const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'master-extra-fixture',scorekeeperPin:'score-extra-fixture'});
+require('./test/helpers/song-library').expandSongLibrary(s.store.state);
+s.store.write(s.store.state);
+s.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>s.close().then(()=>process.exit()));"""
 with sync_playwright() as pw:
  browser=pw.chromium.launch(executable_path=shutil.which('chromium'),args=['--no-sandbox']);errors=[];results={}
  for mode in ['plan-B-DQ','proposal-GF6','legacy-GF8']:

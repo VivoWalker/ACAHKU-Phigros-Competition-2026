@@ -216,6 +216,8 @@ def directed_scene_walk():
 with tempfile.TemporaryDirectory(prefix='acahku-motion-') as data_dir:
     code = """
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'motion-fixture-code'});
+require('./test/helpers/song-library').expandSongLibrary(s.store.state);
+s.store.write(s.store.state);
 const cmd=(type,payload={})=>s.store.commit({type,payload:{matchId:s.store.state.tournament.currentMatchId,...payload}},s.store.state.revision);
 for(const player of s.store.state.qualifier.players)for(let i=0;i<3;i++)
  cmd('set-qualifier-score',{playerId:player.id,songIndex:i,score:990000-Number(player.id.slice(1))*1000-i*100});
@@ -225,7 +227,7 @@ for(let player=0;player<2;player++)for(let i=0;i<2;i++)cmd('set-match-score',{pl
 cmd('record-result');cmd('select-match',{matchId:'W2'});cmd('draw-candidates');
 // A reproducible pool with four distinct delivered local artworks. The live
 // interaction still uses actual ban/pick/score commands in this temporary data.
-s.store.state.tournament.matches.find(m=>m.id==='W2').candidates=s.store.state.library.slice(0,6).map(song=>({...song}));
+s.store.state.tournament.matches.find(m=>m.id==='W2').candidates=require('./public/js/song-pool').available(s.store.state,'W2',{eligibleOnly:true}).slice(0,6).map((song,index)=>({...song,art:`assets/song/cover-${index%4+1}.svg`}));
 cmd('set-scene',{scene:'start'});
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));
 process.on('SIGTERM',()=>s.close().then(()=>process.exit()));

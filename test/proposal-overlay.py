@@ -8,7 +8,10 @@ ROOT=Path(__file__).resolve().parent.parent
 OUT=Path(os.environ.get('BROADCAST_TEST_OUTPUT',ROOT/'test-results'/'proposal-overlay'));OUT.mkdir(parents=True,exist_ok=True)
 tree=ast.parse((ROOT/'test/transition-choreography.py').read_text())
 TEXT_AUDIT=next(ast.literal_eval(node.value) for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='TEXT_AUDIT' for t in node.targets))
-SERVER="""const app=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'proposal-overlay-fixture',scorekeeperPin:'proposal-score-fixture'});app.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>app.close().then(()=>process.exit()));"""
+SERVER="""const app=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'proposal-overlay-fixture',scorekeeperPin:'proposal-score-fixture'});
+require('./test/helpers/song-library').expandSongLibrary(app.store.state);
+app.store.write(app.store.state);
+app.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>app.close().then(()=>process.exit()));"""
 report={'checks':[],'browser_errors':[],'viewports':[1920,960]}
 with tempfile.TemporaryDirectory(prefix='proposal-overlay-') as directory:
  server=subprocess.Popen(['node','-e',SERVER,directory],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)

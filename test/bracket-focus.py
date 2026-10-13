@@ -26,7 +26,8 @@ with tempfile.TemporaryDirectory(prefix='acahku-focus-') as data:
    def finish(match_id):
     command('select-match',{'matchId':match_id});m=next(m for m in state()['tournament']['matches'] if m['id']==match_id)
     if match_id=='GF':
-     command('set-final-candidates',{'ids':['song-'+str(i) for i in range(1,9)]});command('set-final-picks',{'audienceIds':['song-1','song-2'],'hostId':'song-3'});command('reveal-host-song')
+     current=state();used={song['id'] for item in current['tournament']['matches'] if item['id']!='GF' for song in item['songs']};ids=[song['id'] for song in current['library'] if song['id'] not in used][:8];assert len(ids)==8
+     command('set-final-candidates',{'ids':ids});command('set-final-picks',{'audienceIds':ids[:2],'hostId':ids[2]});command('reveal-host-song')
     elif not m['songs']:
      if not m['candidates']:command('draw-candidates');m=next(m for m in state()['tournament']['matches'] if m['id']==match_id)
      command('ban-song',{'playerIndex':0,'songId':m['candidates'][0]['id']});command('ban-song',{'playerIndex':1,'songId':m['candidates'][1]['id']});command('pick-songs')

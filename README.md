@@ -152,21 +152,33 @@ In legacy roster setup, removing an unscored player also removes that player's r
 ### Regular double elimination, R1–R5
 
 1. Select a ready match in **Bracket**. Pending matches cannot start until both incoming paths resolve.
-2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws.
+2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws and not formally selected by another DE match. Candidates, bans and songs not selected for play may reappear in another match.
 3. In proposal mode, P1 and P2 each record a ban or explicit **Pass**. A ban can be changed before the final draw. Legacy events retain their required two-ban flow.
 4. **Draw 2 match songs** randomly chooses two of the remaining candidates after both decisions. These songs automatically populate the match overlay and scoring fields. Picks lock further bans.
 5. Enter both players' two scores and select Song 1 / 2 or Song 2 / 2. The winner is determined by the two-song total.
 6. In **Record result**, confirm the result. In proposal mode, equal totals compare mean ACC, then repeated DE-pool tiebreaks if necessary. The arbiter confirms every tiebreak and the final result. Only legacy events retain the referee-winner selector. All base scores are required; partial totals cannot win.
 7. The result opens incoming winner/loser paths. The live scene changes to result announcement. Select the next ready match to continue.
 
-**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. It preserves entrants, seeding, every other result and durable rematch allowances. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
+**Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. Its durable song-use history stays reserved: resetting, redrawing, restoring a backup or reopening a result does not release previously selected base/tiebreak songs for another match. It preserves entrants, seeding, every other result and durable rematch allowances. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
 
 Completed results lock against ordinary editing. To correct one, preview its downstream impact in the result-correction panel, enter a reason, and explicitly confirm any affected selections, scores and results that must be cleared. Reopening retains the chosen match's base songs and scores, invalidates its old tiebreak decision, and includes whole reseeded fields in the downstream review. It selects it as the active match, and clears its dependent matches before the result is confirmed again. An unrelated newer update invalidates the reviewed preview and requires another review. The automatic backup and private correction log retain the previous data. A result belonging to a vacancy lottery with reassigned entrants must instead be corrected by restoring a backup from before that lottery. There is no one-click whole-tournament reset.
+
+### Prepare a DE song list with no cross-match repeats
+
+The organiser confirmed that the restriction applies to **actual base-match and tiebreak songs**, not the six candidate slots. A candidate, banned song or unselected song may appear again; after a song is formally picked for one match, another DE match cannot draw or pick it. GF uses the same cross-match exclusion. Qualifiers keep their existing independent draw rules. Within the same match, the existing redraw and repeated-tiebreak behaviour remains available.
+
+There are **13 regular matches × 2 played songs = 26 distinct played songs**. A 26-song list is insufficient: after the first twelve matches use 24 songs, the final regular match still needs six available candidates. Therefore prepare **at least 30 distinct songs** for the ordinary DE pool: `12 × 2 + 6 = 30`. This minimum assumes no extra consumption through tiebreaks or replaced selections. **42 songs is recommended**, providing 12 extra choices; repeated ties and reviewed redraws have no fixed limit, so no finite list guarantees every possible event. Prepare **six GF candidates separately** if you want a guaranteed dedicated final list; mark them finals-only. This count excludes the qualifier list.
+
+The control panel shows the deduplicated eligible total, songs formally reserved by DE matches and the globally unused remainder. It also reports the minimum remaining requirement: `2 × unselected regular matches + 4` (zero once all regular matches have selections). A shortage warning asks staff to add songs; a draw with fewer than six available candidates is disabled/rejected, and an exhausted tiebreak pool never silently reuses another match's song.
+
+With at most one fresh tiebreak song per regular match and no replaced selections, the 42-song recommendation covers `12 × (2 + 1) + 6`: the last match has six candidates and can use an unselected candidate for its extra song. More repeated ties or replaced selections can require a larger list.
+
+Identity is song-level: the same ID, or the same normalised title and artist, is treated as one song even when chart difficulty differs. Renaming or deleting a library entry does not erase a recorded selection. Upgrade existing events without replacing `data/`: previous repeated songs remain in historical results, while future draws exclude songs used by other matches. Backups and private correction records preserve prior selections.
 
 ### Grand Finals, R6
 
 1. Select **GF** after both bracket champions are known.
-2. Set **six distinct candidates** in proposal mode (eight remain valid for legacy finals). You can add songs not in the regular pool via **Event & library**, leaving their regular-draw checkbox off.
+2. Set **six distinct candidates** in proposal mode (eight remain valid for legacy finals). GF cannot select songs formally used by another DE match; unused regular candidates remain available. You can reserve a separate six-song GF list via **Event & library**, leaving their regular-draw checkbox off so ordinary draws cannot consume it.
 3. Record two audience picks (from a live vote or the MC's interpretation of audience reactions), then choose the different third **MC pick** in the staff-only controls. This package records the choices; it does not provide a public voting service.
 4. Lock the picks. The staff panel can see the MC selection; public state and overlay broadcasts replace the third selected song with **MC PICK — SEALED**. Candidate titles are still visible as candidates, but no candidate is identified as the hidden MC pick. Staff state and export endpoints require the paired session.
 5. **Reveal MC song to broadcast** explicitly publishes it. The third song cannot be selected as current or scored before reveal.
@@ -264,6 +276,12 @@ python3 test/browser-smoke.py
 ```
 
 It exercises real controls against temporary data, checks 8 overlay scenes, 1920×1080 / 720p / 540p scaling, iPad landscape/portrait and phone widths, alpha in every capture frame, offline reconnection, no navigation during state updates, local-only requests, keyboard selection and reduced-motion. Screenshots go to ignored `test-results/`. Browser emulation is not a physical iPad or OBS/CEF hardware test; rehearse those devices and actual capture sources before the event.
+
+The song-pool browser regression uses dummy pairing codes and private temporary event data to play all thirteen regular matches from a thirty-song list, check twenty-six distinct selections, exclude used songs from GF controls, preserve reservations after reset and handle stale candidates safely. It also checks pool metrics for overlap and horizontal overflow at 320, 390, 768 and 1280px widths. It requires Python Playwright and Chromium:
+
+```sh
+python3 test/song-pool-master.py
+```
 
 The motion regression checks all 56 directed page changes frame by frame: logo duration/layering, left-to-right exit/entrance order, right-to-left fade/slide, outgoing snapshot cleanup, element overlap, stage bounds, rapid updates, reduced motion and transparent captures. Cover loading, replacement and keyboard interaction use a separate suite. Both operate on temporary event data:
 

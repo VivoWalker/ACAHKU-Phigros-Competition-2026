@@ -33,6 +33,8 @@ with tempfile.TemporaryDirectory(prefix='acahku-browser-') as data_dir:
     code = """
 const {createBroadcastServer}=require('./server');
 const s=createBroadcastServer({dataDir:process.argv[1],pin:'browser-fixture-code'});
+require('./test/helpers/song-library').expandSongLibrary(s.store.state);
+s.store.write(s.store.state);
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));
 process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 """

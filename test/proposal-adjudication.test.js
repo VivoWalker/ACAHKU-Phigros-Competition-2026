@@ -5,13 +5,14 @@ const { applyAction, CURRENT_MATCH_ACTIONS, publicState } = require('../lib/tour
 const { validateState } = require('../lib/state-validation');
 const Q = require('../public/js/qualifier-rules');
 const Bracket = require('../public/js/bracket-view');
+const { expandSongLibrary } = require('./helpers/song-library');
 function act(s, type, payload = {}) {
   const next = structuredClone(s);
   applyAction(next, { type, payload: CURRENT_MATCH_ACTIONS.has(type) ? { matchId: next.tournament.currentMatchId, ...payload } : payload });
   validateState(next); Object.assign(s, next); return s;
 }
 const m = (s, id = s.tournament.currentMatchId) => s.tournament.matches.find(x => x.id === id);
-function seeded() { const s = createDefaultState(); act(s, 'seed-bracket', { ids: s.qualifier.players.map(p => p.id), ruleset: 'proposal-2026' }); return s; }
+function seeded(songCount = 12) { const s = expandSongLibrary(createDefaultState(), songCount); act(s, 'seed-bracket', { ids: s.qualifier.players.map(p => p.id), ruleset: 'proposal-2026' }); return s; }
 function choose(s, id) {
   act(s, 'select-match', { matchId: id }); act(s, 'draw-candidates');
   for (const playerIndex of [0, 1]) act(s, 'ban-song', { playerIndex, songId: null, confirmed: true });
@@ -62,7 +63,7 @@ test('unscored selections are explicitly reviewed before a proposal vacancy lott
 });
 
 test('a two-person late-round DQ advances its opponent without leaking long arbiter notes', () => {
-  const s = seeded(); for (const id of ['W1', 'W2', 'W3', 'W4', 'W5', 'W6']) complete(s, id);
+  const s = seeded(42); for (const id of ['W1', 'W2', 'W3', 'W4', 'W5', 'W6']) complete(s, id);
   act(s, 'select-match', { matchId: 'W7' }); const [absent, opponent] = m(s).players;
   dq(s, absent, 'PRIVATE: ' + 'Detailed evidence '.repeat(26));
   assert.equal(m(s).resultType, 'forfeit'); assert.equal(m(s).winnerId, opponent); assert.equal(m(s).loserId, absent);

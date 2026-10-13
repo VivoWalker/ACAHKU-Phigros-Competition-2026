@@ -5,6 +5,7 @@ const { applyAction, CURRENT_MATCH_ACTIONS, publicState, resultCorrectionImpact,
 const { validateState } = require('../lib/state-validation');
 const BracketView = require('../public/js/bracket-view');
 const Countdown = require('../public/js/countdown');
+const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
 function act(state, type, payload = {}) {
   const next = structuredClone(state);
@@ -13,8 +14,8 @@ function act(state, type, payload = {}) {
   Object.assign(state, next);
   return state;
 }
-function fixture() {
-  const state = createDefaultState();
+function fixture(songCount = 12) {
+  const state = expandSongLibrary(createDefaultState(), songCount);
   act(state, 'seed-bracket', { ids: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], ruleset: 'proposal-2026' });
   return state;
 }
@@ -22,8 +23,9 @@ const match = (state, id = state.tournament.currentMatchId) => state.tournament.
 function choose(state, id = state.tournament.currentMatchId, pass = true) {
   act(state, 'select-match', { matchId: id });
   if (id === 'GF') {
-    act(state, 'set-final-candidates', { ids: state.library.slice(0, 6).map(value => value.id) });
-    act(state, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+    const ids = finalCandidates(state);
+    act(state, 'set-final-candidates', { ids });
+    act(state, 'set-final-picks', { audienceIds: ids.slice(0, 2), hostId: ids[2] });
     act(state, 'reveal-host-song');
   } else {
     act(state, 'draw-candidates');
@@ -54,7 +56,7 @@ function traceSources(state, item) {
 }
 
 test('proposal bracket waits for the whole entry field and reseeds actual R2 and R3 sources', () => {
-  const state = fixture();
+  const state = fixture(42);
   complete(state, 'W1', 'p8'); complete(state, 'W2', 'p4');
   assert.equal(match(state, 'W5').status, 'pending'); assert.equal(match(state, 'L1').status, 'pending');
   assert.deepEqual(match(state, 'W5').players, [null, null]);
@@ -87,7 +89,7 @@ test('proposal bracket waits for the whole entry field and reseeds actual R2 and
 });
 
 test('all fourteen proposal matches retain a single decisive six-candidate Grand Final and podium', () => {
-  const state = fixture(); finishFirstRound(state);
+  const state = fixture(42); finishFirstRound(state);
   for (const [id, winner] of [['W5', 'p8'], ['W6', 'p4'], ['L1', 'p7'], ['L2', 'p3'], ['W7', 'p4'],
     ['L3', 'p7'], ['L4', 'p6'], ['L5', 'p7'], ['L6', 'p8'], ['GF', 'p8']]) complete(state, id, winner);
   assert.equal(state.tournament.matches.length, 14);
@@ -100,7 +102,7 @@ test('all fourteen proposal matches retain a single decisive six-candidate Grand
 });
 
 test('proposal correction impact covers every reseeded field and invalidates the old pairings', () => {
-  const state = fixture(); finishFirstRound(state); complete(state, 'W5', 'p8');
+  const state = fixture(42); finishFirstRound(state); complete(state, 'W5', 'p8');
   choose(state, 'W6');
   const impact = resultCorrectionImpact(state, 'W1');
   for (const id of ['W5', 'W6', 'L1', 'L2', 'L3', 'L4', 'W7', 'L5', 'L6', 'GF']) assert.ok(impact.affectedMatchIds.includes(id), id);
@@ -119,7 +121,7 @@ test('proposal correction impact covers every reseeded field and invalidates the
 });
 
 test('explicit ban passes are confirmed decisions and six final candidates stay private until reveal', () => {
-  const state = fixture(); act(state, 'draw-candidates');
+  const state = fixture(42); act(state, 'draw-candidates');
   act(state, 'ban-song', { playerIndex: 0, songId: null });
   assert.throws(() => act(state, 'pick-songs'), /ban or pass/);
   act(state, 'ban-song', { playerIndex: 0, songId: null, confirmed: true });
@@ -131,12 +133,13 @@ test('explicit ban passes are confirmed decisions and six final candidates stay 
   }
   act(state, 'select-match', { matchId: 'GF' });
   assert.throws(() => act(state, 'set-final-candidates', { ids: state.library.slice(0, 8).map(value => value.id) }), /6 distinct/);
-  act(state, 'set-final-candidates', { ids: state.library.slice(0, 6).map(value => value.id) });
-  act(state, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+  const ids = finalCandidates(state);
+  act(state, 'set-final-candidates', { ids });
+  act(state, 'set-final-picks', { audienceIds: ids.slice(0, 2), hostId: ids[2] });
   const hidden = match(publicState(state), 'GF');
   assert.equal(hidden.songs[2].hidden, true); assert.equal(hidden.hostPick, undefined);
   assert.throws(() => act(state, 'set-match-score', { playerIndex: 0, songIndex: 2, score: 999999, judgements: { accuracy: 99 } }), /Reveal the MC/);
-  act(state, 'reveal-host-song'); assert.equal(match(publicState(state), 'GF').songs[2].id, 'song-3');
+  act(state, 'reveal-host-song'); assert.equal(match(publicState(state), 'GF').songs[2].id, ids[2]);
 });
 
 test('actual result confirmation resolves score-screen mean accuracy and rejects a referee bypass', () => {

@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { StateStore, validateState } = require('../lib/store');
 const { createDefaultState } = require('../lib/default-state');
+const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 const { applyAction, publicState } = require('../lib/tournament');
 const { sourceStatus } = require('../lib/broadcast-check');
 
@@ -114,13 +115,15 @@ test('changing the OBS entrant context invalidates a visual check even after swi
 
 test('every saved step of a full tournament remains valid, including sealed finals and correction clearing', t => {
   const { dir, store } = fixture(t);
+  expandSongLibrary(store.state);
   const commit = (type, payload = {}) => store.commit({ type, payload }, store.state.revision);
   commit('seed-bracket', { ids: store.state.qualifier.players.map(p => p.id) });
   for (const id of store.state.tournament.matches.map(m => m.id)) {
     commit('select-match', { matchId: id });
     if (id === 'GF') {
-      commit('set-final-candidates', { matchId: id, ids: store.state.library.slice(0, 8).map(s => s.id) });
-      commit('set-final-picks', { matchId: id, audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+      const ids = finalCandidates(store.state, 8);
+      commit('set-final-candidates', { matchId: id, ids });
+      commit('set-final-picks', { matchId: id, audienceIds: ids.slice(0, 2), hostId: ids[2] });
       assert.equal(publicState(store.state).tournament.matches.at(-1).songs[2].hidden, true);
       commit('reveal-host-song', { matchId: id });
     } else {

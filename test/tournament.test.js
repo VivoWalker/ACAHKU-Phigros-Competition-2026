@@ -6,14 +6,16 @@ const path = require('node:path');
 const { createDefaultState } = require('../lib/default-state');
 const { applyAction, publicState, rankings, losses, CURRENT_MATCH_ACTIONS, resultCorrectionImpact } = require('../lib/tournament');
 const { StateStore } = require('../lib/store');
+const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 function act(state, type, payload = {}) {
   return applyAction(state, { type, payload: CURRENT_MATCH_ACTIONS.has(type) ? { matchId: state.tournament.currentMatchId, ...payload } : payload });
 }
-function seeded(ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']) { return act(createDefaultState(), 'seed-bracket', { ids }); }
+function seeded(ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], songCount = 12) { return act(expandSongLibrary(createDefaultState(), songCount), 'seed-bracket', { ids }); }
 function chooseSongs(s, m) {
   if (m.id === 'GF') {
-    act(s, 'set-final-candidates', { ids: s.library.slice(0, 8).map(x => x.id) });
-    act(s, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+    const ids = finalCandidates(s, 8);
+    act(s, 'set-final-candidates', { ids });
+    act(s, 'set-final-picks', { audienceIds: ids.slice(0, 2), hostId: ids[2] });
     act(s, 'reveal-host-song');
   } else {
     act(s, 'draw-candidates');
@@ -91,7 +93,7 @@ test('regular selection draws six unique candidates, distinct bans and two remai
   act(s, 'reset-current-match'); assert.equal(m.songs.length, 0); assert.deepEqual(m.scores, [[null, null], [null, null]]);
 });
 test('all fourteen matches advance the correct winner and loser paths, with podium placements', () => {
-  const s = seeded();
+  const s = seeded(undefined, 42);
   assert.deepEqual(s.tournament.matches.slice(0, 4).map(m => m.players), [['p1', 'p8'], ['p4', 'p5'], ['p2', 'p7'], ['p3', 'p6']]);
   assert.throws(() => act(s, 'select-match', { matchId: 'GF' }), /ready match/);
   for (const m of s.tournament.matches) complete(s, m.id);
@@ -106,17 +108,17 @@ test('all fourteen matches advance the correct winner and loser paths, with podi
   assert.throws(() => act(s, 'reset-current-match'), /locked/);
 });
 test('fourteen-match final is decisive even when the winners-bracket champion loses their first match', () => {
-  const s = seeded(); for (const m of s.tournament.matches) complete(s, m.id, m.id === 'GF' ? 1 : 0);
+  const s = seeded(undefined, 42); for (const m of s.tournament.matches) complete(s, m.id, m.id === 'GF' ? 1 : 0);
   assert.equal(s.tournament.matches.length, 14); assert.equal(s.result.placements.p8, 'Champion');
   assert.equal(s.result.placements.p1, 'First Runner-up'); assert.equal(losses(s, 'p1'), 1);
   assert.equal(publicState(s).tournament.standings.find(p => p.playerId === 'p1').eliminated, false);
 });
 test('final MC choice is private until reveal and final requires three songs', () => {
-  const s = seeded(); for (const m of s.tournament.matches.filter(x => x.id !== 'GF')) complete(s, m.id);
+  const s = seeded(undefined, 42); for (const m of s.tournament.matches.filter(x => x.id !== 'GF')) complete(s, m.id);
   act(s, 'select-match', { matchId: 'GF' });
   act(s, 'upsert-song', { song: { title: 'Finals exclusive', artist: 'Guest', difficulty: 'AT', level: 17, eligible: false, previewAudio: 'assets/song-preview/finals-exclusive.mp3' } });
-  const outside = s.library.at(-1); const ids = [...s.library.slice(0, 7).map(s => s.id), outside.id];
-  act(s, 'set-final-candidates', { ids }); act(s, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: outside.id });
+  const outside = s.library.at(-1); const ids = [...finalCandidates(s, 7), outside.id];
+  act(s, 'set-final-candidates', { ids }); act(s, 'set-final-picks', { audienceIds: ids.slice(0, 2), hostId: outside.id });
   const gf = s.tournament.matches.at(-1), redacted = publicState(s).tournament.matches.at(-1);
   assert.equal(gf.hostPick.title, 'Finals exclusive'); assert.equal('hostPick' in redacted, false);
   assert.equal(redacted.songs[2].hidden, true); assert.equal(redacted.songs[2].title, 'MC PICK — SEALED');
@@ -239,7 +241,7 @@ test('correction preview is read-only and includes every logical winner and lose
   assert.throws(() => resultCorrectionImpact(s), /Choose/);
 });
 test('correction clears scored descendants after an explicit, current preview and preserves independent results', () => {
-  const s = seeded(); ['W1', 'W2', 'W3', 'W4', 'W5'].forEach(id => complete(s, id));
+  const s = seeded(undefined, 42); ['W1', 'W2', 'W3', 'W4', 'W5'].forEach(id => complete(s, id));
   act(s, 'select-match', { matchId: 'L1' }); chooseSongs(s, s.tournament.matches.find(m => m.id === 'L1'));
   act(s, 'set-match-score', { playerIndex: 0, songIndex: 0, score: 990000 });
   const impact = resultCorrectionImpact(s, 'W1'), before = structuredClone(s), target = s.tournament.matches[0];
@@ -292,7 +294,7 @@ test('lottery roots cannot be reopened by a single-match correction', () => {
   }
 });
 test('reopening a final preserves all three songs and scores while removing the old podium', () => {
-  const s = seeded(); for (const m of s.tournament.matches) complete(s, m.id);
+  const s = seeded(undefined, 42); for (const m of s.tournament.matches) complete(s, m.id);
   const original = structuredClone(s.tournament.matches.at(-1));
   act(s, 'reopen-result', { matchId: 'GF', reason: 'Final score correction', affectedMatchIds: [] });
   const gf = s.tournament.matches.at(-1);
@@ -318,14 +320,15 @@ test('bracket source objects are isolated from other brackets and the shared def
 test('redrawing final candidates after viewing song three resets the empty-song cursor and persists', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-final-redraw-'));
   try {
-    const fixture = seeded(); for (const m of fixture.tournament.matches.filter(m => m.id !== 'GF')) complete(fixture, m.id);
+    const fixture = seeded(undefined, 42); for (const m of fixture.tournament.matches.filter(m => m.id !== 'GF')) complete(fixture, m.id);
     act(fixture, 'select-match', { matchId: 'GF' });
     const store = new StateStore(dir); store.write(fixture); store.state = fixture;
     const commit = (type, payload = {}) => store.commit({ type, payload: { matchId: 'GF', ...payload } }, store.state.revision);
-    commit('set-final-candidates', { ids: store.state.library.slice(0, 8).map(song => song.id) });
-    commit('set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+    const ids = finalCandidates(store.state, 8);
+    commit('set-final-candidates', { ids });
+    commit('set-final-picks', { audienceIds: ids.slice(0, 2), hostId: ids[2] });
     commit('reveal-host-song'); commit('set-song-progress', { index: 2 });
-    commit('set-final-candidates', { ids: store.state.library.slice(1, 9).map(song => song.id) });
+    commit('set-final-candidates', { ids: finalCandidates(store.state, 9).slice(1) });
     const reloaded = new StateStore(dir).state.tournament.matches.at(-1);
     assert.equal(reloaded.currentSong, 0); assert.equal(reloaded.songs.length, 0);
     assert.equal(reloaded.hostPick, null); assert.equal(reloaded.hostRevealed, false); assert.equal(reloaded.candidates.length, 8);

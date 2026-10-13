@@ -7,6 +7,7 @@ const { StateStore, validateState } = require('../lib/store');
 const { createDefaultState } = require('../lib/default-state');
 const { applyAction, CURRENT_MATCH_ACTIONS } = require('../lib/tournament');
 const { createBroadcastServer } = require('../server');
+const { finalCandidates } = require('./helpers/song-library');
 
 function fixture(t, options) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-backup-index-'));
@@ -24,8 +25,9 @@ function act(state, type, payload = {}) {
 function choose(state, id) {
   act(state, 'select-match', { matchId: id });
   if (id === 'GF') {
-    act(state, 'set-final-candidates', { ids: state.library.slice(0, 6).map(song => song.id) });
-    act(state, 'set-final-picks', { audienceIds: ['song-1', 'song-2'], hostId: 'song-3' });
+    const ids = finalCandidates(state);
+    act(state, 'set-final-candidates', { ids });
+    act(state, 'set-final-picks', { audienceIds: ids.slice(0, 2), hostId: ids[2] });
     act(state, 'reveal-host-song');
   } else {
     act(state, 'draw-candidates');

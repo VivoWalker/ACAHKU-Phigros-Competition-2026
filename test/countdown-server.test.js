@@ -6,6 +6,7 @@ const path = require('node:path');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
 const { context } = require('../public/js/countdown');
+const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
 function event(socket, name, predicate = () => true, timeout = 6000) {
   return new Promise((resolve, reject) => {
@@ -178,6 +179,7 @@ test('double-elimination cues need complete song selection and cancel when the c
 
 test('Grand Finals sealed MC song cannot be cued or leaked; it becomes eligible only after reveal', async t => {
   const f = await fixture(t), overlay = (await f.connect('/overlay')).socket;
+  expandSongLibrary(f.app.store.state);
   const apply = (type, payload = {}) => f.app.store.commit({ type, payload }, f.app.store.state.revision);
   apply('seed-bracket', { ids: f.app.store.state.qualifier.players.map(player => player.id) });
   // Build a real final through the engine rather than inventing unresolved player slots.
@@ -190,7 +192,7 @@ test('Grand Finals sealed MC song cannot be cued or leaked; it becomes eligible 
     apply('record-result', { matchId });
   }
   apply('select-match', { matchId: 'GF' });
-  const ids = f.app.store.state.library.slice(0, 8).map(song => song.id), secretId = ids[2];
+  const ids = finalCandidates(f.app.store.state, 8), secretId = ids[2];
   apply('set-final-candidates', { matchId: 'GF', ids });
   apply('set-final-picks', { matchId: 'GF', audienceIds: ids.slice(0, 2), hostId: secretId });
   assert.equal((await f.command('set-scene', { scene: 'double-elimination-match' })).ok, true);

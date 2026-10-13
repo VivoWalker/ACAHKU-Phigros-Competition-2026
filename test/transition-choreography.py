@@ -13,8 +13,8 @@ CODE=re.search(r'    code = """(.*?)"""', (ROOT/'test/motion-layout.py').read_te
 CODE=CODE.replace("cmd('set-scene',{scene:'start'});", """if(process.env.TRANSITION_LONG_CONTENT==='1'){
 cmd('rename-player',{playerId:'p1',name:'W'.repeat(48)});cmd('rename-player',{playerId:'p2',name:'M'.repeat(48)});
 s.store.state.event.title='長'.repeat(120);
-for(const song of s.store.state.library)song.title='曲'.repeat(100);
-for(const m of s.store.state.tournament.matches)for(const song of [...m.candidates,...m.songs])song.title='曲'.repeat(100);
+for(const song of s.store.state.library)song.title='曲'.repeat(100)+song.id;
+for(const m of s.store.state.tournament.matches)for(const song of [...m.candidates,...m.songs,...(m.usedSongs||[])])song.title='曲'.repeat(100)+song.id;
 }
 cmd('set-scene',{scene:'start'});""")
 PROBE=r'''() => {
@@ -151,8 +151,9 @@ with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
     for match_id in [m['id'] for m in context.request.get(base+'/api/state').json()['tournament']['matches'] if m['status']!='complete']:
      command('select-match',{'matchId':match_id})
      if match_id=='GF':
-      command('set-final-candidates',{'ids':['song-'+str(i) for i in range(1,9)]})
-      command('set-final-picks',{'audienceIds':['song-1','song-2'],'hostId':'song-3'})
+      current=context.request.get(base+'/api/state').json();used={song['id'] for item in current['tournament']['matches'] if item['id']!='GF' for song in item['songs']};ids=[song['id'] for song in current['library'] if song['id'] not in used][:8];assert len(ids)==8
+      command('set-final-candidates',{'ids':ids})
+      command('set-final-picks',{'audienceIds':ids[:2],'hostId':ids[2]})
       idle(page);check('song-selection','GF sealed picks')
       command('reveal-host-song');idle(page);check('start');check('song-selection','GF revealed picks')
       check('double-elimination-match','GF match');break

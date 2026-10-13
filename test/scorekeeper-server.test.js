@@ -7,6 +7,7 @@ const { createHmac } = require('node:crypto');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
 const { scorekeeperState } = require('../lib/scorekeeper');
+const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
 function event(socket, name, predicate = () => true) {
   return new Promise((resolve, reject) => {
@@ -192,6 +193,7 @@ test('reusing player or chart IDs with changed visible identities invalidates pe
 
 test('sealed final picks and their score slots never reach scorekeeper HTTP/socket/context; reveal enables scoring', async t => {
   const f = await fixture(t);
+  expandSongLibrary(f.app.store.state);
   assert.equal((await f.command('seed-bracket', { ids: f.app.store.state.qualifier.players.map(player => player.id) })).ok, true);
   assert.equal((await f.command('set-stage', { stage: 'double-elimination' })).ok, true);
   for (const matchId of ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'L1', 'L2', 'W7', 'L3', 'L4', 'L5', 'L6']) {
@@ -200,11 +202,12 @@ test('sealed final picks and their score slots never reach scorekeeper HTTP/sock
     assert.equal((await f.command('record-result', { matchId })).ok, true);
   }
   assert.equal((await f.command('select-match', { matchId: 'GF' })).ok, true);
-  const ids = f.app.store.state.library.slice(0, 8).map(song => song.id), secretId = ids[7];
+  const ids = finalCandidates(f.app.store.state, 8), secretId = ids[7];
   assert.equal((await f.command('set-final-candidates', { matchId: 'GF', ids })).ok, true);
   assert.equal((await f.command('set-final-picks', { matchId: 'GF', audienceIds: [ids[0], ids[1]], hostId: secretId })).ok, true);
   const gf = f.app.store.state.tournament.matches.find(match => match.id === 'GF');
   gf.hostPick.title = 'PRIVATE MC SONG'; gf.songs[2].title = 'PRIVATE MC SONG'; gf.scores[0][2] = 990001;
+  require('../public/js/song-pool').remember(gf);
   f.app.store.state.broadcast.sourceSlots = { qualifier: Array.from({ length: 3 }, () => ({ capture: 'PRIVATE CAPTURE', handcam: 'PRIVATE HANDCAM' })) };
   f.app.store.write(f.app.store.state);
   const authenticated = await (await fetch(f.url + '/api/scorekeeper-state', { headers: { Authorization: 'Bearer ' + f.scorerToken } })).json();

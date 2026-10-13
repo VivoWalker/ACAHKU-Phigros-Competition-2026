@@ -26,9 +26,11 @@ const fs=require('node:fs'),path=require('node:path');
 const dir=process.argv[1],stateFile=path.join(dir,'match-state.json');
 if(!fs.existsSync(stateFile)) {
   const state=require('./lib/default-state').createDefaultState();
+  require('./test/helpers/song-library').expandSongLibrary(state);
   const names=['Hekiru','Sunshine','FIFICO2','zuri','scsfoon2','Ayami','Sapphire','William'];
   state.qualifier.players.forEach((player,index)=>player.name=names[index]);
   state.library[7].title='PRIVATE MC BROWSER FIXTURE';
+  state.library[7].eligible=false; // Reserve the sealed MC fixture for the final.
   fs.writeFileSync(stateFile,JSON.stringify(state));
 }
 const broadcast=require('./server').createBroadcastServer({dataDir:dir,
@@ -442,8 +444,12 @@ def main():
                                 'score':991000-song_index*500 if player_index == 0 else 972000-song_index*500})
                     command('record-result', {'matchId':match_id})
                 command('select-match', {'matchId':'GF'})
-                command('set-final-candidates', {'matchId':'GF','ids':[f'song-{index}' for index in range(1,9)]})
-                command('set-final-picks', {'matchId':'GF','audienceIds':['song-1','song-2'],'hostId':'song-8'})
+                current=private_state()
+                used={song['id'] for match in current['tournament']['matches'] if match['id']!='GF' for song in match['songs']}
+                ids=[song['id'] for song in current['library'] if song['id'] not in used and song['id']!='song-8'][:7]+['song-8']
+                assert len(ids)==8 and 'song-8' not in used
+                command('set-final-candidates', {'matchId':'GF','ids':ids})
+                command('set-final-picks', {'matchId':'GF','audienceIds':ids[:2],'hostId':'song-8'})
                 command('set-scene', {'scene':'double-elimination-match'})
                 a.wait_for_function('document.querySelector("#context-title")?.textContent.includes("GF")')
                 assert a.locator('input[data-score-key]').count() == 6
