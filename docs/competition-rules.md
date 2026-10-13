@@ -57,6 +57,8 @@ Rank competitors by their three-song total. When totals tie, compare accuracy fi
 
 If both total and ACC remain tied at a qualification boundary or at a seed position that must be resolved, the tied competitors play a randomly chosen tiebreaker from Phigros's full song list. Repeat as necessary until the required order is determined. Each tiebreaker is recorded separately; it does not change the original three-song total. The arbiter confirms its results before they affect qualification.
 
+Once a qualifier tiebreak starts, scorekeepers may only enter the active extra-song results. A correction to a base score or its accuracy/judgements requires main-control review, a recorded reason and explicit confirmation that the round's tiebreaks will be invalidated. The old field and complete tiebreak records are archived for the arbiters before the order is recalculated. This is a record-correction procedure, not an additional rematch allowance.
+
 For a software draw, the local song library must contain the available full-game songs from which the arbiter wishes to draw. Songs outside the ordinary double-elimination pool may be added to this library and used for qualifier tiebreaks. A small sample library is not a complete Phigros song list.
 
 Do not advance a round with missing valid results or an unresolved qualifying tie. Disqualified competitors cannot qualify and do not require invented zero scores. Cases with fewer than four eligible qualifiers in a stage or group require an ACA decision about the remaining places.

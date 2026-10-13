@@ -66,7 +66,9 @@ test('auto format boundary uses registered count; Plan B follows unique odd/even
 test('numbered batches use numerical order, at most three entrants, and wrap after the final batch', () => {
   const state = fixture(10); configure(state); act(state, 'draw-player-numbers');
   assert.deepEqual(state.qualifier.activePlayers, ['p10', 'p9', 'p8']);
+  state.qualifier.currentSong = 2;
   act(state, 'next-qualifier-batch'); assert.deepEqual(state.qualifier.activePlayers, ['p7', 'p6', 'p5']);
+  assert.equal(state.qualifier.currentSong, 0, 'A new batch starts with the first base song');
   act(state, 'next-qualifier-batch'); assert.deepEqual(state.qualifier.activePlayers, ['p4', 'p3', 'p2']);
   act(state, 'next-qualifier-batch'); assert.deepEqual(state.qualifier.activePlayers, ['p1']);
   act(state, 'next-qualifier-batch'); assert.deepEqual(state.qualifier.activePlayers, ['p10', 'p9', 'p8']);
@@ -180,16 +182,55 @@ test('tiebreak score accuracy breaks extra-song ties; missing values prevent con
   assert.throws(() => act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] }), /unresolved/);
 });
 
-test('changed base results invalidate stale extra-song decisions and metadata, while identical saves retain them', () => {
+test('base corrections after a tiebreak require explicit arbiter approval and retain the invalidated evidence', () => {
   const state = boundaryTie(); act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] });
   tieScore(state, 0, 'p4', 950000); tieScore(state, 0, 'p5', 960000);
   act(state, 'confirm-qualifier-tiebreak', { group: 'A', index: 0, verified: true });
+  const originalTie = structuredClone(state.qualifier.rounds.A.tiebreaks);
   act(state, 'set-qualifier-score', { group: 'A', playerId: 'p4', songIndex: 0, score: 900000 });
   assert.equal(state.qualifier.rounds.A.tiebreaks.length, 1); assert.equal(QualifierRules.result(state, 'A', 'p4').judgements[0].accuracy, 98);
-  act(state, 'set-qualifier-score', { group: 'A', playerId: 'p4', songIndex: 0, score: 900001 });
+  // The normalized record, rather than JSON property order, defines a no-op.
+  act(state, 'set-qualifier-score', { group: 'A', playerId: 'p4', songIndex: 0, score: 900000,
+    judgements: { miss: 0, bad: 0, good: 10, perfect: 900, accuracy: 98 } });
+  assert.equal(state.qualifier.adjudications, undefined);
+  const before = structuredClone(state);
+  const payload = { group: 'A', playerId: 'p4', songIndex: 0, score: 900001 };
+  for (const flags of [{}, { verified: true }, { confirmClearTiebreaks: true },
+    { confirmClearTiebreaks: true, verified: true },
+    { confirmClearTiebreaks: true, verified: true, reason: '   ' },
+    { confirmClearTiebreaks: true, verified: true, reason: 'short' },
+    { confirmClearTiebreaks: true, verified: true, reason: 'x'.repeat(501) }]) {
+    assert.throws(() => act(state, 'set-qualifier-score', { ...payload, ...flags }), /arbiter|correction reason/);
+    assert.deepEqual(state, before, 'Rejected correction leaves both score and confirmed tiebreak unchanged');
+  }
+  act(state, 'set-qualifier-score', { ...payload, confirmClearTiebreaks: true, verified: true,
+    reason: '  Referee checked the original score screen  ' });
   assert.equal(state.qualifier.rounds.A.tiebreaks.length, 0); assert.equal(QualifierRules.result(state, 'A', 'p4').judgements[0], null);
+  const record = state.qualifier.adjudications[0];
+  assert.equal(record.type, 'set-qualifier-score'); assert.equal(record.group, 'A'); assert.equal(record.playerId, 'p4');
+  assert.equal(record.songId, 's1'); assert.equal(record.songIndex, 0); assert.equal(record.previousScore, 900000);
+  assert.deepEqual(record.previousJudgements, { accuracy: 98, perfect: 900, good: 10, bad: 0, miss: 0 });
+  assert.equal(record.reason, 'Referee checked the original score screen'); assert.ok(Number.isFinite(Date.parse(record.at)));
+  assert.deepEqual(record.invalidatedTiebreaks, originalTie);
+  originalTie[0].scores.p4 = 0; assert.equal(record.invalidatedTiebreaks[0].scores.p4, 950000);
   act(state, 'set-qualifier-score', { group: 'A', playerId: 'p4', songIndex: 0, score: null, judgements: { accuracy: 100 } });
   assert.equal(QualifierRules.result(state, 'A', 'p4').scores[0], null); assert.equal(QualifierRules.result(state, 'A', 'p4').judgements[0], null);
+});
+
+test('accuracy-only corrections also protect pending tiebreaks; next tiebreak batch preserves its song context', () => {
+  const state = boundaryTie(); act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] });
+  const before = structuredClone(state);
+  const payload = { group: 'A', playerId: 'p4', songIndex: 0, score: 900000, judgements: { accuracy: 99 } };
+  assert.throws(() => act(state, 'set-qualifier-score', payload), /arbiter/);
+  assert.deepEqual(state, before);
+  state.qualifier.currentSong = 2;
+  act(state, 'next-qualifier-batch');
+  assert.equal(state.qualifier.currentSong, 2, 'Tiebreak navigation has its own song semantics');
+  act(state, 'set-qualifier-score', { ...payload, confirmClearTiebreaks: true, verified: true,
+    reason: 'Original accuracy transcribed incorrectly' });
+  assert.equal(state.qualifier.rounds.A.tiebreaks.length, 0);
+  assert.equal(state.qualifier.adjudications[0].invalidatedTiebreaks[0].confirmed, false);
+  assert.equal(QualifierRules.result(state, 'A', 'p4').judgements[0].accuracy, 99);
 });
 
 test('invalid result metadata and score commands do not modify the existing score slot', () => {
@@ -212,6 +253,24 @@ test('combined roster retains stable IDs/numbers and updates configured round el
   assert.equal(state.qualifier.rounds.A.playerIds.length, 2); assert.equal(state.qualifier.rounds.B.playerIds.length, 0);
   assert.equal(new Set(state.qualifier.players.map(player => player.number)).size, 2);
   assert.throws(() => act(state, 'set-competition-roster', { names: ['same', 'same'] }), /unique/);
+});
+
+test('prepared rosters select the correct proposal plan when crossing the 20-player boundary in either direction', () => {
+  const state = fixture(20); configure(state, 'A');
+  const original = state.qualifier.players.map(player => ({ id: player.id, number: player.number }));
+  act(state, 'set-competition-roster', { names: [...state.qualifier.players.map(player => player.name), 'Player 21'] });
+  assert.equal(state.qualifier.plan, 'B');
+  assert.deepEqual(QualifierRules.entries(state, 'A').map(player => player.number), [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]);
+  assert.deepEqual(QualifierRules.entries(state, 'B').map(player => player.number), [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+  assert.deepEqual(state.qualifier.players.slice(0, 20).map(player => ({ id: player.id, number: player.number })), original);
+  act(state, 'set-competition-roster', { names: state.qualifier.players.slice(0, 20).map(player => player.name) });
+  assert.equal(state.qualifier.plan, 'A');
+  assert.equal(QualifierRules.entries(state, 'A').length, 20); assert.equal(QualifierRules.entries(state, 'B').length, 0);
+  assert.deepEqual(state.qualifier.activePlayers, ['p1', 'p2', 'p3']); assert.equal(state.qualifier.currentSong, 0);
+  act(state, 'set-qualifier-score', { group: 'A', playerId: 'p1', songIndex: 0, score: 990000 });
+  const before = structuredClone(state);
+  assert.throws(() => act(state, 'set-competition-roster', { names: ['Different'] }), /before scoring/);
+  assert.deepEqual(state, before, 'Scored rounds cannot silently change format or entrants');
 });
 
 test('disqualified players are masked from batches, rankings and locked qualifying seeds', () => {
@@ -246,6 +305,62 @@ function integratedCommand(state, type, payload = {}) {
   assert.deepEqual(reloaded, state);
   return state;
 }
+
+test('roster boundary changes and new-batch song reset survive real StateStore commits and restarts', t => {
+  const os = require('node:os'), path = require('node:path');
+  const { StateStore } = require('../lib/store');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-roster-boundary-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  let store = new StateStore(directory, { backupLimit: 8 });
+  const persist = (type, payload = {}) => {
+    store.commit({ type, payload }, store.state.revision);
+    const expected = structuredClone(store.state); store = new StateStore(directory, { backupLimit: 8 });
+    assert.deepEqual(store.state, expected);
+  };
+  persist('set-qualifier-plan', { plan: 'auto' });
+  const names = Array.from({ length: 21 }, (_, index) => `Entrant ${index + 1}`);
+  persist('set-competition-roster', { names }); assert.equal(store.state.qualifier.plan, 'B');
+  persist('set-qualifier-display', { currentSong: 2 }); persist('next-qualifier-batch');
+  assert.equal(store.state.qualifier.currentSong, 0);
+  persist('set-competition-roster', { names: names.slice(0, 20) }); assert.equal(store.state.qualifier.plan, 'A');
+  persist('set-qualifier-score', { group: 'A', playerId: store.state.qualifier.players[0].id, songIndex: 0, score: 999000 });
+  assert.equal(store.state.qualifier.plan, 'A');
+  assert.throws(() => persist('set-competition-roster', { names }), /before scoring/);
+});
+
+test('approved base correction preserves complete repeated tiebreak evidence through persistence without publishing it', t => {
+  const os = require('node:os'), path = require('node:path');
+  const { StateStore } = require('../lib/store');
+  const { publicState } = require('../lib/tournament');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-qualifier-correction-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  let store = new StateStore(directory, { backupLimit: 8 });
+  const persist = (type, payload = {}) => store.commit({ type, payload }, store.state.revision);
+  persist('set-qualifier-plan', { plan: 'A' });
+  const scores = { p1: 990000, p2: 980000, p3: 970000, p4: 900000, p5: 900000, p6: 800000, p7: 700000, p8: 600000 };
+  for (const player of store.state.qualifier.players) for (let songIndex = 0; songIndex < 3; songIndex++) {
+    persist('set-qualifier-score', { group: 'A', playerId: player.id, songIndex, score: scores[player.id], judgements: { accuracy: 98 } });
+  }
+  persist('draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] });
+  for (const playerId of ['p4', 'p5']) persist('set-qualifier-tiebreak-score', { group: 'A', index: 0, playerId,
+    score: 950000, judgements: { accuracy: 99 } });
+  persist('confirm-qualifier-tiebreak', { group: 'A', index: 0, verified: true });
+  persist('draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] });
+  persist('set-qualifier-tiebreak-score', { group: 'A', index: 1, playerId: 'p4', score: 970000 });
+  const evidence = structuredClone(store.state.qualifier.rounds.A.tiebreaks), before = structuredClone(store.state);
+  const correction = { group: 'A', playerId: 'p4', songIndex: 0, score: 900001 };
+  assert.throws(() => persist('set-qualifier-score', correction), /arbiter/);
+  assert.deepEqual(store.state, before);
+  assert.deepEqual(JSON.parse(fs.readFileSync(store.file, 'utf8')), before);
+  persist('set-qualifier-score', { ...correction, confirmClearTiebreaks: true, verified: true,
+    reason: 'Private referee correction from original score screen' });
+  const expected = structuredClone(store.state); store = new StateStore(directory, { backupLimit: 8 });
+  assert.deepEqual(store.state, expected);
+  assert.deepEqual(store.state.qualifier.adjudications[0].invalidatedTiebreaks, evidence);
+  assert.equal(store.state.qualifier.rounds.A.tiebreaks.length, 0);
+  assert.equal(publicState(store.state).qualifier.adjudications, undefined);
+  assert.ok(!JSON.stringify(publicState(store.state)).includes('Private referee correction'));
+});
 
 test('actual Plan A commands persist and reload every phase with independent results and proposal bracket', t => {
   const os = require('node:os'), path = require('node:path');

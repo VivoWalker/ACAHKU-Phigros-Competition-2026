@@ -1,8 +1,11 @@
 node_modules/
 .cache/
 data/.control-pin
+data/.control-pin.*.tmp
 data/.scorekeeper-pin
+data/.scorekeeper-pin.*.tmp
 data/.session-key
+data/.session-key.*.tmp
 data/match-state.json
 data/match-state.json.*
 data/backups/

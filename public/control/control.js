@@ -24,6 +24,7 @@
   const heading = (tag, title, description, action = '') => `<div class="page-heading"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action ? `<div class="heading-action">${action}</div>` : ''}</div>`;
   const matchActions = new Set(['draw-candidates', 'ban-song', 'pick-songs', 'set-final-candidates', 'set-final-picks', 'reveal-host-song', 'set-song-progress', 'set-match-score', 'record-result', 'record-bye', 'lottery-bye', 'reset-current-match', 'draw-match-tiebreak', 'set-match-tiebreak-score', 'confirm-match-tiebreak']);
   const drafts = new Map();
+  const qualifierCorrectionReasons = new Map();
   const valueOf = el => el.type === 'checkbox' ? el.checked : el.value;
   const normal = (record, value) => typeof value === 'boolean' ? value : record.numeric && value !== '' ? String(Number(value)) : String(value ?? '').trim();
   const equal = (record, a, b) => normal(record, a) === normal(record, b);
@@ -215,9 +216,32 @@
     if (accuracy === '') { if (present.length) throw new Error('填写判定数量时请同时填写原始 ACC。'); return null; }
     return { accuracy: Number(accuracy), ...Object.fromEntries(present.map(key => [key, Number(values[`${prefix}-${key}`])])) };
   }
-  function submitScore(form, scope) {
+  async function submitScore(form, scope) {
     const d = scoreDescriptor(form), type = ({ q: 'set-qualifier-score', m: 'set-match-score', qt: 'set-qualifier-tiebreak-score', mt: 'set-match-tiebreak-score' })[d.kind];
-    return draftForm(scope, type, values => ({ ...(d.kind.startsWith('q') ? { group: d.group, playerId: d.id } : { matchId: d.id, playerIndex: d.pi }), ...(d.kind.endsWith('t') ? { index: d.index } : { songIndex: d.si }), score: values[d.prefix] === '' ? null : Number(values[d.prefix]), judgements: judgementPayload(values, d.prefix) }), { guard() { if (!scoreContextValid(scope, state) || d.kind.startsWith('q') && state.qualifier.activeGroup !== d.group) throw new Error('轮次、选手或曲目已变化，旧成绩草稿未提交。'); } });
+    const build = values => ({ ...(d.kind.startsWith('q') ? { group: d.group, playerId: d.id } : { matchId: d.id, playerIndex: d.pi }), ...(d.kind.endsWith('t') ? { index: d.index } : { songIndex: d.si }), score: values[d.prefix] === '' ? null : Number(values[d.prefix]), judgements: judgementPayload(values, d.prefix) });
+    const guard = () => { if (!scoreContextValid(scope, state) || d.kind.startsWith('q') && state.qualifier.activeGroup !== d.group) throw new Error('轮次、选手或曲目已变化，旧成绩草稿未提交。'); };
+    if (d.kind !== 'q') return draftForm(scope, type, build, { guard });
+    const snapshot = snapshotDrafts(scope);
+    await queue;
+    draftGuard(snapshot); guard();
+    const payload = build({ ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) });
+    const previous = scoreData(d, state), rounds = state.qualifier.rounds?.[d.group]?.tiebreaks || [];
+    const changed = payload.score !== previous.score || JSON.stringify(ScoreRules.normaliseJudgements(payload.judgements)) !== JSON.stringify(ScoreRules.normaliseJudgements(previous.judgements));
+    const revision = state.revision;
+    if (!changed || !rounds.length) return send(type, payload, { snapshot, guard, expectedRevision: revision });
+    const confirmed = rounds.filter(t => t.confirmed).length;
+    const judgementSummary = raw => { const value = ScoreRules.normaliseJudgements(raw); return value ? `ACC ${value.accuracy}%${Object.hasOwn(value, 'perfect') ? ` · P/G/B/M ${value.perfect}/${value.good}/${value.bad}/${value.miss}` : ''}` : '未填写'; };
+    const impact = `${qualifierLabel(d.group)} · ${B.name(state, d.id)} · Song ${d.si + 1}\n分数：${B.score(previous.score)} → ${B.score(payload.score)}\n原判定：${judgementSummary(previous.judgements)}\n新判定：${judgementSummary(payload.judgements)}\n本轮 ${rounds.length} 场加赛将全部失效（${confirmed} 场已确认，${rounds.length - confirmed} 场未确认）。\n加赛完整记录会归档到裁判修正记录，晋级排名须重新核对。`;
+    const reasonInput = prompt(`${impact}\n请填写修正基础成绩的具体理由（8–500 字）：`, qualifierCorrectionReasons.get(scope) || '');
+    if (reasonInput === null) return;
+    const reason = reasonInput.trim(); qualifierCorrectionReasons.set(scope, reason);
+    if (reason.length < 8 || reason.length > 500) throw new Error('修正理由须为 8–500 字；成绩草稿已保留。');
+    if (!confirm(`${impact}\n理由：${reason}\n已核对基础成绩，并同意归档及清除以上加赛？`)) return;
+    const result = await send(type, { ...payload, confirmClearTiebreaks: true, verified: true, reason }, {
+      snapshot, expectedRevision: revision,
+      guard() { guard(); if (state.revision !== revision) throw new Error('核对期间赛事版本已变化；成绩与理由草稿已保留，请重新核对加赛影响。'); }
+    });
+    qualifierCorrectionReasons.delete(scope); return result;
   }
   function qualifierTiebreakPanel(group, locked) {
     if (!proposal()) return '';
@@ -305,7 +329,7 @@
     const snapshot = snapshotDrafts(scope), values = { ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) };
     const reason = values['restore-reason'].trim(); if (!reason) throw new Error('请填写恢复理由。');
     await queue; if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看摘要后确认；理由已保留。');
-    if (!confirm(`恢复备份版本 ${preview.backup.revision}\n${preview.backup.event.title}\n已完成 ${preview.backup.completedMatches} 场，双淘汰已记 ${preview.backup.matchScoredSlots} 个分数\n将替换当前赛事版本 ${preview.revision}，当前版本会自动备份。\n理由：${reason}`)) return;
+    if (!confirm(`恢复备份版本 ${preview.backup.revision}\n${preview.backup.event.title}\n已完成 ${preview.backup.completedMatches} 场\n${backupScoreSummary(preview.backup, 'qualifier')}\n${backupScoreSummary(preview.backup, 'match')}\n将替换当前赛事版本 ${preview.revision}，当前版本会自动备份。\n理由：${reason}`)) return;
     const task = queue.then(async () => {
       if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看摘要后确认；理由已保留。');
       const result = await requestJSON('/api/restore', { method: 'POST', body: JSON.stringify({ backupId: preview.backup.id, expectedRevision: preview.revision, reason }) });
@@ -437,12 +461,24 @@
     'set-broadcast-display': '切换直播显示', 'set-broadcast-sources': '保存来源名称', 'confirm-broadcast-sources': '人工核对来源',
     'startup-recovery': '启动时自动恢复损坏数据', 'legacy-final-cursor-normalized': '修正旧版决赛曲目进度'
   };
+  function backupScoreSummary(backup, kind) {
+    const tiebreak = backup[`${kind}TiebreakScoredSlots`] ?? 0;
+    const base = backup[`${kind}BaseScoredSlots`] ?? Math.max(0, (backup[`${kind}ScoredSlots`] ?? 0) - tiebreak);
+    const confirmed = backup[`${kind}ConfirmedTiebreaks`] ?? 0;
+    return `${kind === 'qualifier' ? '预选赛' : '双淘汰'}：基础 ${base} 个分数，加赛 ${tiebreak} 个分数，${confirmed} 场加赛已确认。`;
+  }
+  function backupListLabel(backup) {
+    const tiebreak = (backup.qualifierTiebreakScoredSlots ?? 0) + (backup.matchTiebreakScoredSlots ?? 0);
+    const base = (backup.qualifierBaseScoredSlots ?? Math.max(0, (backup.qualifierScoredSlots ?? 0) - (backup.qualifierTiebreakScoredSlots ?? 0))) + (backup.matchBaseScoredSlots ?? Math.max(0, (backup.matchScoredSlots ?? 0) - (backup.matchTiebreakScoredSlots ?? 0)));
+    const confirmed = backup.confirmedTiebreaks ?? (backup.qualifierConfirmedTiebreaks ?? 0) + (backup.matchConfirmedTiebreaks ?? 0);
+    return `版本 ${backup.revision} · ${backup.completedMatches} 场完成 · 基础 ${base} / 加赛 ${tiebreak} 分数 · 已确认加赛 ${confirmed} · ${new Date(backup.createdAt).toLocaleString('zh-HK')}`;
+  }
   function operationsPanel() {
     const completed = state.tournament.matches.filter(m => m.status === 'complete');
     const correction = correctionPreview?.matchId === correctionMatchId ? correctionPreview : null;
     const restoration = backupPreview?.backup.id === selectedBackupId ? backupPreview : null;
     const correctionStale = correction && correction.revision !== state.revision, restoreStale = restoration && restoration.revision !== state.revision;
-    return `<section class="panel operations-panel"><div class="section-heading"><div><h2>赛果纠错与备份恢复</h2><p class="secondary">先查看具体影响，再填写理由并确认。期间有新操作时必须重新预览。</p></div>${button('刷新备份列表', 'data-load-backups')}</div><div class="operations-grid"><section><h3>已完成场次纠错</h3><label for="correction-match">需要重新打开的场次<select id="correction-match">${options(completed.map(m => [m.id, `${m.id} · ${m.label}`]), correctionMatchId)}</select></label><div class="form-actions">${button('查看纠错影响', `data-preview-correction ${correctionMatchId ? '' : 'disabled'}`)}</div>${correction ? `<div class="impact-summary"><p>预览版本 ${correction.revision} · 场次 ${e(correctionMatchId)}</p>${correctionStale ? '<strong data-preview-stale>预览已过期，请重新查看影响；理由草稿保留。</strong>' : ''}${correction.impact.blockedReason ? `<p class="error">${e(correction.impact.blockedReason)}</p>` : ''}<p>本场保留曲目及分数并重新开放。下游需要重新进行：</p><ul>${correction.impact.affectedMatches.map(m => `<li>${e(m.id)} · ${e(m.label)}${m.hasResult ? ' · 已有赛果' : m.hasScores ? ' · 已有记分' : m.hasStartedSelection || m.hasOverride ? ' · 已有选曲或抽签' : ' · 尚未开始'}</li>`).join('') || '<li>没有下游场次</li>'}</ul></div><form id="correction-form"><label for="correction-reason">纠错理由<textarea id="correction-reason" maxlength="240" required></textarea></label>${correction.impact.requiresConfirmation ? '<label class="checkbox-label"><input id="correction-confirm-clear" type="checkbox">我已核对并同意清除以上下游场次的选曲、记分、抽签及赛果</label>' : ''}<div class="form-actions">${button('按上述影响重新打开赛果', `type="submit" ${correctionStale || correction.impact.blockedReason ? 'disabled' : ''}`)}</div></form>` : '<p class="secondary">查看影响后才可操作。</p>'}</section><section><h3>恢复自动备份</h3><label for="backup-id">备份<select id="backup-id">${options(backupList.map(b => [b.id, `版本 ${b.revision} · ${b.completedMatches} 场完成 · ${new Date(b.createdAt).toLocaleString('zh-HK')}`]), selectedBackupId)}</select></label><div class="form-actions">${button('查看恢复摘要', `data-preview-backup ${selectedBackupId ? '' : 'disabled'}`)}</div>${restoration ? `<div class="impact-summary"><p>${e(restoration.backup.event.title)} · ${e(restoration.backup.event.date)} · ${e(restoration.backup.event.venue)}</p><p>当前赛事版本 ${restoration.revision} → 备份版本 ${restoration.backup.revision}</p><p>已完成 ${restoration.backup.completedMatches} 场；预选赛 ${restoration.backup.qualifierScoredSlots} 个分数；双淘汰 ${restoration.backup.matchScoredSlots} 个分数。</p><p>备份赛果：${e(restoration.backup.matchResults.map(m => m.matchId).join(', ') || '无')}</p>${restoreStale ? '<strong data-preview-stale>预览已过期，请重新查看摘要；理由草稿保留。</strong>' : ''}<p>恢复会替换整个赛事状态；恢复前会自动保留当前版本。</p></div><form id="restore-form"><label for="restore-reason">恢复理由<textarea id="restore-reason" maxlength="500" required></textarea></label><div class="form-actions">${button('确认恢复此备份', `type="submit" ${restoreStale ? 'disabled' : ''}`)}</div></form>` : `<p class="secondary">${backupsLoaded ? '选取备份并查看摘要后才可恢复。' : '点击刷新备份列表。'}</p>`}</section></div><details id="audit-details"><summary>最近操作记录</summary><ol class="audit-list">${(state.auditLog || []).slice(-10).reverse().map(item => `<li><time>${e(new Date(item.at).toLocaleString('zh-HK'))}</time> · 版本 ${item.revision} · ${e(actionLabels[item.type] || item.type)}${item.reason ? `<p>${e(item.reason)}</p>` : ''}</li>`).join('') || '<li>尚无操作记录</li>'}</ol></details></section>`;
+    return `<section class="panel operations-panel"><div class="section-heading"><div><h2>赛果纠错与备份恢复</h2><p class="secondary">先查看具体影响，再填写理由并确认。期间有新操作时必须重新预览。</p></div>${button('刷新备份列表', 'data-load-backups')}</div><div class="operations-grid"><section><h3>已完成场次纠错</h3><label for="correction-match">需要重新打开的场次<select id="correction-match">${options(completed.map(m => [m.id, `${m.id} · ${m.label}`]), correctionMatchId)}</select></label><div class="form-actions">${button('查看纠错影响', `data-preview-correction ${correctionMatchId ? '' : 'disabled'}`)}</div>${correction ? `<div class="impact-summary"><p>预览版本 ${correction.revision} · 场次 ${e(correctionMatchId)}</p>${correctionStale ? '<strong data-preview-stale>预览已过期，请重新查看影响；理由草稿保留。</strong>' : ''}${correction.impact.blockedReason ? `<p class="error">${e(correction.impact.blockedReason)}</p>` : ''}<p>本场保留曲目及分数并重新开放。下游需要重新进行：</p><ul>${correction.impact.affectedMatches.map(m => `<li>${e(m.id)} · ${e(m.label)}${m.hasResult ? ' · 已有赛果' : m.hasScores ? ' · 已有记分' : m.hasStartedSelection || m.hasOverride ? ' · 已有选曲或抽签' : ' · 尚未开始'}</li>`).join('') || '<li>没有下游场次</li>'}</ul></div><form id="correction-form"><label for="correction-reason">纠错理由<textarea id="correction-reason" maxlength="240" required></textarea></label>${correction.impact.requiresConfirmation ? '<label class="checkbox-label"><input id="correction-confirm-clear" type="checkbox">我已核对并同意清除以上下游场次的选曲、记分、抽签及赛果</label>' : ''}<div class="form-actions">${button('按上述影响重新打开赛果', `type="submit" ${correctionStale || correction.impact.blockedReason ? 'disabled' : ''}`)}</div></form>` : '<p class="secondary">查看影响后才可操作。</p>'}</section><section><h3>恢复自动备份</h3><label for="backup-id">备份<select id="backup-id">${options(backupList.map(b => [b.id, backupListLabel(b)]), selectedBackupId)}</select></label><div class="form-actions">${button('查看恢复摘要', `data-preview-backup ${selectedBackupId ? '' : 'disabled'}`)}</div>${restoration ? `<div class="impact-summary"><p>${e(restoration.backup.event.title)} · ${e(restoration.backup.event.date)} · ${e(restoration.backup.event.venue)}</p><p>当前赛事版本 ${restoration.revision} → 备份版本 ${restoration.backup.revision}</p><p>已完成 ${restoration.backup.completedMatches} 场。</p><p data-backup-qualifier-counts>${e(backupScoreSummary(restoration.backup, 'qualifier'))}</p><p data-backup-match-counts>${e(backupScoreSummary(restoration.backup, 'match'))}</p><p>备份赛果：${e(restoration.backup.matchResults.map(m => m.matchId).join(', ') || '无')}</p>${restoreStale ? '<strong data-preview-stale>预览已过期，请重新查看摘要；理由草稿保留。</strong>' : ''}<p>恢复会替换整个赛事状态；恢复前会自动保留当前版本。</p></div><form id="restore-form"><label for="restore-reason">恢复理由<textarea id="restore-reason" maxlength="500" required></textarea></label><div class="form-actions">${button('确认恢复此备份', `type="submit" ${restoreStale ? 'disabled' : ''}`)}</div></form>` : `<p class="secondary">${backupsLoaded ? '选取备份并查看摘要后才可恢复。' : '点击刷新备份列表。'}</p>`}</section></div><details id="audit-details"><summary>最近操作记录</summary><ol class="audit-list">${(state.auditLog || []).slice(-10).reverse().map(item => `<li><time>${e(new Date(item.at).toLocaleString('zh-HK'))}</time> · 版本 ${item.revision} · ${e(actionLabels[item.type] || item.type)}${item.reason ? `<p>${e(item.reason)}</p>` : ''}</li>`).join('') || '<li>尚无操作记录</li>'}</ol></details></section>`;
   }
   function broadcast() {
     const selected = B.scenes.find(s => s[0] === state.scene), m = B.currentMatch(state), q = state.qualifier;
@@ -630,7 +666,7 @@
     if (event.target.id === 'pair-form') return; event.preventDefault(); if (!state) return;
     const form = event.target;
     const scope = form.dataset.draftScope, entity = scope?.split(':')[1];
-    if (form.dataset.scoreEditor) { submitScore(form, scope).then(() => toast('分数与 ACC 已保存')).catch(error => toast(error.message, true)); return; }
+    if (form.dataset.scoreEditor) { submitScore(form, scope).then(result => { if (result) toast('分数与 ACC 已保存'); }).catch(error => toast(error.message, true)); return; }
     if (form.dataset.numberPlayer) { draftForm(scope, 'set-player-number', values => ({ playerId: form.dataset.numberPlayer, number: Number(values[`number-${form.dataset.numberPlayer}`]) })).catch(() => {}); return; }
     if (form.id === 'plan-form') { if (confirm('按建议书比赛规则设置方案？已有比赛成绩时不能切换方案。')) draftForm(scope, 'set-qualifier-plan', values => ({ plan: values['qualifier-plan'] })).catch(() => {}); return; }
     if (form.id === 'competition-roster-form') { if (confirm('保存完整参赛名单？保留未改名选手的 ID，开赛后不可更改名单。')) draftForm(scope, 'set-competition-roster', values => ({ names: values['competition-roster'].split('\n') })).catch(() => {}); return; }

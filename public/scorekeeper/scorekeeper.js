@@ -45,6 +45,7 @@
       description: tie ? '記錄本輪加賽分數、成績頁 ACC 及判定；加賽分數不加入原有總分，賽果由主控確認。' : qualifier ? `主控目前選定 ${group} 組 · 比賽歌曲 ${Number(source?.currentSong || 0) + 1} / 3 · ${base?.plan === 'B' ? 'A 組單號 / B 組雙號' : '請核對成績頁 ACC 及判定'}` : match ? `第 ${match.round} 輪 · 比賽歌曲 ${Number(match.currentSong || 0) + 1} / ${count} · 請核對成績頁 ACC 及判定` : '主控選定比賽場次後，會在這裡顯示選手及歌曲。',
       songs: tie ? [tie.song] : source?.songs || [], players: source?.players || [], source, base,
       locked: !base || base.locked || !qualifier && !['ready', 'live'].includes(match?.status),
+      baseLocked: !tie && !!base?.baseLocked,
       contextLabel: `${context}${tie ? ` · 加賽 ${tie.index + 1}` : ''}`
     };
   }
@@ -54,6 +55,7 @@
     if (!player.id) reason = '等候主控指定選手';
     else if (player.disqualified) reason = '此選手已失去參賽資格';
     else if (view.locked) reason = view.qualifier ? '預選賽已鎖定' : view.base?.status === 'complete' ? '賽果已確認，分數已鎖定' : '此場次尚未開始';
+    else if (view.baseLocked) reason = '原有分數已鎖定，修正請聯絡主控。';
     else if (song?.hidden || song?.id === 'sealed') reason = '此歌曲尚未公開';
     else if (!song?.id || !view.tiebreak && (view.qualifier && (view.songs.length !== 3 || view.songs.some(item => !item?.id)) || !view.qualifier && view.songs.length !== view.count)) reason = '等候主控完成選曲';
     const playerKey = view.qualifier ? player.id : playerIndex;
@@ -118,7 +120,7 @@
       renderedSignature = signature;
       $('score-list').innerHTML = view.players.length ? view.players.map(cardHtml).join('') : '<section class="empty-state"><h2>尚未有可計分選手</h2><p>請等候主控完成選手與比賽場次設定。</p></section>';
     }
-    const matchNotice = view.locked ? view.qualifier ? '預選賽晉級名單已鎖定。分數由主控處理後才能繼續修改。' : view.base?.status === 'complete' ? '此場比賽賽果已確認，分數已鎖定。' : '此場次尚未準備完成，請等候主控設定。' : !ready() ? '連線中斷；可繼續填寫草稿，重新連線並同步後才能保存。' : '';
+    const matchNotice = view.locked ? view.qualifier ? '預選賽晉級名單已鎖定。分數由主控處理後才能繼續修改。' : view.base?.status === 'complete' ? '此場比賽賽果已確認，分數已鎖定。' : '此場次尚未準備完成，請等候主控設定。' : view.baseLocked ? `加賽已確認，請等候主控確認晉級或賽果、或開啟下一輪加賽。${view.base.baseLockedReason}` : !ready() ? '連線中斷；可繼續填寫草稿，重新連線並同步後才能保存。' : '';
     $('match-notice').hidden = !matchNotice; $('match-notice').textContent = matchNotice;
     for (const form of $('score-list').querySelectorAll('form[data-player-key]')) {
       const pi = view.players.findIndex((player, index) => String(view.qualifier ? player.id : index) === form.dataset.playerKey);

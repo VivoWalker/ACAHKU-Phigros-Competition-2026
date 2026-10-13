@@ -1,9 +1,8 @@
 const express = require('express');
 const http = require('node:http');
-const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { randomBytes, randomInt, timingSafeEqual, createHmac } = require('node:crypto');
+const { randomBytes, timingSafeEqual, createHmac } = require('node:crypto');
 const { Server } = require('socket.io');
 const { StateStore } = require('./lib/store');
 const { publicState, resultCorrectionImpact } = require('./lib/tournament');
@@ -12,23 +11,11 @@ const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
 const { context: countdownContext } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
+const { loadPairingCredentials } = require('./lib/pairing-credentials');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
   const store = new StateStore(dataDir);
-  const pinFile = path.join(dataDir, '.control-pin');
-  const pin = options.pin || process.env.CONTROL_PIN || (fs.existsSync(pinFile) ? fs.readFileSync(pinFile, 'utf8').trim() : String(randomInt(100000, 1000000)));
-  if (!options.pin && !process.env.CONTROL_PIN && !fs.existsSync(pinFile)) fs.writeFileSync(pinFile, pin + '\n', { mode: 0o600 });
-  const scorekeeperPinFile = path.join(dataDir, '.scorekeeper-pin');
-  const configuredScorekeeperPin = options.scorekeeperPin || process.env.SCOREKEEPER_PIN;
-  let scorekeeperPin = configuredScorekeeperPin || (fs.existsSync(scorekeeperPinFile) ? fs.readFileSync(scorekeeperPinFile, 'utf8').trim() : null);
-  if (configuredScorekeeperPin === pin) throw new Error('Control and scorekeeper pairing codes must be different.');
-  if (!scorekeeperPin || scorekeeperPin === pin) {
-    do { scorekeeperPin = String(randomInt(100000, 1000000)); } while (scorekeeperPin === pin);
-    fs.writeFileSync(scorekeeperPinFile, scorekeeperPin + '\n', { mode: 0o600 });
-  }
-  const keyFile = path.join(dataDir, '.session-key');
-  if (!fs.existsSync(keyFile)) fs.writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
-  const sessionKey = fs.readFileSync(keyFile);
+  const { pin, scorekeeperPin, sessionKey } = loadPairingCredentials(dataDir, options);
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
   const validToken = token => {
     if (typeof token !== 'string' || !/^[a-f0-9]{64}\.[a-f0-9]{64}$/.test(token)) return false;
@@ -105,7 +92,10 @@ function createBroadcastServer(options = {}) {
   app.get('/api/control-state', authenticated, (req, res) => res.json(controlState()));
   app.get('/api/scorekeeper-state', scorekeeperAuthenticated, (req, res) => res.json(scorekeeperState(store.state)));
   app.get('/api/export', authenticated, (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename="match-state-backup.json"'); res.json(store.state); });
-  app.get('/api/backups', authenticated, (req, res) => res.json({ backups: store.listBackups(), recovery: store.state.recovery || null }));
+  app.get('/api/backups', authenticated, async (req, res) => {
+    try { res.json({ backups: await store.listBackupsAsync(), recovery: store.state.recovery || null }); }
+    catch (error) { requestFailure(res, error); }
+  });
   app.get('/api/backups/:id/preview', authenticated, (req, res) => {
     try { res.json(store.previewBackup(req.params.id)); } catch (error) { requestFailure(res, error); }
   });

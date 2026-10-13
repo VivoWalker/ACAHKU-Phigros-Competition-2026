@@ -10,6 +10,7 @@
   const numberOrder = (a, b) => (a.number ?? Number.MAX_SAFE_INTEGER) - (b.number ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id);
   const requireValue = (value, message) => { if (!value) throw new Error(message); };
   const unique = values => new Set(values).size === values.length;
+  const planForCount = count => count <= 20 ? 'A' : 'B';
   const emptyResult = () => ({ scores: [null, null, null], judgements: [null, null, null] });
   function result(state, group, playerId) {
     return configured(state) ? state.qualifier.rounds?.[group]?.results?.[playerId] : roster(state).find(player => player.id === playerId && player.group === group);
@@ -153,14 +154,16 @@
         });
         if (q.readiness) q.readiness = Object.fromEntries(Object.entries(q.readiness).filter(([id]) => q.players.some(player => player.id === id)));
         assignMissingNumbers(state);
-        if (configured(state)) initialise(state, q.plan);
+        // A prepared roster can still cross the proposal's 20-player boundary.
+        // Derive the format again before any results lock the setup.
+        if (configured(state)) initialise(state, planForCount(q.players.length));
         else q.activePlayers = q.activePlayers.filter(id => q.players.some(player => player.id === id));
         return true;
       }
       case 'set-qualifier-plan': {
         setupOnly(); assert(['auto', 'A', 'B'].includes(p.plan), 'Choose Auto, Plan A or Plan B.');
         const count = roster(state).length;
-        const plan = p.plan === 'auto' ? count <= 20 ? 'A' : 'B' : p.plan;
+        const plan = p.plan === 'auto' ? planForCount(count) : p.plan;
         assert(plan === 'A' ? count <= 20 : count > 20, plan === 'A' ? 'Plan A applies to 20 or fewer competitors.' : 'Plan B applies to more than 20 competitors.');
         initialise(state, plan); return true;
       }
@@ -183,6 +186,7 @@
         const indices = q.activePlayers.map(id => list.findIndex(player => player.id === id)).filter(index => index >= 0);
         const next = indices.length ? Math.max(...indices) + 1 : 0;
         q.activePlayers = list.slice(next >= list.length ? 0 : next, (next >= list.length ? 0 : next) + 3).map(player => player.id);
+        if (!tie) q.currentSong = 0;
         return true;
       }
       case 'finalize-qualifier-round':
@@ -263,7 +267,24 @@
         roundEditable(); const player = entries(state, group).find(value => value.id === p.playerId); assert(player, 'Player is not eligible in this qualifier round.');
         assert(Number.isInteger(p.songIndex) && p.songIndex >= 0 && p.songIndex < 3, 'Invalid song number.');
         const row = result(state, group, player.id), value = score(p.score), metadata = slotMetadata(value, row.scores[p.songIndex]);
-        const changed = value !== row.scores[p.songIndex] || metadata !== undefined && JSON.stringify(metadata) !== JSON.stringify(row.judgements[p.songIndex]);
+        const previousJudgements = row.judgements[p.songIndex];
+        const changed = value !== row.scores[p.songIndex] || metadata !== undefined &&
+          JSON.stringify(ScoreRules.normaliseJudgements(metadata)) !== JSON.stringify(ScoreRules.normaliseJudgements(previousJudgements));
+        const invalidatedTiebreaks = q.rounds[group].tiebreaks;
+        if (changed && invalidatedTiebreaks.length) {
+          assert(p.confirmClearTiebreaks === true && p.verified === true,
+            'An arbiter must explicitly confirm this base-score correction and clearing the qualifier tiebreaks.');
+          assert(typeof p.reason === 'string' && p.reason.trim().length >= 8 && p.reason.trim().length <= 500,
+            'Record a meaningful correction reason (8–500 characters) before clearing qualifier tiebreaks.');
+          assert((q.adjudications || []).length < 10000, 'Qualifier adjudication history limit reached.');
+          const now = typeof helpers.now === 'function' ? helpers.now() : (helpers.now ?? Date.now());
+          const time = new Date(now);
+          assert(Number.isFinite(time.getTime()), 'The correction time is invalid.');
+          (q.adjudications ||= []).push({ type: action.type, at: time.toISOString(), group, playerId: player.id,
+            songIndex: p.songIndex, songId: q.groups[group].songs[p.songIndex], reason: p.reason.trim(), note: p.reason.trim(),
+            previousScore: row.scores[p.songIndex], previousJudgements: structuredClone(previousJudgements),
+            invalidatedTiebreaks: structuredClone(invalidatedTiebreaks) });
+        }
         row.scores[p.songIndex] = value;
         if (metadata !== undefined) row.judgements[p.songIndex] = metadata;
         if (changed) q.rounds[group].tiebreaks = [];
