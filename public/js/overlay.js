@@ -73,7 +73,7 @@
     const m = B.currentMatch(s);
     if (!m) return backdrop() + header(s, '雙淘汰賽') + title('等待晉級選手', 'DOUBLE ELIMINATION') + visual('standby-art');
     const tie = B.matchTiebreak(s);
-    return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : m.id === 'GF' ? 3 : 2, tie?.song || m.songs[m.currentSong]);
+    return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong]);
   }
   function playerName(s, id, scores, songs, index, kind) {
     const total = scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
@@ -108,7 +108,7 @@
     const cameras = showHandcams(s);
     const frames = [[64, 280, 872, 490.5], [984, 280, 872, 490.5]];
     const cams = cameras ? [[64, 846, 224, 126], [1632, 846, 224, 126]] : [];
-    const count = m.id === 'GF' ? 3 : 2, songs = m.songs.length ? m.songs : Array(count).fill(null);
+    const count = B.matchSongCount(m), songs = m.songs.length ? m.songs : Array(count).fill(null);
     const tie = B.matchTiebreak(s);
     return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : ''}'>${m.players.map((id, i) => playerName(s, id, tie ? [tie.scores[i]] : m.scores[i], tie ? [tie.song] : songs, i, 'double-player') + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定', id) + (cams[i] ? handcam(cams[i], id ? B.name(s, id) : '待定', id) : '')).join('')}${songBand(tie?.song || m.songs[m.currentSong], m.currentSong, count, 'double-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
   }
@@ -136,13 +136,19 @@
   function selection(s) {
     const m = B.currentMatch(s);
     if (!m) return doubleWaiting(s);
+    if (m.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return grandFinalAnnouncement(s);
     const tie = B.matchTiebreak(s), focus = tie?.song || m.songs[m.currentSong] || m.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m.candidates[0];
     return backdrop() + header(s, `R${m.round} · ${m.id}`) + title(tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲', 'SONG SELECTION') + `<div class='selection'><div class='candidate-list ${m.id === 'GF' ? 'final-list' : ''}'>${(tie ? [tie.song] : m.candidates).map((song, i) => {
       const banned = m.bans.indexOf(song.id), picked = m.songs.some(x => !x.hidden && x.id === song.id);
       return `<div data-motion-key='candidate-${e(song.id)}' class='candidate ${banned >= 0 ? 'banned' : ''} ${picked ? 'picked' : ''}'><span class='index'>${String(i + 1).padStart(2, '0')}</span><h3>${e(song.title)}</h3><span class='candidate-status'>${banned >= 0 ? 'BAN' : picked ? 'PICK' : e(song.difficulty + ' ' + song.level)}</span></div>`;
-    }).join('') || `<p data-motion-block class='empty-copy'>選曲中</p>`}</div><section><div data-motion-key='selection-cover' class='selection-art'><img src='${e(art(focus))}' alt='${e(focus?.title || 'Song artwork')}'></div><div class='selection-detail'><h2>${songText(focus)}</h2><div data-motion-block class='picks'>${m.songs.map((song, i) => `<span>${i + 1} · ${e(song.title)}</span>`).join('')}</div></div><div data-motion-block class='selection-state'>${m.id === 'GF' ? `<span>AUDIENCE · ${m.audiencePicks.length}/2</span><span>MC · ${m.hostRevealed ? 'REVEALED' : 'SEALED'}</span>` : m.players.map((id, i) => `<span>${e(id ? B.name(s, id) : '待定')} · ${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</span>`).join('')}</div></section></div>`;
+    }).join('') || `<p data-motion-block class='empty-copy'>選曲中</p>`}</div><section><div data-motion-key='selection-cover' class='selection-art'><img src='${e(art(focus))}' alt='${e(focus?.title || 'Song artwork')}'></div><div class='selection-detail'><h2>${songText(focus)}</h2><div data-motion-block class='picks'>${m.songs.map((song, i) => `<span>${i + 1} · ${e(song.title)}</span>`).join('')}</div></div><div data-motion-block class='selection-state'>${m.finalMode === 'fixed-two' ? `<span>加賽曲目 · TIEBREAK SONG</span>` : m.id === 'GF' ? `<span>AUDIENCE · ${m.audiencePicks.length}/2</span><span>MC · ${m.hostRevealed ? 'REVEALED' : 'SEALED'}</span>` : m.players.map((id, i) => `<span>${e(id ? B.name(s, id) : '待定')} · ${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</span>`).join('')}</div></section></div>`;
   }
-  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, result, bracket, 'song-selection': selection };
+  function grandFinalAnnouncement(s) {
+    const songs = B.fixedFinalSongs(s);
+    if (songs.length !== 2) return backdrop() + header(s, 'GRAND FINAL') + title('等待總決賽曲目', 'GRAND FINAL');
+    return backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · TWO SONGS') + `<div class='final-announcement-grid'>${songs.map((song, index) => `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' class='final-song-card'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')}</span><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong></div><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></article>`).join('')}</div>` + footer('兩首曲目 · TWO SONGS', 'ACAHKU PHIGROS COMPETITION');
+  }
+  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
     if (!state) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;

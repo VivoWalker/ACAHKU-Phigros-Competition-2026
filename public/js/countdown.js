@@ -18,7 +18,7 @@
     } else if (state.stage === 'double-elimination' && state.scene === 'double-elimination-match') {
       const m = state.tournament.matches.find(match => match.id === state.tournament.currentMatchId), pending = m?.tiebreaks?.at(-1), tie = pending && !pending.confirmed ? pending : null;
       const song = tie?.song || m?.songs[m.currentSong];
-      if (!m || m.status === 'complete' || m.players.filter(Boolean).length !== 2 || m.songs.length !== (m.id === 'GF' ? 3 : 2) || !song || song.hidden || m.id === 'GF' && m.currentSong === 2 && !m.hostRevealed) return null;
+      if (!m || m.status === 'complete' || m.players.filter(Boolean).length !== 2 || m.songs.length !== (m.id === 'GF' && m.finalMode !== 'fixed-two' ? 3 : 2) || !song || song.hidden || m.id === 'GF' && m.currentSong === 2 && !m.hostRevealed) return null;
       current = { scene: state.scene, stage: state.stage, matchId: m.id, songIndex: tie ? 0 : m.currentSong, songId: song.id, players: [...m.players],
         ...(tie ? { tiebreakIndex: m.tiebreaks.length - 1 } : {}) };
     } else return null;

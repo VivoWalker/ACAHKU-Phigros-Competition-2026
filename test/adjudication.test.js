@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { applyAction, readinessCount, WAIT_MS, READINESS_KEYS } = require('../lib/adjudication');
 
 const START = Date.parse('2026-11-07T04:00:00.000Z');

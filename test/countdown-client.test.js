@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 const Countdown = require('../public/js/countdown');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 
 function controlOperation() {
   // Exercise the shipped async handler: the queue/socket stubs expose a real timing race.

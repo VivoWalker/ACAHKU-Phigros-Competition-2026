@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const QualifierRules = require('../public/js/qualifier-rules');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('../lib/scorekeeper');
 

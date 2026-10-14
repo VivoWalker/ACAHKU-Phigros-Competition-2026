@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
+const { initialiseLegacyStore } = require('./helpers/legacy-state');
 const { getBranding } = require('../lib/branding');
 const { createBracket, resolveBracket } = require('../lib/tournament');
 function waitEvent(socket, name, timeout = 6000) { return new Promise((resolve, reject) => { const timer = setTimeout(() => { socket.off(name, handler); reject(new Error('Timed out: ' + name)); }, timeout); function handler(value) { clearTimeout(timer); resolve(value); } socket.once(name, handler); }); }
@@ -12,7 +13,7 @@ async function pair(url) { const r = await fetch(url + '/api/session', { method:
 test('HTTP pages and authenticated live updates, reconnect and process restart retain state and privacy', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-server-')); let app, control, overlay, unpaired;
   try {
-    app = createBroadcastServer({ dataDir: dir, pin: 'fixture-code' }); const address = await app.listen(0, '127.0.0.1'); let url = `http://127.0.0.1:${address.port}`;
+    app = createBroadcastServer({ dataDir: dir, pin: 'fixture-code' }); initialiseLegacyStore(app.store); const address = await app.listen(0, '127.0.0.1'); let url = `http://127.0.0.1:${address.port}`;
     assert.equal((await fetch(url + '/api/health')).status, 200);
     const brandingResponse = await fetch(url + '/api/branding');
     assert.equal(brandingResponse.status, 200);
@@ -57,7 +58,7 @@ test('HTTP pages and authenticated live updates, reconnect and process restart r
 
 test('backup APIs require pairing, preview metadata, reject stale restores and publish restored state without private picks or audit reasons', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-recovery-api-'));
-  const app = createBroadcastServer({ dataDir: dir, pin: 'fixture-code' }); let control, overlay;
+  const app = createBroadcastServer({ dataDir: dir, pin: 'fixture-code' }); initialiseLegacyStore(app.store); let control, overlay;
   t.after(async () => { control?.close(); overlay?.close(); await app.close(); fs.rmSync(dir, { recursive: true, force: true }); });
   const address = await app.listen(0, '127.0.0.1'), url = `http://127.0.0.1:${address.port}`;
   for (const endpoint of ['/api/backups', '/api/backups/unknown/preview', '/api/result-correction/W1']) assert.equal((await fetch(url + endpoint)).status, 401);

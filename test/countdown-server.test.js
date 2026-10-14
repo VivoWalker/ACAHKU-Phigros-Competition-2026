@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
+const { initialiseLegacyStore } = require('./helpers/legacy-state');
 const { context } = require('../public/js/countdown');
 const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
@@ -23,7 +24,7 @@ function sync(socket) {
 }
 async function fixture(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-countdown-'));
-  let app = createBroadcastServer({ dataDir: directory, pin: 'countdown-fixture-code' });
+  let app = createBroadcastServer({ dataDir: directory, pin: 'countdown-fixture-code' }); initialiseLegacyStore(app.store);
   const sockets = [];
   t.after(async () => { sockets.forEach(socket => socket.close()); await app.close(); fs.rmSync(directory, { recursive: true, force: true }); });
   app.store.commit({ type: 'set-scene', payload: { scene: 'qualifier-match' } }, 0);

@@ -27,7 +27,9 @@ The codes are created locally in `data/.control-pin` and `data/.scorekeeper-pin`
 
 Pairing codes and the session key are written through private atomic files. An empty saved main-control code, a blank explicitly configured code, or a damaged session key stops startup. Restore the affected credential from a private backup; a main-control code can also be supplied through a nonempty `CONTROL_PIN`. If the original session key cannot be recovered, stop the server, preserve the damaged file elsewhere, and remove it from `data/` before restarting. The server then creates a fresh key and each staff panel must pair again.
 
-Initial data contains **sample players and editable sample song metadata**, with no scores or seeded bracket. Verify the official song pool, chart levels and roster before using it for the event. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
+New events contain **sample players and the official 50-chart song list**, with no scores or seeded bracket. The six qualifier charts, 42 Double Elimination charts and two fixed Grand Final charts already have their local jackets, names, artists and specified difficulties. Levels discard the decimal part: 14.7 becomes 14 and 16.9 becomes 16. Verify the roster and choose the qualifier plan before the event. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
+
+An existing unscored installation can load the same settings through **Event & library → 正式比赛歌单 → 套用正式歌单与决赛规则**. Review the displayed list and confirm replacing its library and qualifier song sets. The server rejects this operation once scoring, seeding or tournament history exists; preserve a running event and prepare a fresh event for the new settings. Existing saved events continue to load with their original rules.
 
 When upgrading an existing installation, preserve the whole `data/` folder, replace the application files, restart the server, and refresh every control-panel tab and the OBS Browser Source once. Older control scripts without explicit match IDs are rejected by the updated server; existing valid schema-1 event files and paired sessions remain supported.
 
@@ -59,7 +61,7 @@ Scorekeeper permissions are enforced by the server: its session can only submit 
 4. Use the control panel's **Broadcast** tab to select the on-air screen. The same Browser Source changes scenes without a reload. Shared logos, artwork and player names move to their new positions; other content exits before the new content slides in. It does not switch your OBS capture sources or OBS scenes automatically.
 5. In **Broadcast → 畫面顯示**, select **單畫面** for capture card only or **雙畫面** for capture card plus each player's handcam. This setting updates all connected overlays immediately and is saved across restarts. Capture-card positions stay fixed; single view covers the handcam areas with the overlay background. Keep both sources beneath the Browser Source. The interface does not capture video or move OBS sources. Different player counts may use separate OBS scenes with the matching source arrangement.
 6. In the Broadcast source-check panel, enter the actual OBS capture-card and handcam source names for each slot, save them, inspect the real feeds, and confirm the manual check. Changing entrants, their names, the match, sources, stage or single/dual mode invalidates that confirmation. A restored backup also requires a new check. This records a crew member's visual check; it does not connect to OBS, inspect video, or switch sources automatically.
-7. Once the players are ready, select the qualifier or double-elimination **match screen**, then press **Broadcast → 比賽開始倒計時 → 開始倒計時 · 3 2 1 START**. Each number lasts one second; START displays for 700 ms, followed by a 250 ms fade. The opaque countdown covers the whole Browser Source, including logos and capture windows, and then restores the match. **取消倒計時** removes it immediately. Both single and dual views support it; a Grand Finals MC song must be revealed before its countdown can start.
+7. Once the players are ready, select the qualifier or double-elimination **match screen**, then press **Broadcast → 比賽開始倒計時 → 開始倒計時 · 3 2 1 START**. Each number lasts one second; START displays for 700 ms, followed by a 250 ms fade. The opaque countdown covers the whole Browser Source, including logos and capture windows, and then restores the match. **取消倒計時** removes it immediately. Both single and dual views support it. The fixed two-song Grand Final uses the same cue directly; an older event's third MC song must be revealed before its cue can start.
 
 The countdown uses one server timestamp for all connected sources and the control-panel preview. Refreshing or reconnecting during a countdown resumes the current number; an expired countdown or server restart does not replay it. Changing the scene, match, selected players, current song, single/dual mode or saved source assignments cancels it. Score updates keep its original timing. Countdown commands require a paired staff session and do not change scores, save a revision or create a backup. This is a visual start cue without audio.
 
@@ -81,8 +83,9 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | Group A / B qualifier rankings or double elimination result | `/overlay/result.html` |
 | Current-round bracket focus and advancement destinations | `/overlay/bracket.html` |
 | Additional requested song-selection screen | `/overlay/song-selection.html` |
+| Fixed Grand Final song announcement | `/overlay/grand-final-announcement.html` |
 
-`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). Thus there are seven main screens plus the separately requested selection screen.
+`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are seven main screens, the selection screen and the Grand Final announcement screen.
 
 Capture-card source rectangles in the 1920×1080 canvas, in player order. These positions are identical in single and dual view:
 
@@ -134,10 +137,10 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 
 The [English competition rules](docs/competition-rules.md) are available locally at **`/rules/`**; [the rule audit](docs/proposal-rule-audit.md) maps every competition clause to the proposal and records its inconsistencies. The Phigros body is authoritative; the obsolete Project Sekai registration screenshots are excluded.
 
-1. Verify event information and the actual song library in **Event & library**. The bundled players and tracks are examples; prepare the official six qualifier songs, regular DE pool, and full local song catalogue needed for qualifier tiebreak draws.
+1. Verify event information and the actual song library in **Event & library**. The bundled roster is an example; the official six qualifier charts, 42 regular DE charts and two final charts are prefilled. Add further authorised songs if needed for the full local catalogue used by qualifier tiebreak draws.
 2. In **Qualifiers → 比赛方案与抽签编号**, save the complete roster, apply **Auto** (≤20: Plan A; >20: Plan B), and draw unique participant numbers. Changing an already configured roster before play recalculates the plan at the 20-player boundary. Numbers determine batches of at most three and identify entrants throughout the event. Setup is locked after scoring or adjudicated incidents begin.
 3. Plan A puts everyone in Round 1. Confirm its top four after all eligible results and ties are resolved; the remaining entrants enter the revival round with independent blank scores. Confirm its top four to create the bracket. First-round qualifiers default to seeds 1–4, revival qualifiers to 5–8; a reviewed ACA manual seed override requires a reason.
-4. Plan B uses odd numbers in Group A and even numbers in Group B, with separate three-song sets and top four qualifiers in each. Seeds alternate A1/B1/A2/B2/A3/B3/A4/B4, preserving the specified cross-group opening opponents. Do not combine totals from different song sets.
+4. Plan B uses odd numbers in Group 1 (A) and even numbers in Group 2 (B), with separate three-song sets and top four qualifiers in each. Seeds alternate A1/B1/A2/B2/A3/B3/A4/B4 for later reseeding. The opening matches use **A1–B4, A2–B3, B1–A3 and B2–A4**, as specified by the organiser. Do not combine totals from different song sets. Existing saved brackets retain their recorded opening sources.
 5. Select three different songs per round/group, with no overlap between sets. Choose on-stage players or **Next ordered batch**, choose the current song, and show waiting/match. The next ordinary batch starts at song one; a tiebreak batch keeps its separate extra-song context. Empty slots stay empty.
 6. Save each **score + original screen ACC** together; record Perfect/Good/Bad/Miss when available. All four counts must be provided together. Scores are integers 0–1,000,000; a blank is unplayed and zero is valid. Scorers have the same fields and can enter the active round's or match's tiebreak scores, but cannot draw, confirm, or adjudicate.
 7. Equal three-song totals compare the equally weighted mean original ACC, rounded to four decimals. Missing ACC cannot resolve a tie. Remaining qualification/seed ties use separately recorded random songs from the full local library, with repeated rounds and arbiter confirmation; base totals stay unchanged.
@@ -167,7 +170,7 @@ Completed results lock against ordinary editing. To correct one, preview its dow
 
 The organiser confirmed that the restriction applies to **actual base-match and tiebreak songs**, not the six candidate slots. A candidate, banned song or unselected song may appear again; after a song is formally picked for one match, another DE match cannot draw or pick it. GF uses the same cross-match exclusion. Qualifiers keep their existing independent draw rules. Within the same match, the existing redraw and repeated-tiebreak behaviour remains available.
 
-There are **13 regular matches × 2 played songs = 26 distinct played songs**. A 26-song list is insufficient: after the first twelve matches use 24 songs, the final regular match still needs six available candidates. Therefore prepare **at least 30 distinct songs** for the ordinary DE pool: `12 × 2 + 6 = 30`. This minimum assumes no extra consumption through tiebreaks or replaced selections. **42 songs is recommended**, providing 12 extra choices; repeated ties and reviewed redraws have no fixed limit, so no finite list guarantees every possible event. Prepare **six GF candidates separately** if you want a guaranteed dedicated final list; mark them finals-only. This count excludes the qualifier list.
+There are **13 regular matches × 2 played songs = 26 distinct played songs**. A 26-song list is insufficient: after the first twelve matches use 24 songs, the final regular match still needs six available candidates. Therefore prepare **at least 30 distinct songs** for the ordinary DE pool: `12 × 2 + 6 = 30`. This minimum assumes no extra consumption through tiebreaks or replaced selections. The supplied **42-song DE list** provides 12 extra choices; repeated ties and reviewed redraws have no fixed limit, so no finite list guarantees every possible event. **Desultory Signals and Petrichor are reserved separately for the fixed Grand Final**, with their regular-draw flag off. These counts exclude the qualifier list.
 
 The control panel shows the deduplicated eligible total, songs formally reserved by DE matches and the globally unused remainder. It also reports the minimum remaining requirement: `2 × unselected regular matches + 4` (zero once all regular matches have selections). A shortage warning asks staff to add songs; a draw with fewer than six available candidates is disabled/rejected, and an exhausted tiebreak pool never silently reuses another match's song.
 
@@ -178,17 +181,18 @@ Identity is song-level: the same ID, or the same normalised title and artist, is
 ### Grand Finals, R6
 
 1. Select **GF** after both bracket champions are known.
-2. Set **six distinct candidates** in proposal mode (eight remain valid for legacy finals). GF cannot select songs formally used by another DE match; unused regular candidates remain available. You can reserve a separate six-song GF list via **Event & library**, leaving their regular-draw checkbox off so ordinary draws cannot consume it.
-3. Record two audience picks (from a live vote or the MC's interpretation of audience reactions), then choose the different third **MC pick** in the staff-only controls. This package records the choices; it does not provide a public voting service.
-4. Lock the picks. The staff panel can see the MC selection; public state and overlay broadcasts replace the third selected song with **MC PICK — SEALED**. Candidate titles are still visible as candidates, but no candidate is identified as the hidden MC pick. Staff state and export endpoints require the paired session.
-5. **Reveal MC song to broadcast** explicitly publishes it. The third song cannot be selected as current or scored before reveal.
-6. Enter all **three** scores for both players and confirm the three-song result. The result screen shows **Champion** and **First Runner-up**.
+2. The official configuration automatically fills **Desultory Signals — IN 17** as Song 1 and **Petrichor — AT 17** as Song 2. Both artworks and titles are already public. There is no ban, candidate draw, audience pick or MC reveal step.
+3. Press **宣布决赛曲目** in Song selection, or choose **總決賽曲目公佈** in Broadcast. The separate screen presents both full jackets, titles and difficulties; it follows the same scene transitions and persistent branding as the other screens. Its fixed URL is `/overlay/grand-final-announcement.html`.
+4. Switch to the match screen, select Song 1 / 2 or Song 2 / 2 and use the existing 3–2–1 start cue when the players are ready. Both main control and scorekeepers have two base score entries per finalist.
+5. Record both scores and original screen ACC for each player, then confirm the result. Two-song totals compare first, followed by mean ACC and the existing recorded tiebreak flow. Results identify **Champion** and **First Runner-up**. A reset or reviewed correction keeps the two fixed base songs.
+
+Saved events without the official configuration retain their previous three-song final: six candidates in proposal mode or eight in legacy mode, two audience picks and a private third MC pick. They keep their reveal and scoring restrictions during restart, export and restore. Apply the new preset before play or start a fresh event to use the fixed two-song final.
 
 ### Fourteen-match bracket
 
 | Round | Matches | Incoming / outgoing paths |
 | --- | --- | --- |
-| R1 | W1, W2, W3, W4 | Seeds 1–8, 4–5, 2–7, 3–6; winners to W5/W6, losers to L1/L2 |
+| R1 | W1, W2, W3, W4 | Plan A: seeds 1–8, 4–5, 2–7, 3–6; Plan B: A1–B4, B2–A4, B1–A3, A2–B3. Winners to W5/W6, losers to L1/L2 |
 | R2 | W5, W6; L1, L2 | WB winners to W7; WB losers to L3/L4; LB winners stay in LB |
 | R3 | W7; L3, L4 | W7 winner to GF, loser to L6; L3/L4 winners to L5 |
 | R4 | L5 | Winner to L6 |
@@ -246,6 +250,12 @@ Save media paths **before drawing candidates or selecting match songs**. Existin
 Song-art switches in both the staff selection panel and the broadcast selection screen take **550 ms**, with nonlinear easing, decoded-image loading and at most two clipped artwork layers.
 
 ## Validation and development
+
+The official event configuration has dedicated rules and browser regressions. The unit suite checks the 50-chart catalog, truncation, Plan A/B opening opponents, fixed final scoring, corrections, rematches, persistence and older sealed MC finals. The optional browser check exercises the reviewed preset button, local images, all thirteen ordinary matches, two-song GF score entry, its announcement at desktop/iPad sizes, overlap checks, ordered animations and persistent logos against temporary event data:
+
+```sh
+python3 test/fixed-final-browser.py
+```
 
 ```sh
 npm ci

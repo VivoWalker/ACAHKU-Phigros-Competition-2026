@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "sourcePage": "https://rhythmarchive.github.io/phigros/jacket/",
+  "catalogUrl": "https://raw.githubusercontent.com/rhythmarchive/rhythmarchive.github.io/57594018eee6196481636c4113229d129d3de818/catalog/index.json",
+  "sourceRepositoryCommit": "57594018eee6196481636c4113229d129d3de818",
+  "catalogGeneratedAt": "2026-10-11T06:18:21.213Z",
+  "songs": [
+    {
+      "songTitle": "Desultory Signals",
+      "artist": "technoplanet",
+      "difficulty": "IN",
+      "level": 17,
+      "illustrator": "月光大刺剑",
+      "resourceId": "6e36bb71-31f4-776a-8f45-06742af78fa6",
+      "variantId": "2c00ed0d-71eb-78bb-b263-fe8b0d71ac15",
+      "renditionId": "8e18df6a-5614-7a76-a7c6-883696c00e23",
+      "renditionType": "original",
+      "sourceFilename": "Desultory Signals.png",
+      "objectKey": "objects/73b3e74939d17efe27135910ec5ccad9be340e2db633e200780a4e38724daf62/png",
+      "sourceUrl": "https://rhythm-assets.cn-nb1.rains3.com/objects/73b3e74939d17efe27135910ec5ccad9be340e2db633e200780a4e38724daf62/png",
+      "art": "assets/song/grand-final-2026/desultory-signals.png",
+      "sha256": "73b3e74939d17efe27135910ec5ccad9be340e2db633e200780a4e38724daf62",
+      "sizeBytes": 3011273,
+      "width": 2048,
+      "height": 1080,
+      "mime": "image/png"
+    },
+    {
+      "songTitle": "Petrichor",
+      "artist": "void (Mournfinale)",
+      "difficulty": "AT",
+      "level": 17,
+      "illustrator": "青鸟 feat. 祈莲",
+      "resourceId": "1ff9675a-4f77-791f-9863-f4b81f10c129",
+      "variantId": "5f8e86e2-e409-7e78-8f27-4f6030b3e83d",
+      "renditionId": "767ab777-f7f3-720a-9725-0d6e916ce941",
+      "renditionType": "original",
+      "sourceFilename": "Petrichor.png",
+      "objectKey": "objects/22e3175ebcd731a86721bbe6c2e08a0f115a750720a655f2f38f4725c6fc8508/png",
+      "sourceUrl": "https://rhythm-assets.cn-nb1.rains3.com/objects/22e3175ebcd731a86721bbe6c2e08a0f115a750720a655f2f38f4725c6fc8508/png",
+      "art": "assets/song/grand-final-2026/petrichor.png",
+      "sha256": "22e3175ebcd731a86721bbe6c2e08a0f115a750720a655f2f38f4725c6fc8508",
+      "sizeBytes": 4336631,
+      "width": 2048,
+      "height": 1080,
+      "mime": "image/png"
+    }
+  ],
+  "downloadedAt": "2026-10-14",
+  "verification": {
+    "sha256": "passed",
+    "sizeBytes": "passed",
+    "imageDecode": "passed",
+    "dimensions": "passed",
+    "originalBytesPreserved": true
+  }
+}

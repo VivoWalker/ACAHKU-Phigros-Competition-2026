@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { StateStore, validateState } = require('../lib/store');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState, initialiseLegacyStore } = require('./helpers/legacy-state');
 const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 const { applyAction, publicState } = require('../lib/tournament');
 const { sourceStatus } = require('../lib/broadcast-check');
@@ -12,7 +12,7 @@ const { sourceStatus } = require('../lib/broadcast-check');
 function fixture(t, options) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-recovery-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  return { dir, store: new StateStore(dir, options) };
+  return { dir, store: initialiseLegacyStore(new StateStore(dir, options)) };
 }
 function venue(store, value) { return store.commit({ type: 'set-event', payload: { venue: value } }, store.state.revision); }
 

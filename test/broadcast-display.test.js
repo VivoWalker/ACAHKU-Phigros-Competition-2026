@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { applyAction, publicState } = require('../lib/tournament');
 const { StateStore } = require('../lib/store');
 

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { io } = require('socket.io-client');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { createBroadcastServer } = require('../server');
 const SongPool = require('../public/js/song-pool');
 

@@ -25,7 +25,7 @@ SERVER = r"""
 const fs=require('node:fs'),path=require('node:path');
 const dir=process.argv[1],stateFile=path.join(dir,'match-state.json');
 if(!fs.existsSync(stateFile)) {
-  const state=require('./lib/default-state').createDefaultState();
+  const state=require('./test/helpers/legacy-state').createDefaultState();
   require('./test/helpers/song-library').expandSongLibrary(state);
   const names=['Hekiru','Sunshine','FIFICO2','zuri','scsfoon2','Ayami','Sapphire','William'];
   state.qualifier.players.forEach((player,index)=>player.name=names[index]);

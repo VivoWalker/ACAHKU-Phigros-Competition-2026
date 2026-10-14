@@ -2,7 +2,9 @@ import os, json,shutil,subprocess,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent;OUT=Path(os.environ.get('BROADCAST_TEST_OUTPUT',ROOT/'test-results'/'proposal-control'));OUT.mkdir(parents=True,exist_ok=True)
-CODE="""const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'master-extra-fixture',scorekeeperPin:'score-extra-fixture'});
+CODE="""// Keep fresh-default coverage for Plan B; historical GF modes use their original fixture.
+if(process.argv[2]!=='plan-B-DQ'){const fs=require('node:fs'),path=require('node:path');fs.writeFileSync(path.join(process.argv[1],'match-state.json'),JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));}
+const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'master-extra-fixture',scorekeeperPin:'score-extra-fixture'});
 require('./test/helpers/song-library').expandSongLibrary(s.store.state);
 s.store.write(s.store.state);
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>s.close().then(()=>process.exit()));"""
@@ -10,7 +12,7 @@ with sync_playwright() as pw:
  browser=pw.chromium.launch(executable_path=shutil.which('chromium'),args=['--no-sandbox']);errors=[];results={}
  for mode in ['plan-B-DQ','proposal-GF6','legacy-GF8']:
   with tempfile.TemporaryDirectory(prefix='master-extra-') as tmp:
-   process=subprocess.Popen(['node','-e',CODE,tmp],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+   process=subprocess.Popen(['node','-e',CODE,tmp,mode],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
    try:
     port=process.stdout.readline().strip();assert port.isdigit(),process.stderr.read();base='http://127.0.0.1:'+port;page=browser.new_page(viewport={'width':1280,'height':900});page.on('pageerror',lambda e:errors.append(str(e)));page.on('dialog',lambda d:d.accept());page.goto(base+'/control/');page.fill('#pin','master-extra-fixture');page.click('#pair-form button');page.wait_for_selector('#program-preview')
     page.evaluate("""async()=>{const socket=io('/control',{forceNew:true,auth:{token:sessionStorage.getItem('broadcast-token')}});await new Promise(resolve=>socket.once('state',s=>{window.__state=s;resolve()}));socket.on('state',s=>window.__state=s);window.__cmd=(type,payload={})=>new Promise((resolve,reject)=>socket.emit('command',{expectedRevision:window.__state.revision,action:{type,payload:{matchId:window.__state.tournament.currentMatchId,...payload}}},r=>r.ok?resolve(r):reject(Error(r.error))));} """)

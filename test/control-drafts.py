@@ -20,7 +20,7 @@ PIN = 'draft-regression-fixture'
 
 SERVER = """
 const fs=require('node:fs'),path=require('node:path');
-const {createDefaultState}=require('./lib/default-state');
+const {createDefaultState}=require('./test/helpers/legacy-state');
 const {applyAction}=require('./lib/tournament');
 const {createBroadcastServer}=require('./server');
 const dir=process.argv[1],state=createDefaultState();
@@ -213,8 +213,11 @@ def main():
                 wait_commands(a)
                 assert a.input_value('#song-difficulty') == 'AT' and not a.is_checked('#song-eligible')
                 assert a.input_value('#song-preview-audio') == 'assets/song-preview/prepared.mp3'
+                # Decimal drafts remain intact, but an integer is required before saving.
+                assert not a.locator('#song-level').evaluate('(input)=>input.checkValidity()')
+                a.fill('#song-level','17')
                 a.click('#song-form button[type="submit"]')
-                a.wait_for_function('fetch("../api/state").then(response=>response.json()).then(state=>state.library.some(song=>song.title === "Draft AT exclusive" && song.difficulty === "AT" && song.level === 17.6 && song.eligible === false))')
+                a.wait_for_function('fetch("../api/state").then(response=>response.json()).then(state=>state.library.some(song=>song.title === "Draft AT exclusive" && song.difficulty === "AT" && song.level === 17 && song.eligible === false))')
                 assert next(song for song in state()['library'] if song['title']=='Draft AT exclusive')['previewAudio']=='assets/song-preview/prepared.mp3'
                 assert not any('/assets/song-preview/' in url for url in requests), 'Reserved audio field caused an audio request'
                 wait_commands(a)

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { applyAction, CURRENT_MATCH_ACTIONS, publicState } = require('../lib/tournament');
 const { validateState } = require('../lib/state-validation');
 const Q = require('../public/js/qualifier-rules');

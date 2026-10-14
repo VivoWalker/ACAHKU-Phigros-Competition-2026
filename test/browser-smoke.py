@@ -31,6 +31,9 @@ def motion_idle(page, scene=None):
 
 with tempfile.TemporaryDirectory(prefix='acahku-browser-') as data_dir:
     code = """
+// Exercise existing schema-1 events and the historical sealed three-song GF.
+const fs=require('node:fs'),path=require('node:path');
+fs.writeFileSync(path.join(process.argv[1],'match-state.json'),JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));
 const {createBroadcastServer}=require('./server');
 const s=createBroadcastServer({dataDir:process.argv[1],pin:'browser-fixture-code'});
 require('./test/helpers/song-library').expandSongLibrary(s.store.state);

@@ -37,7 +37,7 @@
     const qualifier = state.stage === 'qualifier', match = state.match;
     const group = state.qualifier?.activeGroup || '—';
     const base = qualifier ? state.qualifier : match, tie = base?.tiebreak, source = tie || base;
-    const count = tie ? 1 : qualifier ? 3 : match?.id === 'GF' ? 3 : 2;
+    const count = tie ? 1 : qualifier ? 3 : match?.songs?.length || (match?.id === 'GF' ? 3 : 2);
     const context = qualifier ? `預選賽 · ${base?.plan === 'A' ? group === 'A' ? '第一輪' : '復活輪' : `${group} 組`}` : match ? `${match.id} · ${match.label || '雙淘汰賽'}` : '等候主控設定場次';
     return {
       key: state.contextKey, kind: `${qualifier ? 'qualifier' : 'match'}${tie ? '-tiebreak' : ''}`, qualifier, tiebreak: !!tie, count,

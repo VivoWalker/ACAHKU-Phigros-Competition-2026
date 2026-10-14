@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { applyBroadcastCheckAction, sourceStatus } = require('../lib/broadcast-check');
 
 const sources = count => Array.from({ length: count }, (_, i) => ({ capture: `Capture ${i + 1}`, handcam: `Handcam ${i + 1}` }));

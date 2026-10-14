@@ -215,6 +215,9 @@ def directed_scene_walk():
 
 with tempfile.TemporaryDirectory(prefix='acahku-motion-') as data_dir:
     code = """
+// Exercise existing schema-1 events and the historical sealed three-song GF.
+const fs=require('node:fs'),path=require('node:path');
+fs.writeFileSync(path.join(process.argv[1],'match-state.json'),JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'motion-fixture-code'});
 require('./test/helpers/song-library').expandSongLibrary(s.store.state);
 s.store.write(s.store.state);

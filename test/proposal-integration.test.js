@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createDefaultState } = require('../lib/default-state');
+const { createDefaultState } = require('./helpers/legacy-state');
 const { applyAction, CURRENT_MATCH_ACTIONS, publicState, resultCorrectionImpact, losses } = require('../lib/tournament');
 const { validateState } = require('../lib/state-validation');
 const BracketView = require('../public/js/bracket-view');

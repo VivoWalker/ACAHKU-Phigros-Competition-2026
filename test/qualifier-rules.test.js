@@ -397,7 +397,8 @@ test('actual Plan A commands persist and reload every phase with independent res
   }
   persist('qualify', { verified: true });
   assert.deepEqual(store.state.tournament.seeds, ['p1', 'p2', 'p3', 'p4', 'p8', 'p7', 'p6', 'p5']);
-  assert.equal(store.state.tournament.matches.at(-1).finalCandidateCount, 6);
+  assert.equal(store.state.tournament.matches.at(-1).finalMode, 'fixed-two');
+  assert.deepEqual(store.state.tournament.matches.at(-1).scores, [[null, null], [null, null]]);
   assert.deepEqual(store.state.qualifier.rounds.A.results, originalResults);
   assert.equal(QualifierRules.result(store.state, 'B', 'p5').scores[0], 505000);
   assert.equal(QualifierRules.result(store.state, 'A', 'p5').scores[0], 995000);
@@ -405,7 +406,7 @@ test('actual Plan A commands persist and reload every phase with independent res
 });
 
 test('actual Plan B setup and numerical batches remain valid after each command and JSON reload', () => {
-  const { createDefaultState } = require('../lib/default-state');
+  const { createDefaultState } = require('./helpers/legacy-state');
   const state = createDefaultState();
   integratedCommand(state, 'set-competition-roster', { names: Array.from({ length: 21 }, (_, index) => `Competitor ${index + 1}`) });
   integratedCommand(state, 'set-qualifier-plan', { plan: 'auto' });
@@ -426,7 +427,7 @@ test('actual Plan B setup and numerical batches remain valid after each command 
 });
 
 test('actual validator rejects corrupted qualifier round score metadata, entrant references and number parity', () => {
-  const { createDefaultState } = require('../lib/default-state');
+  const { createDefaultState } = require('./helpers/legacy-state');
   const { validateState } = require('../lib/state-validation');
   const state = createDefaultState(); integratedCommand(state, 'set-qualifier-plan', { plan: 'A' });
   integratedCommand(state, 'set-qualifier-score', { group: 'A', playerId: 'p1', songIndex: 0, score: 990000, judgements: { accuracy: 99, perfect: 990, good: 10, bad: 0, miss: 0 } });
@@ -454,7 +455,7 @@ test('actual validator rejects corrupted qualifier round score metadata, entrant
 });
 
 test('actual public rankings and browser mean accuracy agree for independently recorded revival scores', () => {
-  const { createDefaultState } = require('../lib/default-state'), { publicState } = require('../lib/tournament');
+  const { createDefaultState } = require('./helpers/legacy-state'), { publicState } = require('../lib/tournament');
   const state = createDefaultState(); integratedCommand(state, 'set-qualifier-plan', { plan: 'A' });
   for (const player of QualifierRules.entries(state, 'A')) for (let songIndex = 0; songIndex < 3; songIndex++) {
     integratedCommand(state, 'set-qualifier-score', { group: 'A', playerId: player.id, songIndex,
@@ -476,7 +477,7 @@ test('actual public rankings and browser mean accuracy agree for independently r
 });
 
 test('proposal round scoring locks qualifier chart identity while local artwork remains editable', () => {
- const { createDefaultState } = require('../lib/default-state');
+ const { createDefaultState } = require('./helpers/legacy-state');
  const s=createDefaultState();integratedCommand(s,'set-qualifier-plan',{plan:'A'});
  integratedCommand(s,'set-qualifier-score',{group:'A',playerId:'p1',songIndex:0,score:990000,judgements:{accuracy:99}});
  const id=s.qualifier.groups.A.songs[0], song=s.library.find(x=>x.id===id);

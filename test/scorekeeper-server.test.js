@@ -6,6 +6,7 @@ const path = require('node:path');
 const { createHmac } = require('node:crypto');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
+const { initialiseLegacyStore } = require('./helpers/legacy-state');
 const { scorekeeperState } = require('../lib/scorekeeper');
 const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
@@ -23,6 +24,7 @@ async function fixture(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-scorekeeper-'));
   const config = { dataDir: dir, pin: 'fixture-main-code', ...options };
   let app = createBroadcastServer(config), url, mainToken, scorerToken, control, scorer;
+  initialiseLegacyStore(app.store);
   const sockets = [];
   async function listen(port = 0) { const address = await app.listen(port, '127.0.0.1'); url = `http://127.0.0.1:${address.port}`; }
   async function session(role, pin = role === 'scorekeeper' ? app.scorekeeperPin : app.pin) {
