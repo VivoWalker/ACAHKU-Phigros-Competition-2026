@@ -312,6 +312,8 @@ test('roster boundary changes and new-batch song reset survive real StateStore c
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-roster-boundary-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   let store = new StateStore(directory, { backupLimit: 8 });
+  // Explicit legacy scoring keeps these old-event persistence fixtures intact.
+  store.commit({ type: 'set-qualifier-scoring-mode', payload: { mode: 'legacy-score' } }, store.state.revision);
   const persist = (type, payload = {}) => {
     store.commit({ type, payload }, store.state.revision);
     const expected = structuredClone(store.state); store = new StateStore(directory, { backupLimit: 8 });
@@ -335,6 +337,8 @@ test('approved base correction preserves complete repeated tiebreak evidence thr
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-qualifier-correction-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   let store = new StateStore(directory, { backupLimit: 8 });
+  // Explicit legacy scoring keeps these old-event persistence fixtures intact.
+  store.commit({ type: 'set-qualifier-scoring-mode', payload: { mode: 'legacy-score' } }, store.state.revision);
   const persist = (type, payload = {}) => store.commit({ type, payload }, store.state.revision);
   persist('set-qualifier-plan', { plan: 'A' });
   const scores = { p1: 990000, p2: 980000, p3: 970000, p4: 900000, p5: 900000, p6: 800000, p7: 700000, p8: 600000 };
@@ -369,6 +373,8 @@ test('actual Plan A commands persist and reload every phase with independent res
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-plan-a-rules-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   let store = new StateStore(directory, { backupLimit: 8 });
+  // Explicit legacy scoring keeps these old-event persistence fixtures intact.
+  store.commit({ type: 'set-qualifier-scoring-mode', payload: { mode: 'legacy-score' } }, store.state.revision);
   const persist = (type, payload = {}) => {
     store.commit({ type, payload }, store.state.revision);
     const expected = structuredClone(store.state);

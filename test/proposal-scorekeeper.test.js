@@ -29,7 +29,7 @@ function matchFixture(final = false) {
 }
 
 test('scorekeeper permissions add only score entry for qualifier and match tiebreaks', () => {
-  assert.deepEqual([...SCORE_ACTIONS].sort(), ['set-match-score', 'set-match-tiebreak-score', 'set-qualifier-score', 'set-qualifier-tiebreak-score']);
+  assert.deepEqual([...SCORE_ACTIONS].sort(), ['set-match-score', 'set-match-tiebreak-score', 'set-qualifier-score', 'set-qualifier-tiebreak-score', 'set-qualifier-total']);
   const state = qualifierFixture(), before = JSON.stringify(state);
   for (const type of ['set-qualifier-plan', 'finalize-qualifier-round', 'draw-qualifier-tiebreak', 'confirm-qualifier-tiebreak',
     'draw-match-tiebreak', 'confirm-match-tiebreak', 'record-result', 'disqualify-player', 'authorize-song-rematch', 'set-player-readiness']) {

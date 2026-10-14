@@ -35,6 +35,7 @@ async function fixture(t) {
       }, (error, result) => error ? reject(error) : resolve(result)));
     }
   };
+  f.command('set-qualifier-scoring-mode', { mode: 'legacy-score' });
   f.command('set-qualifier-plan', { plan: 'A' });
   return f;
 }

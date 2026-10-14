@@ -67,7 +67,7 @@
   function qualifierWaiting(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs;
     const tie = B.qualifierTiebreak(s);
-    return waiting(s, '預選賽 · QUALIFIERS', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
+    return waiting(s, B.challengeQualifier(s) ? '課題模式 · CHALLENGE MODE' : '預選賽 · QUALIFIERS', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
   }
   function doubleWaiting(s) {
     const m = B.currentMatch(s);
@@ -75,10 +75,11 @@
     const tie = B.matchTiebreak(s);
     return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong]);
   }
-  function playerName(s, id, scores, songs, index, kind) {
-    const total = scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
-    const scoresLine = details ? `<div class='song-scores'>${songs.map((song, i) => `<span class='score-row' title='${e(song?.title || '待定')}'>S${i + 1} <b>${B.score(scores?.[i])}</b></span>`).join('')}</div>` : '';
-    return `<section data-motion-block class='player-info ${kind} player-${index + 1}'><div class='player-name'><h2>${entrantText(entrant(s, id))}</h2><div class='player-total'><span>TOTAL</span><strong>${total}</strong></div></div>${scoresLine}</section>`;
+  function playerName(s, id, scores, songs, index, kind, directTotal) {
+    const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
+    const scoresLine = details && directTotal === undefined ? `<div class='song-scores'>${songs.map((song, i) => `<span class='score-row' title='${e(song?.title || '待定')}'>S${i + 1} <b>${B.score(scores?.[i])}</b></span>`).join('')}</div>` : '';
+    const totalLabel = kind === 'qualifier-player' && B.challengeQualifier(s) ? 'CHALLENGE TOTAL' : 'TOTAL';
+    return `<section data-motion-block class='player-info ${kind} player-${index + 1}'><div class='player-name'><h2>${entrantText(entrant(s, id))}</h2><div class='player-total'><span>${totalLabel}</span><strong>${total}</strong></div></div>${scoresLine}</section>`;
   }
   function capture(rect, kind = 'gameplay', player = '', playerId = '') {
     const [x, y, width, height] = rect;
@@ -93,13 +94,14 @@
   }
   function qualifierMatch(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs.map(id => B.song(s, id));
-    const tie = B.qualifierTiebreak(s);
+    const tie = B.qualifierTiebreak(s), challenge = B.challengeQualifier(s);
     const cameras = showHandcams(s);
     const frames = [[64, 300, 576, 324], [672, 300, 576, 324], [1280, 300, 576, 324]];
     const cams = cameras ? [[64, 800, 240, 135], [672, 800, 240, 135], [1280, 800, 240, 135]] : [];
-    return backdrop([...frames, ...cams]) + header(s, B.qualifierLabel(s)) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : ''}'>${frames.map((rect, i) => {
+    return backdrop([...frames, ...cams]) + header(s, `${B.qualifierLabel(s)}${challenge ? ' · 課題模式' : ''}`) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : ''}'>${frames.map((rect, i) => {
       const id = q.activePlayers[i], name = id ? B.name(s, id) : '待定';
-      return playerName(s, id, tie ? [tie.scores[id] ?? null] : B.player(s, id)?.scores, tie ? [tie.song] : songs, i, 'qualifier-player') + capture(rect, 'gameplay', name, id) + (cams[i] ? handcam(cams[i], name, id) : '');
+      const directTotal = challenge ? tie ? tie.scores[id] ?? null : B.qualifierTotal(s, B.player(s, id)) : undefined;
+      return playerName(s, id, tie ? [tie.scores[id] ?? null] : B.player(s, id)?.scores, tie ? [tie.song] : songs, i, 'qualifier-player', directTotal) + capture(rect, 'gameplay', name, id) + (cams[i] ? handcam(cams[i], name, id) : '');
     }).join('')}${songBand(tie?.song || songs[q.currentSong], q.currentSong, 3, 'qualifier-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
   }
   function doubleMatch(s) {
@@ -114,12 +116,12 @@
   }
   function qualifierResults(s) {
     const ranks = ['A', 'B'].map(group => B.rankings(s, group));
-    const compact = ranks.some(group => group.length > 4);
-    return backdrop() + header(s, '預選賽 · QUALIFIERS') + title('現在排名', 'CURRENT RANKING') + `<div class='ranking-tables ${compact ? 'compact' : ''}'>${['A', 'B'].map((group, i) => {
+    const compact = ranks.some(group => group.length > 4), challenge = B.challengeQualifier(s);
+    return backdrop() + header(s, challenge ? '課題模式 · CHALLENGE MODE' : '預選賽 · QUALIFIERS') + title('現在排名', challenge ? 'CHALLENGE TOTAL STANDINGS' : 'CURRENT RANKING') + `<div class='ranking-tables ${compact ? 'compact' : ''}'>${['A', 'B'].map((group, i) => {
       const players = ranks[i], pages = Math.max(1, Math.ceil(players.length / 8));
       const page = fixedRankPage ? Math.min(rankPage - 1, pages - 1) : rankingTick % pages;
       const from = page * 8, visible = players.slice(from, from + 8);
-      return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>Total</th></tr></thead><tbody>${visible.map(p => `<tr><td>${p.rank}${p.tied ? ' =' : ''}</td><td>${e(p.name)}</td><td>${p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
+      return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
     }).join('')}</div>` + footer(ranks.some(group => group.length > 8) && !fixedRankPage ? `${s.qualifier.plan === 'A' ? '各輪獨立排名' : '各組分開排名'} · 每 12 秒換頁` : s.qualifier.plan === 'A' ? '各輪獨立排名 · ROUND STANDINGS' : '各組分開排名 · GROUP STANDINGS');
   }
   function result(s) {

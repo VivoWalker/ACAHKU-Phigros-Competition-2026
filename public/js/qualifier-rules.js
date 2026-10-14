@@ -4,6 +4,9 @@
 })(typeof globalThis === 'object' ? globalThis : this, function (ScoreRules) {
   'use strict';
   const groups = ['A', 'B'];
+  const CHALLENGE_MODE = 'challenge-total';
+  const MAX_CHALLENGE_TOTAL = 3000000;
+  const isChallenge = state => state.qualifier.scoringMode === CHALLENGE_MODE;
   const configured = state => groups.includes(state.qualifier.plan);
   const roster = state => state.qualifier.players;
   const eligible = player => !player.disqualification;
@@ -11,7 +14,34 @@
   const requireValue = (value, message) => { if (!value) throw new Error(message); };
   const unique = values => new Set(values).size === values.length;
   const planForCount = count => count <= 20 ? 'A' : 'B';
-  const emptyResult = () => ({ scores: [null, null, null], judgements: [null, null, null] });
+  const emptyResult = state => ({ scores: [null, null, null], judgements: [null, null, null], ...(isChallenge(state) ? { challengeTotal: null } : {}) });
+  function challengeTotal(value) {
+    if (value === null || value === '') return null;
+    requireValue(Number.isSafeInteger(value) && value >= 0 && value <= MAX_CHALLENGE_TOTAL,
+      'Challenge Mode total must be an integer from 0 to 3,000,000.');
+    return value;
+  }
+  const total = (state, row) => isChallenge(state) ? row.challengeTotal ?? null : ScoreRules.total(row.scores);
+  const complete = (state, row) => isChallenge(state) ? row.challengeTotal !== null && row.challengeTotal !== undefined : row.scores.every(value => value !== null);
+  const recorded = row => row.challengeTotal !== undefined && row.challengeTotal !== null || row.scores.some(value => value !== null) || row.judgements?.some(Boolean);
+  const roundStarted = (state, group) => Boolean(state.qualifier.rounds?.[group]?.scoringStarted ||
+    (configured(state) ? Object.values(state.qualifier.rounds[group].results) : roster(state).filter(player => player.group === group)).some(recorded));
+  function canChangeScoringMode(state) {
+    const t = state.tournament, q = state.qualifier;
+    return !t.seeded && !hasScores(state) && !state.result && !t.matches.length && !t.seeds.length && !t.drawLog.length &&
+      !Object.keys(t.songHistory || {}).length && !state.correctionLog?.length && !q.scoringStarted &&
+      !roster(state).some(player => player.tiePriority !== null) && !q.adjudications?.some(entry => entry.type !== 'set-player-readiness') &&
+      !state.auditLog?.some(entry => ['set-qualifier-total', 'set-qualifier-score', 'set-qualifier-tiebreak-score', 'qualify', 'finalize-qualifier-round', 'seed-bracket', 'restore-backup'].includes(entry.type));
+  }
+  function setScoringMode(state, mode) {
+    requireValue([CHALLENGE_MODE, 'legacy-score'].includes(mode), 'Choose Challenge Mode total or legacy individual scores.');
+    requireValue(canChangeScoringMode(state), 'Change qualifier scoring only before any recorded scores, qualification or tournament history. Preserve this event and prepare a fresh event instead.');
+    state.qualifier.scoringMode = mode;
+    for (const row of [...roster(state), ...groups.flatMap(group => Object.values(state.qualifier.rounds?.[group]?.results || {}))]) {
+      if (mode === CHALLENGE_MODE) row.challengeTotal = null;
+      else delete row.challengeTotal;
+    }
+  }
   function result(state, group, playerId) {
     return configured(state) ? state.qualifier.rounds?.[group]?.results?.[playerId] : roster(state).find(player => player.id === playerId && player.group === group);
   }
@@ -24,28 +54,35 @@
     return roster(state).filter(player => eligible(player) && (ids ? ids.has(player.id) : player.group === group))
       .map(player => ({ ...player, group, ...result(state, group, player.id) })).sort(numberOrder);
   }
-  function baseDecision(a, b) {
+  function challengeDecision(left, right) {
+    if (left === null || left === undefined || right === null || right === undefined || left === right) return { winnerIndex: null, reason: 'tie' };
+    return { winnerIndex: left > right ? 0 : 1, reason: 'score' };
+  }
+  function baseDecision(state, a, b) {
+    if (isChallenge(state)) return challengeDecision(a.challengeTotal, b.challengeTotal);
     const left = ScoreRules.total(a.scores), right = ScoreRules.total(b.scores);
     if (left !== right) return { winnerIndex: left > right ? 0 : 1, reason: 'score' };
     return ScoreRules.compare(a.scores, b.scores, a.judgements, b.judgements);
   }
   function decision(state, group, a, b) {
-    let compared = baseDecision(a, b);
+    let compared = baseDecision(state, a, b);
     if (compared.winnerIndex !== null || !configured(state)) return compared;
     // Missing base accuracy cannot be bypassed by an unrelated extra song.
     if (compared.reason === 'missing-accuracy') return compared;
     for (const round of state.qualifier.rounds[group].tiebreaks || []) {
       if (!round.confirmed || !round.playerIds.includes(a.id) || !round.playerIds.includes(b.id)) continue;
-      compared = ScoreRules.compare([round.scores[a.id]], [round.scores[b.id]], [round.judgements[a.id]], [round.judgements[b.id]]);
+      compared = isChallenge(state) ? challengeDecision(round.scores[a.id], round.scores[b.id]) :
+        ScoreRules.compare([round.scores[a.id]], [round.scores[b.id]], [round.judgements[a.id]], [round.judgements[b.id]]);
       if (compared.winnerIndex !== null || compared.reason === 'missing-accuracy') return compared;
     }
     return compared;
   }
   function rankings(state, group) {
-    const legacy = !configured(state);
-    const players = entries(state, group).map(player => ({ ...player, total: ScoreRules.total(player.scores),
-      accuracy: ScoreRules.meanAccuracy(player.judgements || []), complete: player.scores.every(value => value !== null) }));
+    const legacy = !configured(state) && !isChallenge(state);
+    const players = entries(state, group).map(player => ({ ...player, total: total(state, player),
+      accuracy: isChallenge(state) ? null : ScoreRules.meanAccuracy(player.judgements || []), complete: complete(state, player) }));
     const compare = (a, b) => {
+      if (isChallenge(state) && a.complete !== b.complete) return a.complete ? -1 : 1;
       if (legacy) return b.total - a.total || (a.tiePriority ?? 999) - (b.tiePriority ?? 999);
       const outcome = decision(state, group, a, b);
       return outcome.winnerIndex === 0 ? -1 : outcome.winnerIndex === 1 ? 1 : 0;
@@ -85,10 +122,10 @@
     return q.plan === 'A' ? [...a, ...b] : Array.from({ length: 4 }, (_, index) => [a[index] ?? null, b[index] ?? null]).flat();
   }
   function hasScores(state) {
-    return roster(state).some(player => player.disqualification || player.scores.some(value => value !== null)) ||
+    return state.qualifier.scoringStarted || roster(state).some(player => player.disqualification || recorded(player)) ||
       state.qualifier.incidents?.length || Object.keys(state.qualifier.waits || {}).length || groups.some(group =>
-      Object.values(state.qualifier.rounds?.[group]?.results || {}).some(value => value.scores.some(score => score !== null)) ||
-      state.qualifier.rounds?.[group]?.locked || state.qualifier.rounds?.[group]?.tiebreaks?.length);
+      Object.values(state.qualifier.rounds?.[group]?.results || {}).some(recorded) ||
+      state.qualifier.rounds?.[group]?.scoringStarted || state.qualifier.rounds?.[group]?.locked || state.qualifier.rounds?.[group]?.tiebreaks?.length);
   }
   function assignMissingNumbers(state) {
     const used = new Set(roster(state).map(player => player.number).filter(Number.isSafeInteger));
@@ -98,15 +135,15 @@
       player.number = next; used.add(next++);
     }
   }
-  function makeRound(ids) {
-    return { playerIds: [...ids], results: Object.fromEntries(ids.map(id => [id, emptyResult()])), qualifiedIds: [], locked: false, tiebreaks: [] };
+  function makeRound(state, ids) {
+    return { playerIds: [...ids], results: Object.fromEntries(ids.map(id => [id, emptyResult(state)])), qualifiedIds: [], locked: false, tiebreaks: [] };
   }
   function initialise(state, plan) {
     const q = state.qualifier;
     assignMissingNumbers(state); q.plan = plan;
     for (const player of roster(state)) player.group = plan === 'A' || player.number % 2 ? 'A' : 'B';
-    q.rounds = { A: makeRound(roster(state).filter(player => plan === 'A' || player.number % 2).map(player => player.id)),
-      B: makeRound(plan === 'A' ? [] : roster(state).filter(player => player.number % 2 === 0).map(player => player.id)) };
+    q.rounds = { A: makeRound(state, roster(state).filter(player => plan === 'A' || player.number % 2).map(player => player.id)),
+      B: makeRound(state, plan === 'A' ? [] : roster(state).filter(player => player.number % 2 === 0).map(player => player.id)) };
     q.activeGroup = 'A'; q.currentSong = 0; q.activePlayers = entries(state, 'A').slice(0, 3).map(player => player.id);
   }
   function finalize(state, group, assert) {
@@ -120,7 +157,7 @@
     round.qualifiedIds = ranked.slice(0, 4).map(player => player.id); round.locked = true;
     if (q.plan === 'A' && group === 'A') {
       const remaining = q.rounds.A.playerIds.filter(id => !round.qualifiedIds.includes(id));
-      q.rounds.B = makeRound(remaining); q.activeGroup = 'B'; q.currentSong = 0;
+      q.rounds.B = makeRound(state, remaining); q.activeGroup = 'B'; q.currentSong = 0;
       q.activePlayers = entries(state, 'B').slice(0, 3).map(player => player.id);
     }
   }
@@ -141,6 +178,34 @@
       return Object.hasOwn(p, 'judgements') ? ScoreRules.normaliseJudgements(p.judgements) : value !== oldScore ? null : undefined;
     };
     switch (action.type) {
+      case 'set-qualifier-scoring-mode': setScoringMode(state, p.mode); return true;
+      case 'set-qualifier-total': {
+        assert(isChallenge(state), 'Use Challenge Mode total scoring for this command.');
+        assert(configured(state), 'Configure Plan A or Plan B before entering Challenge Mode totals.');
+        assert(groups.includes(group), 'Choose Group A or B.');
+        roundEditable();
+        const player = entries(state, group).find(value => value.id === p.playerId);
+        assert(player, 'Player is not eligible in this qualifier round.');
+        assert(!Object.hasOwn(p, 'judgements') && !Object.hasOwn(p, 'score') && !Object.hasOwn(p, 'songIndex'), 'Enter only the total shown by Challenge Mode.');
+        const row = result(state, group, player.id), value = challengeTotal(p.total), changed = value !== row.challengeTotal;
+        const invalidatedTiebreaks = q.rounds?.[group]?.tiebreaks || [];
+        if (changed && invalidatedTiebreaks.length) {
+          assert(p.confirmClearTiebreaks === true && p.verified === true, 'An arbiter must explicitly confirm this base-score correction and clearing the qualifier tiebreaks.');
+          assert(typeof p.reason === 'string' && p.reason.trim().length >= 8 && p.reason.trim().length <= 500, 'Record a meaningful correction reason (8–500 characters) before clearing qualifier tiebreaks.');
+          assert((q.adjudications || []).length < 10000, 'Qualifier adjudication history limit reached.');
+          const now = typeof helpers.now === 'function' ? helpers.now() : (helpers.now ?? Date.now()), at = new Date(now);
+          assert(Number.isFinite(at.getTime()), 'The correction time is invalid.');
+          (q.adjudications ||= []).push({ type: action.type, at: at.toISOString(), group, playerId: player.id,
+            scoringMode: CHALLENGE_MODE, previousChallengeTotal: row.challengeTotal, note: p.reason.trim(),
+            invalidatedTiebreaks: structuredClone(invalidatedTiebreaks) });
+        }
+        row.challengeTotal = value;
+        if (value !== null) { q.scoringStarted = true; q.rounds[group].scoringStarted = true; }
+        if (changed && q.rounds?.[group]) q.rounds[group].tiebreaks = [];
+        return true;
+      }
+      case 'set-qualifier-score': if (isChallenge(state)) throw new Error('Enter the Challenge Mode total once for the three-song set.'); break;
+      case 'set-tie-priority': if (isChallenge(state)) throw new Error('Challenge Mode ties require recorded tiebreak songs.'); break;
       case 'set-competition-roster': {
         setupOnly(); assert(Array.isArray(p.names) && p.names.length <= 64, 'Provide up to 64 player names.');
         const names = p.names.map(value => { assert(typeof value === 'string', 'Expected a player name.'); return value.trim().slice(0, 48); }).filter(Boolean);
@@ -150,7 +215,7 @@
           const existing = old.find(player => player.name === name);
           if (existing) return existing;
           const id = typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `player-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-          return { id, name, group: index % 2 ? 'B' : 'A', scores: [null, null, null], tiePriority: null };
+          return { id, name, group: index % 2 ? 'B' : 'A', ...emptyResult(state), tiePriority: null };
         });
         if (q.readiness) q.readiness = Object.fromEntries(Object.entries(q.readiness).filter(([id]) => q.players.some(player => player.id === id)));
         assignMissingNumbers(state);
@@ -199,7 +264,7 @@
         const tied = tiedSets(state, group).find(ids => ids.length === p.playerIds.length && ids.every(id => p.playerIds.includes(id)));
         assert(tied, 'Choose all players in one unresolved qualifier tie affecting the top four.');
         const players = entries(state, group).filter(player => tied.includes(player.id));
-        assert(players.every(player => ScoreRules.meanAccuracy(player.judgements || []) !== null), 'Enter every tied player’s original accuracy before drawing a tiebreak.');
+        assert(isChallenge(state) || players.every(player => ScoreRules.meanAccuracy(player.judgements || []) !== null), 'Enter every tied player’s original accuracy before drawing a tiebreak.');
         assert(state.library.length > 0, 'Add the full available Phigros song list to the local library for qualifier tiebreaks.');
         assert(round.tiebreaks.length < 1000, 'Qualifier tiebreak history limit reached.');
         const song = { ...shuffled(state.library)[0] };
@@ -228,7 +293,7 @@
         assert(tie.playerIds.every(id => tie.scores[id] !== null), 'Enter every tiebreak score.');
         for (let a = 0; a < tie.playerIds.length; a++) for (let b = a + 1; b < tie.playerIds.length; b++) {
           const left = tie.playerIds[a], right = tie.playerIds[b];
-          assert(ScoreRules.compare([tie.scores[left]], [tie.scores[right]], [tie.judgements[left]], [tie.judgements[right]]).reason !== 'missing-accuracy', 'Enter original accuracy for equal tiebreak scores.');
+          assert(isChallenge(state) || ScoreRules.compare([tie.scores[left]], [tie.scores[right]], [tie.judgements[left]], [tie.judgements[right]]).reason !== 'missing-accuracy', 'Enter original accuracy for equal tiebreak scores.');
         }
         tie.confirmed = true; return true;
       }
@@ -258,7 +323,7 @@
       }
       case 'set-qualifier-songs': {
         roundEditable(); assert(Array.isArray(p.ids) && p.ids.length === 3 && unique(p.ids), 'Choose three different songs.');
-        assert(Object.values(q.rounds[group].results).every(value => value.scores.every(score => score === null)), 'Qualifier songs are locked after this round starts scoring.');
+        assert(!roundStarted(state, group), 'Qualifier songs are locked after this round starts scoring.');
         const other = q.groups[group === 'A' ? 'B' : 'A'].songs;
         assert(!p.ids.some(id => other.includes(id)), 'The two qualifier rounds must use different songs.');
         p.ids.forEach(findSong); q.groups[group].songs = [...p.ids]; return true;
@@ -308,5 +373,6 @@
       default: return false;
     }
   }
-  return { configured, entries, rankings, seeds, result, tiedSets, activeTiebreak, hasScores, applyAction };
+  return { CHALLENGE_MODE, MAX_CHALLENGE_TOTAL, isChallenge, challengeTotal, total, complete, recorded, roundStarted, canChangeScoringMode, setScoringMode,
+    configured, entries, rankings, seeds, result, tiedSets, activeTiebreak, hasScores, applyAction };
 });

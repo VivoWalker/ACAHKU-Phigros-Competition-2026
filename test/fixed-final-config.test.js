@@ -43,10 +43,8 @@ function finalReady() {
   choose(state, 'GF'); return state;
 }
 function fillQualifier(state, group) {
-  for (const player of QualifierRules.entries(state, group)) for (let songIndex = 0; songIndex < 3; songIndex++) {
-    act(state, 'set-qualifier-score', { group, playerId: player.id, songIndex,
-      score: 1000000 - player.number * 1000, judgements: { accuracy: 99 } });
-  }
+  for (const player of QualifierRules.entries(state, group)) act(state, 'set-qualifier-total', {
+    group, playerId: player.id, total: 3000000 - player.number * 3000 });
 }
 function pairIds(state) { return state.tournament.matches.slice(0, 4).map(item => [...item.players].sort().join('/')).sort(); }
 
@@ -61,7 +59,9 @@ test('new events load the official charts and fixed final without changing exist
   act(old, 'set-qualifier-plan', { plan: 'A' });
   const roster = structuredClone(old.qualifier.players), rounds = structuredClone(old.qualifier.rounds);
   act(old, 'apply-competition-config', { confirmed: true });
-  assert.deepEqual(old.qualifier.players, roster); assert.deepEqual(old.qualifier.rounds, rounds);
+  assert.deepEqual(old.qualifier.players, roster.map(player => ({ ...player, challengeTotal: null })));
+  for (const round of Object.values(rounds)) for (const row of Object.values(round.results)) row.challengeTotal = null;
+  assert.deepEqual(old.qualifier.rounds, rounds);
   assert.deepEqual(old.library, CompetitionConfig.library());
   act(old, 'set-scene', { scene: 'grand-final-announcement' }); assert.equal(old.stage, 'double-elimination');
   assert.throws(() => act(original, 'set-scene', { scene: 'grand-final-announcement' }), /fixed two-song/);
