@@ -10,7 +10,9 @@ function fixture(t, options = {}) {
   let clock = 1000, serial = 0;
   const timers = new Map(), audios = [], focuses = [], statuses = [];
   class Media {
-    constructor() { this.listeners = new Map(); this.volume = 0; this.currentTime = 0; this.duration = 12; this.paused = true; this.playCalls = 0; }
+    constructor() { this.listeners = new Map(); this.volume = 0; this.currentTime = 0; this.duration = 12; this.paused = true; this.playCalls = 0; this.sourceAssignments = 0; this.loadCalls = 0; }
+    set src(value) { this.source = value; this.sourceAssignments++; }
+    get src() { return this.source; }
     addEventListener(event, callback) { this.listeners.set(event, callback); }
     removeEventListener(event, callback) { if (this.listeners.get(event) === callback) this.listeners.delete(event); }
     emit(event) { this.listeners.get(event)?.(); }
@@ -20,8 +22,8 @@ function fixture(t, options = {}) {
       this.paused = false; return Promise.resolve();
     }
     pause() { this.paused = true; }
-    removeAttribute(name) { if (name === 'src') this.src = ''; }
-    load() { this.unloaded = true; }
+    removeAttribute(name) { if (name === 'src') this.source = ''; }
+    load() { this.unloaded = true; this.loadCalls++; }
     remove() { this.removed = true; }
   }
   const player = createPlayer({
@@ -68,14 +70,16 @@ test('candidate draws create no media, and a ban fades nonlinearly then loops wi
   const f = fixture(t);
   f.update(null); f.advance(20000); assert.equal(f.audios.length, 0);
   const banned = cue('ban-a', 'ban', ['a'], f.now());
-  f.update(banned); f.advance(FADE_MS - 25); assert.equal(f.audios.length, 0);
+  f.update(banned); f.advance(FADE_MS - 25); assert.equal(f.audios.length, 1); assert.equal(f.audios[0].playCalls, 0);
+  assert.deepEqual(f.focuses.filter(Boolean), []);
   f.advance(25); await flush(); assert.equal(f.audios.length, 1); assert.equal(f.audios[0].src, '/assets/song-preview/a.mp3');
   assert.equal(f.audios[0].volume, 0);
   f.advance(125); assert.ok(f.audios[0].volume > 0 && f.audios[0].volume < .15);
   f.advance(375); assert.equal(f.audios[0].volume, .8);
   f.advance(11250); assert.equal(f.audios[0].volume, .4);
   f.advance(250); await flush();
-  assert.equal(f.audios.length, 2); assert.equal(f.audios[0].removed, true); assert.equal(f.audios[1].volume, 0);
+  assert.equal(f.audios.length, 1); assert.equal(f.audios[0].removed, undefined); assert.equal(f.audios[0].volume, 0);
+  assert.equal(f.audios[0].playCalls, 2); assert.equal(f.audios[0].sourceAssignments, 1);
   assert.deepEqual(f.focuses.filter(Boolean), ['a']);
 });
 
@@ -84,7 +88,7 @@ test('P1/P2 ban replacement fully fades the old media before the new clip starts
   f.update(cue('p1', 'ban', ['a'])); f.advance(1500); await flush();
   const first = f.audios[0]; assert.equal(first.volume, .8);
   f.update(cue('p2', 'ban', ['b'], f.now() - 250));
-  f.advance(125); assert.equal(f.audios.length, 1); assert.ok(first.volume > 0 && first.volume < .8);
+  f.advance(125); assert.equal(f.audios.length, 2); assert.equal(f.audios[1].playCalls, 0); assert.ok(first.volume > 0 && first.volume < .8);
   f.advance(125); await flush();
   assert.equal(first.paused, true); assert.equal(first.removed, true);
   assert.equal(f.audios.length, 2); assert.equal(f.audios[1].src, '/assets/song-preview/b.mp3');
@@ -97,9 +101,11 @@ test('the two picked previews switch jackets once in order, end after the second
   const picked = cue('picks', 'picks', ['a', 'b'], f.now());
   f.update(picked); f.advance(FADE_MS); await flush();
   assert.equal(f.audios[0].removed, true); assert.equal(f.audios[1].src, '/assets/song-preview/a.mp3');
-  f.update(picked); f.advance(11000); await flush(); assert.equal(f.audios.length, 2);
+  assert.equal(f.audios.length, 3); assert.equal(f.audios[2].playCalls, 0); assert.equal(f.audios[2].volume, 0);
+  f.update(picked); f.advance(11000); await flush(); assert.equal(f.audios.length, 3);
   f.advance(1000); await flush(); assert.equal(f.audios.length, 3); assert.equal(f.audios[2].src, '/assets/song-preview/b.mp3');
   assert.equal(f.audios[1].removed, true); assert.deepEqual(f.focuses, ['c', 'a', 'b']);
+  assert.equal(f.audios[2].sourceAssignments, 1); assert.equal(f.audios[2].loadCalls, 0); assert.equal(f.audios[2].playCalls, 1);
   f.advance(12000); assert.equal(f.audios[2].removed, true); assert.equal(f.statuses.at(-1).state, 'complete');
   f.update(picked); f.advance(5000); assert.equal(f.audios.length, 3); assert.deepEqual(f.focuses, ['c', 'a', 'b']);
   assert.equal(f.timers.size, 0);
@@ -126,10 +132,11 @@ test('scene exit fades and unloads audio, while rapid newer cues cancel stale de
   f.update(cue('a', 'ban', ['a'])); f.advance(100);
   f.update(cue('b', 'ban', ['b'], f.now())); f.advance(100);
   f.update(cue('c', 'ban', ['c'], f.now())); f.advance(FADE_MS); await flush();
-  assert.equal(f.audios.length, 1); assert.equal(f.audios[0].src, '/assets/song-preview/c.mp3');
-  f.advance(1000); f.update(null, { active: false }); assert.ok(f.audios[0].volume > 0);
-  f.advance(250); assert.ok(f.audios[0].volume > 0 && f.audios[0].volume < .8);
-  f.advance(250); assert.equal(f.audios[0].removed, true); assert.equal(f.focuses.at(-1), null); assert.equal(f.timers.size, 0);
+  assert.equal(f.audios.length, 3); assert.equal(f.audios[2].src, '/assets/song-preview/c.mp3');
+  assert.ok(f.audios.slice(0, 2).every(audio => audio.removed && audio.playCalls === 0));
+  f.advance(1000); f.update(null, { active: false }); assert.ok(f.audios[2].volume > 0);
+  f.advance(250); assert.ok(f.audios[2].volume > 0 && f.audios[2].volume < .8);
+  f.advance(250); assert.equal(f.audios[2].removed, true); assert.equal(f.focuses.at(-1), null); assert.equal(f.timers.size, 0);
 });
 
 test('autoplay rejection is caught once, remains quiet across loops, and retries only from the current position', async t => {
@@ -161,6 +168,50 @@ test('custom 10 and 15 second files use decoded metadata rather than inserting s
   f.audios[1].duration = 15; f.audios[1].emit('loadedmetadata');
   f.update(picked, { songs: unknown }); f.advance(14975); assert.equal(f.audios[1].removed, undefined);
   f.advance(25); assert.equal(f.audios[1].removed, true); assert.equal(f.statuses.at(-1).state, 'complete');
+});
+
+test('pending metadata primes actual durations without starting playback or changing the cover before the cue', async t => {
+  const f = fixture(t);
+  f.update(cue('warm-picks', 'picks', ['a', 'b']));
+  const first = f.audios[0];
+  first.duration = 10; first.emit('loadedmetadata');
+  assert.equal(first.preload, 'auto'); assert.equal(first.playCalls, 0); assert.deepEqual(f.focuses, []);
+  f.advance(FADE_MS - 25); assert.equal(first.playCalls, 0); assert.equal(f.audios.length, 1);
+  f.advance(25); await flush();
+  const second = f.audios[1]; second.duration = 15; second.emit('loadedmetadata');
+  assert.equal(first.playCalls, 1); assert.equal(second.playCalls, 0); assert.deepEqual(f.focuses, ['a']);
+  assert.equal(f.player.phase.duration, 10);
+  f.advance(9975); assert.equal(second.playCalls, 0);
+  f.advance(25); await flush(); assert.equal(second.playCalls, 1); assert.equal(f.player.phase.duration, 15);
+  assert.deepEqual(f.focuses, ['a', 'b']); assert.equal(second.sourceAssignments, 1); assert.equal(second.loadCalls, 0);
+  f.advance(15000); assert.equal(second.removed, true); assert.equal(f.statuses.at(-1).state, 'complete');
+});
+
+test('queued second clips are unloaded on replacement, scene exit and disposal with bounded live media', async t => {
+  const f = fixture(t);
+  f.update(cue('picks', 'picks', ['a', 'b'])); f.advance(FADE_MS); await flush();
+  const first = f.audios[0], second = f.audios[1];
+  assert.equal(second.playCalls, 0);
+  f.update(cue('new-ban', 'ban', ['c'], f.now()));
+  assert.equal(second.removed, true); assert.equal(second.playCalls, 0);
+  assert.equal(f.audios.filter(audio => !audio.removed).length, 2);
+  f.advance(FADE_MS); await flush(); assert.equal(first.removed, true);
+  f.update(cue('picks-again', 'picks', ['a', 'b'], f.now())); f.advance(FADE_MS); await flush();
+  assert.ok(f.audios.filter(audio => !audio.removed).length <= 3);
+  const queued = f.audios.at(-1); assert.equal(queued.playCalls, 0);
+  f.update(null, { active: false }); assert.equal(queued.removed, true);
+  f.player.dispose(); assert.ok(f.audios.every(audio => audio.removed));
+  assert.equal(queued.playCalls, 0); assert.equal(f.timers.size, 0);
+});
+
+test('a failed prepared clip leaves the first pick running and is not fetched again at the switch', async t => {
+  const f = fixture(t);
+  f.update(cue('picks', 'picks', ['a', 'b'])); f.advance(FADE_MS); await flush();
+  const first = f.audios[0], second = f.audios[1];
+  second.emit('error'); assert.equal(second.removed, true); assert.equal(first.paused, false);
+  assert.equal(f.statuses.at(-1).songId, 'a');
+  f.advance(12000); assert.equal(f.audios.length, 2); assert.equal(second.playCalls, 0);
+  assert.equal(f.statuses.at(-1).state, 'error'); assert.equal(f.statuses.at(-1).songId, 'b');
 });
 
 test('dispose cancels every timer and pending playback promises cannot revive old audio', async t => {

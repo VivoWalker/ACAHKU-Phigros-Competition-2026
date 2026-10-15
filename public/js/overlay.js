@@ -11,6 +11,16 @@
   const fixedRankPage = Number.isInteger(rankPage) && rankPage > 0;
   let rankingTick = 0;
   let state, committedCover, committedFocus, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
+  let bootReady = false, resolveInitialState;
+  const initialState = new Promise(resolve => { resolveInitialState = resolve; });
+  const displayMedia = BroadcastDisplayMedia.createClient();
+  const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 12, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800,
+    onStatus(status) {
+      canvas.dataset.mediaWarmup = status.targetPending ? 'loading' : status.failed ? 'fallback' : 'ready';
+      canvas.dataset.mediaDecoded = String(status.ready);
+      canvas.dataset.mediaPending = String(status.targetPending);
+    }
+  });
   const motion = BroadcastMotion.createScene(mount, { canvas });
   const countdownLayer = BroadcastCountdown.createLayer(canvas);
   let countdownClient;
@@ -42,7 +52,25 @@
   const requestedRound = Number(query.get('round'));
   const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
   const url = path => '/' + encodeURI(path);
-  const art = song => url(song?.art || 'assets/song/cover-1.svg');
+  const displayPath = path => displayMedia.resolve(path);
+  const art = song => url(displayPath(song?.art || 'assets/song/cover-1.svg'));
+  function sharedImages() {
+    return [branding.logo, branding.visual, branding.socLogo, branding.kiramekiLogo].filter(Boolean).map(path => url(displayPath(path)))
+      .concat(displayMedia.background(branding.visual) ? [url(displayMedia.background(branding.visual))] : []);
+  }
+  function sceneImages(s, scene) {
+    const match = B.currentMatch(s);
+    if (scene === 'grand-final-announcement' || scene === 'song-selection' && match?.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return B.fixedFinalSongs(s).filter(song => !song.hidden).map(art);
+    if (scene === 'song-selection') { const focus = selectionFocus(s); return focus && !focus.hidden ? [art(focus)] : []; }
+    return [];
+  }
+  function warmImages(s, scene) {
+    const shared = sharedImages(), visible = sceneImages(s, scene), match = B.currentMatch(s);
+    const candidates = match?.id !== 'GF' ? (match?.candidates || []).filter(song => !song.hidden).map(art) : [];
+    const finals = B.fixedFinalSongs(s).filter(song => !song.hidden).map(art);
+    mediaWarmup.setImages([...shared, ...visible, ...candidates, ...finals], { priority: visible, pinned: shared });
+    return [...shared, ...visible];
+  }
   function selectionFocus(s) {
     const m = B.currentMatch(s), tie = B.matchTiebreak(s);
     const preview = m?.id !== 'GF' && !tie ? [...(m?.songs || []), ...(m?.candidates || [])].find(song => song.id === previewFocus) : null;
@@ -63,19 +91,21 @@
   }
   addEventListener('resize', fit); fit();
   function logo(className = '') {
-    return branding.logo ? `<img data-motion-key='phigros-logo' class='phigros-logo ${className}' src='${e(url(branding.logo))}' alt='Phigros'>` : `<span data-motion-key='phigros-wordmark' class='phigros-wordmark ${className}'>Phigros</span>`;
+    return branding.logo ? `<img data-motion-key='phigros-logo' class='phigros-logo ${className}' src='${e(url(displayPath(branding.logo)))}' alt='Phigros'>` : `<span data-motion-key='phigros-wordmark' class='phigros-wordmark ${className}'>Phigros</span>`;
   }
   function clubLogos(className = '') {
     const logos = [['soc', branding.socLogo, '香港大學動漫聯盟'], ['kirameki', branding.kiramekiLogo, 'Kirameki']];
-    const images = logos.filter(([, path]) => path).map(([kind, path, label]) => `<img data-motion-key='club-${kind}' class='club-logo ${kind}' data-club-logo='${kind}' src='${e(url(path))}' alt='${e(label)}'>`).join('');
+    const images = logos.filter(([, path]) => path).map(([kind, path, label]) => `<img data-motion-key='club-${kind}' class='club-logo ${kind}' data-club-logo='${kind}' src='${e(url(displayPath(path)))}' alt='${e(label)}'>`).join('');
     return images ? `<div class='club-logos ${className}' aria-label='社團標誌'>${images}</div>` : '';
   }
   function backdrop(holes = []) {
     // The fixed SVG window clips the moving cutout to its calibrated OBS slot.
     // Moving the black mask reveals the video below without moving that source.
     const cutouts = holes.map(([x, y, w, h]) => `<svg data-aperture-window='${x}:${y}:${w}:${h}' x='${x}' y='${y}' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}' overflow='hidden'><rect data-aperture-key='${x}:${y}:${w}:${h}' data-aperture-rect='[${x},${y},${w},${h}]' width='${w}' height='${h}' fill='black'/></svg>`).join('');
-    const image = branding.visual ? `<image href='${e(url(branding.visual))}' x='-120' y='-180' width='2160' height='1440' preserveAspectRatio='xMidYMid slice' filter='url(#art-blur)' opacity='.28'/>` : '';
-    return `<svg data-motion-static class='broadcast-backdrop' viewBox='0 0 1920 1080' aria-hidden='true'><defs><mask id='capture-mask' maskUnits='userSpaceOnUse' x='0' y='0' width='1920' height='1080'><rect x='12' y='12' width='1896' height='1056' fill='white'/>${cutouts}</mask><linearGradient id='event-gradient' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#321c35'/><stop offset='.55' stop-color='#24232e'/><stop offset='1' stop-color='#111820'/></linearGradient><filter id='art-blur'><feGaussianBlur stdDeviation='48'/></filter></defs><g mask='url(#capture-mask)'><rect width='1920' height='1080' fill='url(#event-gradient)'/>${image}<path d='M 1420 0 L 1130 1080 L 1920 1080 L 1920 0 Z' fill='#080d15' opacity='.17'/><rect x='13' y='13' width='1894' height='1054' fill='none' stroke='#e8e3ef' stroke-opacity='.24' stroke-width='2'/></g></svg>`;
+    const baked = displayMedia.background(branding.visual);
+    const image = baked ? `<image href='${e(url(baked))}' x='0' y='0' width='1920' height='1080' opacity='.28'/>` : branding.visual ? `<image href='${e(url(branding.visual))}' x='-120' y='-180' width='2160' height='1440' preserveAspectRatio='xMidYMid slice' filter='url(#art-blur)' opacity='.28'/>` : '';
+    const blur = baked ? '' : `<filter id='art-blur'><feGaussianBlur stdDeviation='48'/></filter>`;
+    return `<svg data-motion-static class='broadcast-backdrop' viewBox='0 0 1920 1080' aria-hidden='true'><defs><mask id='capture-mask' maskUnits='userSpaceOnUse' x='0' y='0' width='1920' height='1080'><rect x='12' y='12' width='1896' height='1056' fill='white'/>${cutouts}</mask><linearGradient id='event-gradient' x1='0' y1='0' x2='1' y2='1'><stop stop-color='#321c35'/><stop offset='.55' stop-color='#24232e'/><stop offset='1' stop-color='#111820'/></linearGradient>${blur}</defs><g mask='url(#capture-mask)'><rect width='1920' height='1080' fill='url(#event-gradient)'/>${image}<path d='M 1420 0 L 1130 1080 L 1920 1080 L 1920 0 Z' fill='#080d15' opacity='.17'/><rect x='13' y='13' width='1894' height='1054' fill='none' stroke='#e8e3ef' stroke-opacity='.24' stroke-width='2'/></g></svg>`;
   }
   function header(s, context = '') {
     return `<header class='topbar'><div class='brand'>${logo()}<span data-motion-key='event-title' class='event-title'>${e(s.event.title)}</span></div><div class='header-right'>${context ? `<div data-motion-block class='topmeta'>${e(context)}</div>` : ''}${clubLogos()}</div></header>`;
@@ -87,7 +117,7 @@
     return `<div data-motion-block class='scene-head'><h1>${e(text)}</h1>${sub ? `<p>${e(sub)}</p>` : ''}</div>`;
   }
   function visual(className = '') {
-    return branding.visual ? `<figure data-motion-key='event-art' class='key-visual ${className}'><img src='${e(url(branding.visual))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
+    return branding.visual ? `<figure data-motion-key='event-art' class='key-visual ${className}'><img src='${e(url(displayPath(branding.visual)))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
   }
   const entrant = (s, id) => ({ id, name: id ? `${B.player(s, id)?.number ? '#' + B.player(s, id).number + ' · ' : ''}${B.name(s, id)}` : '待定' });
   const entrantText = player => `<span${player.id ? ` data-motion-key='player-${e(player.id)}'` : ''}>${e(player.name)}</span>`;
@@ -187,8 +217,9 @@
   }
   const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
-    if (!state) return;
+    if (!state || !bootReady) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
+    warmImages(state, scene);
     const current = B.currentMatch(state);
     selectionAudio.update({ cue: current?.selectionPreviewCue, songs: previewSongs(current),
       active: obsActive && obsVisible && countdownClient?.connected && countdownClient.now() > 0 && scene === 'song-selection' && state.scene === 'song-selection' && state.stage === 'double-elimination' && current?.id !== 'GF' && current?.status !== 'complete' && !B.matchTiebreak(state) });
@@ -205,10 +236,10 @@
       canvas.dataset.displayMode = mode;
       const windowEl = mount.querySelector('.selection-art'), src = windowEl ? art(focus) : undefined;
       if (windowEl && previousScene !== scene) {
-        BroadcastMotion.coverSlide(windowEl, committedCover, 1, { src, alt: focus?.title || 'Song artwork', immediate: true });
+        BroadcastMotion.coverSlide(windowEl, committedCover, 1, { src, alt: focus?.title || 'Song artwork', immediate: true, decodeImage: mediaWarmup.decodeImage });
       } else if (windowEl && committedCover) {
         const direction = focusIndex >= 0 && committedFocus >= 0 && focusIndex < committedFocus ? -1 : 1;
-        BroadcastMotion.coverSlide(windowEl, committedCover, direction, { src, alt: focus?.title || 'Song artwork' });
+        BroadcastMotion.coverSlide(windowEl, committedCover, direction, { src, alt: focus?.title || 'Song artwork', decodeImage: mediaWarmup.decodeImage });
       }
       committedCover = src; committedFocus = focusIndex;
       bracketMotion.afterCommit();
@@ -219,21 +250,30 @@
       rankingTick++; render();
     }
   }, 12000);
-  fetch('/api/branding').then(response => response.ok ? response.json() : null).then(result => {
-    if (!result) return;
-    branding = result; render();
-  }).catch(() => {});
+  async function prepareBranding() {
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 1800);
+    try {
+      const response = await fetch('/api/branding', { signal: controller.signal });
+      if (response.ok) branding = await response.json();
+    } catch (_) { /* Missing branding leaves the existing text fallback. */ }
+    finally { clearTimeout(timer); }
+  }
+  Promise.all([displayMedia.ready, prepareBranding(), mediaWarmup.prepareFonts(), initialState]).then(async () => {
+    canvas.dataset.displayAssets = displayMedia.status;
+    await mediaWarmup.prepare(warmImages(state, shownScene()));
+    bootReady = true; canvas.dataset.mediaBoot = 'ready'; render();
+  }).catch(() => { bootReady = true; canvas.dataset.mediaBoot = 'fallback'; render(); });
   fetch('/assets/song-preview/manifest.json').then(response => response.ok ? response.json() : null).then(result => {
     if (!Array.isArray(result?.tracks)) return;
     previewCatalog = new Map(result.tracks.flatMap(track => (track.songIds || []).map(id => [id, track])));
     render();
   }).catch(() => {});
-  addEventListener('pagehide', () => selectionAudio.dispose(), { once: true });
+  addEventListener('pagehide', () => { selectionAudio.dispose(); mediaWarmup.dispose(); displayMedia.dispose(); }, { once: true });
   addEventListener('obsSourceActiveChanged', event => { obsActive = event.detail?.active !== false; render(); });
   addEventListener('obsSourceVisibleChanged', event => { obsVisible = event.detail?.visible !== false; render(); });
   const socket = createBroadcastSocket('/overlay');
   countdownClient = BroadcastCountdown.createClient(socket, () => { refreshCountdown(); render(); });
-  socket.on('state', next => { state = next; render(); });
+  socket.on('state', next => { state = next; resolveInitialState(); render(); });
   socket.on('connect', () => canvas.classList.remove('is-offline'));
   socket.on('disconnect', () => canvas.classList.add('is-offline'));
   socket.on('connect_error', () => canvas.classList.add('is-offline'));

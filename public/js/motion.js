@@ -500,7 +500,7 @@
       record.resolve(); controller.active = null; runCover(controller, latest); return;
     }
     const previous = controller.visibleSrc;
-    if (!previous || previous === record.src || !record.loader.naturalWidth) {
+    if (!previous || previous === record.src || !record.loader?.naturalWidth) {
       applyCover(controller, record); controller.visibleSrc = record.src;
       clearCover(controller); record.resolve(); controller.active = null; activeCovers.delete(controller); return;
     }
@@ -555,8 +555,12 @@
       if (controller.active.started) applyCover(controller, controller.active.record);
       mountCover(controller); return controller.active.record.promise;
     }
-    const loader = new Image(); loader.src = requestedSrc;
-    const record = { src: requestedSrc, attrs, direction: direction < 0 ? -1 : 1, loader, ready: decoded(loader) };
+    const record = { src: requestedSrc, attrs, direction: direction < 0 ? -1 : 1, loader: null, ready: null };
+    if (typeof requested?.decodeImage === 'function') {
+      record.ready = Promise.resolve().then(() => requested.decodeImage(requestedSrc)).then(result => { record.loader = result?.image; }).catch(() => {});
+    } else {
+      record.loader = new Image(); record.loader.src = requestedSrc; record.ready = decoded(record.loader);
+    }
     const promise = new Promise(resolve => { record.resolve = resolve; }); record.promise = promise;
     if (reduce.matches || !windowEl.isConnected || requested?.immediate || !oldSrc || requestedSrc === controller.renderedSrc && !controller.active) {
       stopCover(controller, record); return promise;

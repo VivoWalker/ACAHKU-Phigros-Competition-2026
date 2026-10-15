@@ -43,6 +43,29 @@ When upgrading an existing installation, preserve the whole `data/` folder, repl
 
 The preview inside the control panel counts as one connected overlay. “Overlay connected” means a browser source is receiving state; it does not prove OBS itself is connected. OBS WebSocket integration is reserved in `lib/obs-adapter.js`, and is not enabled in this version.
 
+## Reducing first-use stalls
+
+Every OBS overlay prepares its own shared images and Saira font weights before its first scene appears. Once six candidates are drawn, it prepares their jackets ahead of a ban or artwork switch. The image queue allows two loads at once and retains at most twelve decoded images (eight in the staff panel), rather than decoding the whole song library. A temporary opaque background covers the capture sources during initial preparation; unavailable optional assets or fonts use bounded fallback paths. Image decoding prepares browser resources; the GPU and OBS still control texture residency and final frame timing.
+
+The checked-in display bundle contains 53 WebP images: 135 MB of original image files becomes about 8.2 MB of display files, plus a 136 KB pre-blurred background layer. Jackets use 1280×675 variants, and logos retain transparency. Original files and the song library's editable artwork paths remain available. `GET /api/display-assets` checks both original and derivative hashes before publishing a mapping; replacing an original or losing a derived file causes the next page load to use the original. The prepared background keeps the existing crop, opacity and animated capture mask, with the blur computed ahead of broadcast.
+
+Candidate draws still make no audio requests. After a ban or final pick cue, its next clip can load during the fade; while pick one plays, pick two loads silently and its prepared media element is reused at the switch. Ban loops also reuse their buffered media element. Leaving the scene or replacing the cue cancels the queued audio; staff previews and Grand Final remain silent. Public images, fonts and preview clips support HTTP cache revalidation, while event APIs and frontend documents keep `no-store`.
+
+The ready-to-use derivatives require no new runtime packages. After changing original artwork, rebuild with Python, Pillow and NumPy if a new optimized version is wanted, then refresh the OBS source:
+
+```sh
+python3 scripts/build-display-assets.py
+```
+
+Keep one following browser source active, with **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked. Check browser-source hardware acceleration in the OBS version being used. Run these optional regressions with temporary event data; the cold baseline uses the frontend from commit `528916d` (override with `--baseline-ref`):
+
+```sh
+python3 test/media-warmup-browser.py
+python3 test/media-warmup-browser.py --baseline
+```
+
+Reports record transferred image bytes, frame intervals, bounded cache use, original/optimized screenshots and four-size overlap checks. Measurements from cloud Chromium do not establish the rendering performance of a particular OBS computer.
+
 ## Main control and scorekeepers
 
 The main panel at `/control/` keeps the existing layout and all tournament and broadcast controls. Give its code to the main operator. The scorekeeper panel at `/scorekeeper/` uses its own code and only offers score entry. Both panels update the same saved tournament, and scores synchronize with every connected panel and overlay after the server acknowledges them. Main control shows separate connected-device counts for the two roles.
@@ -67,7 +90,7 @@ The countdown uses one server timestamp for all connected sources and the contro
 
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
-The filtered background stays mounted between scenes; its HTML mask covers and reveals the calibrated video apertures. Exit snapshots copy only the appearance/layout styles they use, keeping scene switches lightweight. On a scene change, the old content first slides **left and fades out**, starting with the leftmost element. Capture-card and handcam windows gradually close **from right to left with a fade** as their borders exit. Exits use the same nonlinear easing, 560 ms duration and 65 ms stagger as entrances. Outgoing snapshots are clipped to their original slots and removed automatically; score and state revisions continue to commit immediately. Logos then move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements and video windows then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. The aperture mask becomes fully transparent when each window settles. Switching single/dual view animates the changed handcam windows while the existing capture-card windows stay open at their calibrated positions. OBS video sources stay beneath the Browser Source; these transitions require no extra OBS plugin or source movement. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 550 ms nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
+The pre-blurred background stays mounted between scenes; its HTML mask covers and reveals the calibrated video apertures. A custom image without a verified display variant uses the existing live SVG blur fallback. Exit snapshots copy only the appearance/layout styles they use, keeping scene switches lightweight. On a scene change, the old content first slides **left and fades out**, starting with the leftmost element. Capture-card and handcam windows gradually close **from right to left with a fade** as their borders exit. Exits use the same nonlinear easing, 560 ms duration and 65 ms stagger as entrances. Outgoing snapshots are clipped to their original slots and removed automatically; score and state revisions continue to commit immediately. Logos then move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements and video windows then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. The aperture mask becomes fully transparent when each window settles. Switching single/dual view animates the changed handcam windows while the existing capture-card windows stay open at their calibrated positions. OBS video sources stay beneath the Browser Source; these transitions require no extra OBS plugin or source movement. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 550 ms nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
 
 ### Overlay documents
 

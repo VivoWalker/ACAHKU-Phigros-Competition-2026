@@ -71,3 +71,11 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
   cursor: pointer;
 }
 .selection-audio-prompt[hidden] { display: none; }
+#canvas:not([data-media-boot])::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 999;
+  background: linear-gradient(135deg, #321c35, #24232e 55%, #111820);
+  pointer-events: none;
+}

@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const { StateStore } = require('./lib/store');
 const { publicState, resultCorrectionImpact } = require('./lib/tournament');
 const { getBranding } = require('./lib/branding');
+const { createDisplayAssetsReader } = require('./lib/display-assets');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
 const { context: countdownContext } = require('./public/js/countdown');
@@ -14,6 +15,8 @@ const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/sc
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
+  const publicDir = options.publicDir || path.join(__dirname, 'public');
+  const displayAssets = createDisplayAssetsReader({ publicDir });
   const store = new StateStore(dataDir);
   const { pin, scorekeeperPin, sessionKey } = loadPairingCredentials(dataDir, options);
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
@@ -76,6 +79,7 @@ function createBroadcastServer(options = {}) {
   app.get('/api/health', (req, res) => res.json({ ok: true, revision: store.state.revision }));
   app.get('/api/state', (req, res) => res.json(publicState(store.state)));
   app.get('/api/branding', (req, res) => res.json(getBranding()));
+  app.get('/api/display-assets', async (req, res) => res.json(await displayAssets.read()));
   app.post('/api/session', (req, res) => {
     const role = req.body?.role === undefined ? 'control' : req.body.role;
     if (!['control', 'scorekeeper'].includes(role)) return res.status(400).json({ error: 'Unknown panel role.', code: 'INVALID' });
@@ -112,7 +116,14 @@ function createBroadcastServer(options = {}) {
     catch (error) { requestFailure(res, error); }
   });
   app.get('/', (req, res) => res.redirect('/control/'));
-  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.static(publicDir, { setHeaders(res, filename) {
+    const relative = path.relative(publicDir, filename).split(path.sep).join('/');
+    if (relative.startsWith('assets/') && /\.(?:avif|gif|jpe?g|png|svg|webp|woff2?|mp3|ogg|wav|m4a)$/i.test(relative)) {
+      // Retain public media bytes/decoders, but revalidate changed local files.
+      // API responses and frontend documents keep their no-store policy.
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    }
+  } }));
   controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error(validScorekeeperToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
   controls.on('connection', socket => {
     socket.emit('state', controlState()); socket.emit('countdown', countdownMessage()); notifyStatus();

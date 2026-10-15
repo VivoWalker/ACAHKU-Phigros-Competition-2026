@@ -214,12 +214,21 @@ def main():
             helper.command(crew, 'ban-song', {'playerIndex': 0, 'songId': first['id']})
             playing = helpers.wait_playing(live, short_id)
             helpers.focused_title(live, first['title'])
+            live.wait_for_function('''index=>{const media=window.__fixtureMedia[index];return media.readyState===4&&
+              media.buffered.length&&media.buffered.end(media.buffered.length-1)>=media.duration-.1;}''',
+                                   arg=playing['index'])
+            initial_responses = len([response for response in REPORT['audio_responses'] if
+                                    response['context'] == 'live' and short_id in response['url']])
             live.wait_for_function('''id=>window.__fixtureMediaEvents.filter(event=>
               event.kind==='playing'&&event.src.includes(id)).length>=2''', arg=short_id, timeout=18000)
             loop = helpers.wait_playing(live, short_id)
-            assert loop['index'] > playing['index']
+            assert loop['index'] == playing['index']
+            assert loop['stats'] == {'sourceWrites': 1, 'loadCalls': 0, 'playCalls': 2}, loop
             events = helpers.media_state(live)['events']
             starts = [event for event in events if event['kind'] == 'playing' and short_id in event['src']]
+            assert len(starts) >= 2 and starts[1]['index'] == playing['index'] and starts[1]['time'] < .6, starts
+            assert initial_responses > 0 and len([response for response in REPORT['audio_responses'] if
+                   response['context'] == 'live' and short_id in response['url']]) == initial_responses
             length = manifest['songs'][short_id]['duration']
             interval = (starts[1]['at'] - starts[0]['at']) / 1000
             assert abs(interval - length) < .4, (interval, length)
@@ -228,7 +237,7 @@ def main():
             first_samples = [sample for sample in samples if sample['index'] == playing['index'] and not sample['paused']]
             assert any(0 < sample['volume'] < .6 and sample['time'] < .6 for sample in first_samples), first_samples[:10]
             assert any(0 < sample['volume'] < .6 and sample['time'] > length - .65 for sample in first_samples), first_samples[-10:]
-            check('a real 10-second custom-path ban fades and loops using its decoded length instead of the chart default of 12 seconds')
+            check('a real 10-second custom-path ban loops its buffered decoder at the decoded duration without another request or source reload')
 
             helper.command(crew, 'ban-song', {'playerIndex': 1, 'songId': second['id']})
             helpers.wait_playing(live, second['id'])
@@ -245,10 +254,15 @@ def main():
             picks = helpers.current_match(crew)['songs']
             picked_first = helpers.wait_playing(live, picks[0]['id'])
             helpers.focused_title(live, picks[0]['title'])
+            prepared_second = helpers.wait_prepared(live, picks[1]['id'])
+            assert helpers.media_state(live)['media'][picked_first['index']]['time'] < picked_first['duration'] - 1
+            helpers.focused_title(live, picks[0]['title'])
             picked_second = helpers.wait_playing_with_timeout(live, picks[1]['id'], 18000)
             helpers.focused_title(live, picks[1]['title'])
             helpers.focused_title(muted, picks[1]['title'])
             assert picked_second['index'] > picked_first['index']
+            assert picked_second['index'] == prepared_second['index'] and not picked_second['prepared']
+            assert picked_second['stats'] == {'sourceWrites': 1, 'loadCalls': 0, 'playCalls': 1}, picked_second
             assert helpers.current_match(crew)['currentSong'] == 0
             events = helpers.media_state(live)['events']
             pick_starts = [event for event in events if event['kind'] == 'playing'

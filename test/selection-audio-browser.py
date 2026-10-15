@@ -64,9 +64,17 @@ process.on('SIGTERM',()=>broadcast.close().then(()=>process.exit()));
 
 MEDIA_PROBE = r"""(() => {
   const NativeAudio=window.Audio;
+  const source=Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,'src');
   window.__fixtureMedia=[];window.__fixtureMediaEvents=[];window.__fixtureMediaTrace=[];
   window.Audio=function(...args){
     const media=new NativeAudio(...args),index=window.__fixtureMedia.push(media)-1;
+    media.__fixtureStats={sourceWrites:0,loadCalls:0,playCalls:0};
+    Object.defineProperty(media,'src',{configurable:true,
+      get(){return source.get.call(media);},
+      set(value){media.__fixtureStats.sourceWrites++;source.set.call(media,value);}});
+    const load=media.load,play=media.play;
+    media.load=function(...args){media.__fixtureStats.loadCalls++;return load.apply(media,args);};
+    media.play=function(...args){media.__fixtureStats.playCalls++;return play.apply(media,args);};
     for(const kind of ['play','playing','pause','ended','error'])media.addEventListener(kind,()=>
       window.__fixtureMediaEvents.push({kind,index,at:Date.now(),src:media.currentSrc||media.src,
         time:media.currentTime,volume:media.volume}));
@@ -115,6 +123,8 @@ def media_state(page):
       song:document.querySelector('#canvas')?.dataset.selectionAudioSong,
       media:window.__fixtureMedia.map((media,index)=>({index,src:media.currentSrc||media.src,
         attribute:media.getAttribute('src'),time:media.currentTime,volume:media.volume,paused:media.paused,
+        readyState:media.readyState,prepared:Object.hasOwn(media.dataset,'selectionAudioPrepared'),
+        stats:media.__fixtureStats,
         duration:Number.isFinite(media.duration)?media.duration:null})),events:window.__fixtureMediaEvents})''')
 
 
@@ -127,6 +137,17 @@ def wait_playing(page, song_id):
 
 def wait_silent(page):
     page.wait_for_function('''()=>window.__fixtureMedia.every(media=>media.paused&&media.volume===0)''', timeout=5000)
+
+
+def wait_prepared(page, song_id):
+    page.wait_for_function('''id=>window.__fixtureMedia.some(media=>
+      Object.hasOwn(media.dataset,'selectionAudioPrepared')&&media.getAttribute('src')?.includes(id)&&
+      media.readyState>=2&&Number.isFinite(media.duration)&&media.paused&&media.volume===0)''',
+                           arg=song_id, timeout=8000)
+    prepared = next(media for media in media_state(page)['media'] if media['prepared'] and
+                    media['attribute'] and song_id in media['attribute'])
+    assert prepared['stats'] == {'sourceWrites': 1, 'loadCalls': 0, 'playCalls': 0}, prepared
+    return prepared
 
 
 def focused_title(page, title):
@@ -216,16 +237,27 @@ def main():
             helper.command(crew, 'ban-song', {'playerIndex': 0, 'songId': first['id']})
             first_media = wait_playing(live, first['id'])
             focused_title(live, first['title'])
+            live.wait_for_function('''index=>{const media=window.__fixtureMedia[index];return media.readyState===4&&
+              media.buffered.length&&media.buffered.end(media.buffered.length-1)>=media.duration-.1;}''',
+                                   arg=first_media['index'])
+            first_requests = len([request for request in REPORT['audio_requests'] if
+                                  request['context'] == 'live' and first['id'] in request['path']])
             live.wait_for_function('''id=>window.__fixtureMediaEvents.filter(event=>
               event.kind==='playing'&&event.src.includes(id)).length>=2''', arg=first['id'], timeout=16000)
             loop_media = wait_playing(live, first['id'])
-            assert loop_media['index'] > first_media['index']
+            assert loop_media['index'] == first_media['index']
+            assert loop_media['stats'] == {'sourceWrites': 1, 'loadCalls': 0, 'playCalls': 2}, loop_media
+            loop_starts = [event for event in media_state(live)['events'] if
+                           event['kind'] == 'playing' and event['index'] == first_media['index']]
+            assert len(loop_starts) >= 2 and loop_starts[1]['time'] < .6, loop_starts
+            assert first_requests > 0 and len([request for request in REPORT['audio_requests'] if
+                   request['context'] == 'live' and first['id'] in request['path']]) == first_requests
             trace = live.evaluate('window.__fixtureMediaTrace')
             first_samples = [sample for sample in trace if sample['index'] == first_media['index'] and not sample['paused']]
             assert any(0 < sample['volume'] < .6 and sample['time'] < .6 for sample in first_samples)
             assert any(0 < sample['volume'] < .6 and sample['time'] > 9.4 for sample in first_samples)
             assert 9.9 < loop_media['duration'] < 10.2
-            check('P1 ban learns a real 10-second clip duration, fades in and out, and loops its own jacket and audio')
+            check('P1 ban learns a real 10-second duration and loops the same buffered decoder without another request or source reload')
 
             live.wait_for_timeout(550)
             old_index = loop_media['index']
@@ -278,13 +310,13 @@ def main():
             helper.command(crew, 'set-scene', {'scene': 'bracket'})
             wait_silent(live)
             live.wait_for_timeout(700)
-            assert not live.locator('audio[data-selection-audio]').count()
+            assert not live.locator('audio[data-selection-audio],audio[data-selection-audio-prepared],audio[data-selection-audio-retiring]').count()
             helper.command(crew, 'draw-candidates')
             helper.command(crew, 'set-scene', {'scene': 'song-selection'})
             helper.idle(live, 'song-selection')
             wait_silent(live)
             live.wait_for_timeout(600)
-            assert not live.locator('audio[data-selection-audio]').count()
+            assert not live.locator('audio[data-selection-audio],audio[data-selection-audio-prepared],audio[data-selection-audio-retiring]').count()
             check('rapid bans, scene exit and a fresh draw cancel pending audio and remove released media')
 
             match = current_match(crew)
@@ -298,16 +330,21 @@ def main():
             assert len(picks) == 2
             picked_first = wait_playing(live, picks[0]['id'])
             focused_title(live, picks[0]['title'])
+            prepared_second = wait_prepared(live, picks[1]['id'])
+            assert media_state(live)['media'][picked_first['index']]['time'] < picked_first['duration'] - 1
+            focused_title(live, picks[0]['title'])
             assert media_state(live)['media'][banned['index']]['paused']
             pick_fade = live.evaluate('window.__fixtureMediaTrace').copy()
             assert any(sample['index'] == banned['index'] and sample['at'] >= pick_at and .02 < sample['volume'] < .7 for sample in pick_fade)
             picked_second = wait_playing_with_timeout(live, picks[1]['id'], 16000)
             focused_title(live, picks[1]['title'])
             assert picked_second['index'] > picked_first['index']
+            assert picked_second['index'] == prepared_second['index'] and not picked_second['prepared']
+            assert picked_second['stats'] == {'sourceWrites': 1, 'loadCalls': 0, 'playCalls': 1}, picked_second
             assert current_match(crew)['currentSong'] == 0, 'Preview must not advance the scorekeeping song cursor'
             focused_title(muted, picks[1]['title'])
             no_media(muted)
-            check('the final draw fades the ban clip, plays pick one then pick two, and switches both jackets without changing scoring progress')
+            check('pick two loads silently while pick one plays, then its prepared decoder and jacket are promoted once without source reload or scoring changes')
 
             live.wait_for_function('''()=>document.querySelector('#canvas')?.dataset.selectionAudio==='complete' ''', timeout=16000)
             wait_silent(live)

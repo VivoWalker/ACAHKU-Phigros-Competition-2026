@@ -36,17 +36,17 @@
     const createAudio = options.createAudio || (() => new Audio());
     const fadeMs = options.fadeMs ?? FADE_MS, enabled = options.enabled !== false;
     const gain = Number.isFinite(options.gain) ? clamp(options.gain) : .8;
-    let context = null, key = null, current = null, retiring = null, timer = null;
+    let context = null, key = null, current = null, retiring = null, prepared = null, timer = null;
     let disposed = false, blocked = false, lastFocus, lastStatus = '', failedSources = new Set();
     const durationCache = new Map();
 
     function catalog(songs) {
-      return songs.map(song => (Number.isFinite(song.previewDuration) && song.previewDuration > 0) || !durationCache.has(song.previewAudio)
+      return songs.map(song => !durationCache.has(song.previewAudio)
         ? song : { ...song, previewDuration: durationCache.get(song.previewAudio) });
     }
     function learnDuration(item) {
       const length = item.audio.duration;
-      if (!Number.isFinite(length) || length <= 0 || length > 600 || !context || current !== item) return;
+      if (!Number.isFinite(length) || length <= 0 || length > 600 || !context || current !== item && prepared !== item) return;
       durationCache.set(item.path, length); context.songs = catalog(context.rawSongs);
     }
 
@@ -63,19 +63,31 @@
       item.listeners = {};
     }
     function release(item) {
-      if (!item?.audio) return;
+      if (!item?.audio || item.released) return;
+      item.released = true;
       detach(item); item.audio.pause(); item.audio.volume = 0;
       // Remove the source as well as pausing: no background downloads survive a scene exit.
       item.audio.removeAttribute('src'); item.audio.load();
       item.audio.remove?.();
     }
     function retire() {
+      release(prepared); prepared = null;
       release(retiring); retiring = null;
       if (current?.audio) {
         detach(current);
-        retiring = { audio: current.audio, volume: current.audio.volume, startsAt: now(), endsAt: now() + fadeMs };
+        retiring = current;
+        retiring.volume = current.audio.volume; retiring.startsAt = now(); retiring.endsAt = now() + fadeMs;
+        role(retiring, 'retiring');
       }
       current = null;
+    }
+    function role(item, value) {
+      if (!item.audio?.dataset) return;
+      delete item.audio.dataset.selectionAudio;
+      delete item.audio.dataset.selectionAudioPrepared;
+      delete item.audio.dataset.selectionAudioRetiring;
+      item.audio.dataset[value === 'prepared' ? 'selectionAudioPrepared' : value === 'retiring' ? 'selectionAudioRetiring' : 'selectionAudio'] = '';
+      item.audio.dataset.songId = item.songId;
     }
     function position(item, offset) {
       try { item.audio.currentTime = Math.max(0, offset); } catch (_) { /* Retry when metadata arrives. */ }
@@ -92,48 +104,81 @@
       }).catch(error => failed(item, error));
     }
     function failed(item, error) {
-      if (disposed || current !== item) return;
+      if (disposed) return;
+      if (prepared === item) {
+        failedSources.add(item.path); release(prepared); prepared = null;
+        return;
+      }
+      if (current !== item) return;
       item.playing = false; item.failed = true; item.audio.pause(); item.audio.volume = 0;
-      if (error?.name === 'NotAllowedError') { blocked = true; report('blocked', item.songId); }
+      if (error?.name === 'NotAllowedError') { blocked = true; release(prepared); prepared = null; report('blocked', item.songId); }
       else { failedSources.add(item.path); report('error', item.songId); }
     }
+    function makeMedia(item, mediaRole) {
+      item.audio = createAudio(); item.audio.preload = 'auto'; item.audio.loop = false; item.audio.volume = 0;
+      if (typeof document !== 'undefined' && item.audio.nodeType === 1) {
+        item.audio.hidden = true; role(item, mediaRole);
+        document.body?.append(item.audio);
+      }
+      item.listeners = {
+        loadedmetadata: () => {
+          if (current !== item && prepared !== item) return;
+          learnDuration(item);
+          if (current === item) {
+            const next = phase(context?.cue, context?.songs, now(), fadeMs);
+            if (!item.playing && next && !next.complete && !next.pending) position(item, next.offset);
+          }
+          tick();
+        },
+        error: () => failed(item, new Error('Preview audio could not be loaded')),
+        ended: () => {
+          if (current !== item) return;
+          item.playing = false; item.ended = true; item.audio.volume = 0;
+          learnDuration(item);
+          // The clock advances the sequence even when a decoder stalls or ends
+          // a few samples early; ended itself never starts an uncontrolled loop.
+          tick();
+        }
+      };
+      for (const [event, listener] of Object.entries(item.listeners)) item.audio.addEventListener(event, listener);
+      item.audio.src = '/' + item.path;
+    }
+    function prepare(songId) {
+      const song = context?.songs.find(song => song.id === songId);
+      const path = safePath(song?.previewAudio) ? song.previewAudio : '';
+      if (prepared && (prepared.songId !== songId || prepared.path !== path || prepared.cueKey !== key)) {
+        release(prepared); prepared = null;
+      }
+      if (prepared || !enabled || blocked || !path || failedSources.has(path)) return;
+      const item = prepared = { songId, path, cueKey: key, audio: null, playing: false };
+      try { makeMedia(item, 'prepared'); }
+      catch (_) { failedSources.add(path); release(item); if (prepared === item) prepared = null; }
+    }
     function open(currentPhase, song) {
-      release(current); current = null;
-      focus(currentPhase.songId);
       const segmentKey = JSON.stringify([key, currentPhase.index, currentPhase.cycle]);
       const path = safePath(song?.previewAudio) ? song.previewAudio : '';
-      current = { segmentKey, songId: currentPhase.songId, path, audio: null, playing: false };
+      // A ban loop can seek the same warmed decoder rather than fetching and
+      // rebuilding a media element every twelve seconds.
+      if (context.cue.kind === 'ban' && current?.audio && current.path === path && current.cueKey === key && !current.failed) {
+        current.segmentKey = segmentKey; current.playing = false; current.ended = false;
+        start(current, currentPhase); return;
+      }
+      release(current); current = null;
+      focus(currentPhase.songId);
+      if (prepared && prepared.songId === currentPhase.songId && prepared.path === path && prepared.cueKey === key) {
+        current = prepared; prepared = null; current.segmentKey = segmentKey;
+        role(current, 'current');
+      } else {
+        release(prepared); prepared = null;
+        current = { segmentKey, songId: currentPhase.songId, path, cueKey: key, audio: null, playing: false };
+      }
       if (!enabled) { report('muted', currentPhase.songId); return; }
       if (!path) { report('missing', currentPhase.songId); return; }
       if (blocked) { report('blocked', currentPhase.songId); return; }
       if (failedSources.has(path)) { report('error', currentPhase.songId); return; }
       const item = current;
       try {
-        item.audio = createAudio(); item.audio.preload = 'auto'; item.audio.loop = false; item.audio.volume = 0;
-        if (typeof document !== 'undefined' && item.audio.nodeType === 1) {
-          item.audio.hidden = true; item.audio.dataset.selectionAudio = ''; item.audio.dataset.songId = item.songId;
-          document.body?.append(item.audio);
-        }
-        item.listeners = {
-          loadedmetadata: () => {
-            if (current !== item) return;
-            learnDuration(item);
-            const next = phase(context?.cue, context?.songs, now(), fadeMs);
-            if (!item.playing && next && !next.complete && !next.pending) position(item, next.offset);
-            tick();
-          },
-          error: () => failed(item, new Error('Preview audio could not be loaded')),
-          ended: () => {
-            if (current !== item) return;
-            item.playing = false; item.ended = true; item.audio.volume = 0;
-            learnDuration(item);
-            // The clock advances the sequence even when a decoder stalls or ends
-            // a few samples early; ended itself never starts an uncontrolled loop.
-            tick();
-          }
-        };
-        for (const [event, listener] of Object.entries(item.listeners)) item.audio.addEventListener(event, listener);
-        item.audio.src = '/' + path;
+        if (!item.audio) makeMedia(item, 'current');
         report('loading', item.songId); start(item, currentPhase);
       } catch (error) {
         if (item.audio) failed(item, error);
@@ -154,9 +199,10 @@
         if (progress >= 1) { release(retiring); retiring = null; }
       }
       const currentPhase = context && phase(context.cue, context.songs, time, fadeMs);
-      if (currentPhase?.pending) report('waiting');
+      if (currentPhase?.pending) { prepare(currentPhase.songId); report('waiting'); }
       else if (currentPhase?.complete) {
         release(current); current = null;
+        release(prepared); prepared = null;
         focus(currentPhase.songId); report('complete', currentPhase.songId);
         // No need to keep a frame timer alive after the second clip ends.
         if (!retiring) return;
@@ -168,6 +214,10 @@
         if (current?.audio && current.playing) {
           const fadeSeconds = fadeMs / 1000;
           current.audio.volume = gain * (fadeSeconds > 0 ? Math.min(ease(currentPhase.offset / fadeSeconds), ease((currentPhase.duration - currentPhase.offset) / fadeSeconds)) : 1);
+          // Only the next selected track is warmed, after actual playback has
+          // started. Initial candidate draws and disabled staff previews never
+          // create media, and a failed/blocked first play does not fan out loads.
+          if (context.cue.kind === 'picks' && currentPhase.index === 0) prepare(context.cue.songIds[1]);
         }
       } else if (!retiring) report('silent');
       schedule();
@@ -188,11 +238,11 @@
     }
     function retry() {
       if (disposed || !enabled || !context) return;
-      blocked = false; failedSources.clear(); release(current); current = null; tick();
+      blocked = false; failedSources.clear(); release(current); release(prepared); current = prepared = null; tick();
     }
     function dispose() {
       disposed = true; if (timer !== null) clearTimer(timer); timer = null;
-      release(current); release(retiring); current = retiring = context = null;
+      release(current); release(retiring); release(prepared); current = retiring = prepared = context = null;
     }
     return { update, retry, dispose, get phase() { return context && phase(context.cue, context.songs, now(), fadeMs); } };
   }
