@@ -100,12 +100,12 @@ COMPONENT_BATCH = r"""async count => {
     const bracket=BroadcastBracket.createController(mount,()=>{});
     bracket.prepare(state,true);bracket.afterCommit();
     const layer=BroadcastCountdown.createLayer(canvas);
-    const now=Date.now(),client={connected:true,now:()=>now,cue:{id:'lifecycle-'+index,startsAt:now,endsAt:now+3950,context:eligible}};
-    for(const elapsed of [0,1100,2100,3050]){
+    const now=Date.now(),client={connected:true,now:()=>now,cue:{id:'lifecycle-'+index,startsAt:now,endsAt:now+BroadcastCountdown.DURATION,context:eligible}};
+    for(const elapsed of [0,350,650,1750,2750,3700,4550]){
       client.now=()=>now+elapsed;layer.update(client,eligibleState,'qualifier-match');
     }
     client.cue=null;layer.update(client,eligibleState,'qualifier-match');
-    client.cue={id:'restart-'+index,startsAt:now,endsAt:now+3950,context:eligible};
+    client.cue={id:'restart-'+index,startsAt:now,endsAt:now+BroadcastCountdown.DURATION,context:eligible};
     layer.update(client,eligibleState,'qualifier-match');
     const listeners=new Map(),clockSocket={connected:true,
       on(event,callback){listeners.set(event,callback)},off(event){listeners.delete(event)},
@@ -149,7 +149,7 @@ INTERRUPTION = r"""async () => {
   scene.dispose();
   await Promise.race([changing,new Promise((_,reject)=>setTimeout(()=>reject(new Error('Interrupted scene promise never settled')),2000))]);
   const state={...__fixtureState,stage:'qualifier',scene:'qualifier-match'},eligible=BroadcastCountdown.context(state);
-  const now=Date.now(),client={connected:true,now:()=>now,cue:{id:'interrupted-countdown',startsAt:now,endsAt:now+3950,context:eligible}};
+  const now=Date.now(),client={connected:true,now:()=>now,cue:{id:'interrupted-countdown',startsAt:now,endsAt:now+BroadcastCountdown.DURATION,context:eligible}};
   const layer=BroadcastCountdown.createLayer(canvas);layer.update(client,state,'qualifier-match');
   if(!canvas.getAnimations({subtree:true}).length)throw new Error('Countdown interruption fixture did not start real animations');
   layer.dispose();

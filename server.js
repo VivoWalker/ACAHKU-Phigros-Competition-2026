@@ -10,7 +10,7 @@ const { getBranding } = require('./lib/branding');
 const { createDisplayAssetsReader } = require('./lib/display-assets');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
-const { context: countdownContext } = require('./public/js/countdown');
+const { context: countdownContext, DURATION: COUNTDOWN_CUE_DURATION } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
 const { PairingAttempts } = require('./lib/pairing-attempts');
@@ -151,7 +151,7 @@ function createBroadcastServer(options = {}) {
         else {
           if (countdownCue) { const error = new Error('A countdown is already running. Cancel it before starting another.'); error.code = 'ALREADY_RUNNING'; throw error; }
           const startsAt = Date.now() + 350;
-          countdownCue = { id: randomBytes(16).toString('hex'), startsAt, endsAt: startsAt + 3950, context };
+          countdownCue = { id: randomBytes(16).toString('hex'), startsAt, endsAt: startsAt + COUNTDOWN_CUE_DURATION, context };
           countdownSequence++;
           countdownSources = JSON.stringify(store.state.broadcast?.sourceSlots || null);
           countdownTimer = setTimeout(clearCountdown, countdownCue.endsAt - Date.now());

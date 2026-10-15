@@ -456,7 +456,7 @@
     const start = document.querySelector('[data-start-countdown]'), cancel = document.querySelector('[data-cancel-countdown]'), status = document.querySelector('[data-countdown-status]');
     if (start) start.disabled = countdownPending || !socket?.connected || !current || active;
     if (cancel) cancel.disabled = countdownPending || !socket?.connected || !active;
-    const label = active ? `正在倒計時 · ${phase.label}` : current ? '選手準備完成後，按下開始倒計時。' : '請先切換至比賽畫面並完成選手、曲目設定。';
+    const label = active ? phase.stage === 'entering' ? '正在覆蓋比賽畫面…' : phase.stage === 'exiting' ? '正在恢復比賽畫面…' : `正在倒計時 · ${phase.label}` : current ? '選手準備完成後，按下開始倒計時。' : '請先切換至比賽畫面並完成選手、曲目設定。';
     if (status && status.textContent !== label) status.textContent = label;
   }
   function countdownPanel() {

@@ -6,7 +6,7 @@ const path = require('node:path');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
 const { initialiseLegacyStore } = require('./helpers/legacy-state');
-const { context } = require('../public/js/countdown');
+const { context, DURATION } = require('../public/js/countdown');
 const { expandSongLibrary, finalCandidates } = require('./helpers/song-library');
 
 function event(socket, name, predicate = () => true, timeout = 6000) {
@@ -64,7 +64,7 @@ test('paired crew broadcast one ephemeral cue to every overlay and control; publ
   for (const message of messages) assert.deepEqual(message, first);
   assert.match(first.cue.id, /^[a-f0-9]{32}$/);
   assert.equal(first.sequence, 1);
-  assert.equal(first.cue.endsAt - first.cue.startsAt, 3950);
+  assert.equal(first.cue.endsAt - first.cue.startsAt, DURATION);
   assert.ok(first.cue.startsAt > first.serverNow && first.cue.startsAt <= first.serverNow + 350);
   assert.equal(first.cue.context.scene, 'qualifier-match');
   assert.equal(JSON.stringify(first).includes('PRIVATE'), false, 'Source names must remain private even inside the context key');
@@ -126,10 +126,10 @@ test('live match context and source changes cancel a cue, but score updates keep
 test('refresh synchronizes to the same timestamp, completed cues expire, and restart does not replay them', async t => {
   const f = await fixture(t);
   assert.equal((await f.cue()).ok, true); const original = (await sync(f.control)).cue;
-  await new Promise(resolve => setTimeout(resolve, 1400));
+  await new Promise(resolve => setTimeout(resolve, 2200));
   const fresh = await f.connect('/overlay');
   assert.deepEqual(fresh.countdown.cue, original);
-  assert.ok(fresh.countdown.serverNow >= original.startsAt + 900, 'A late connection receives the current phase rather than a new 3');
+  assert.ok(fresh.countdown.serverNow >= original.startsAt + 1650, 'A late connection receives the current phase rather than a new 3');
   const ended = event(fresh.socket, 'countdown', value => value.cue === null);
   const finish = await ended; assert.ok(finish.serverNow >= original.endsAt);
   assert.equal((await sync(fresh.socket)).cue, null);

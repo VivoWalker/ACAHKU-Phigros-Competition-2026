@@ -69,7 +69,10 @@ class ClockSocket extends EventEmitter {
   timeout() { return { emit: (name, callback) => { assert.equal(name, 'countdown-sync'); this.requests.push(callback); } }; }
 }
 const packet = (sequence, cue) => ({ sequence, cue, serverNow: Date.now() });
-const cue = id => ({ id, startsAt: Date.now() + 350, endsAt: Date.now() + 4300, context: { key: 'fixture' } });
+const cue = id => {
+  const startsAt = Date.now() + 350;
+  return { id, startsAt, endsAt: startsAt + Countdown.DURATION, context: { key: 'fixture' } };
+};
 
 test('a delayed clock response cannot revive a cue after a newer cancellation', t => {
   const socket = new ClockSocket(), client = Countdown.createClient(socket); t.after(() => client.dispose());

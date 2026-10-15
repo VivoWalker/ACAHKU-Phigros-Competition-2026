@@ -20,6 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results'))
 OUT.mkdir(exist_ok=True, parents=True)
 REPORT = {'checks': [], 'timelines': {}, 'pageErrors': [], 'artifacts': []}
+ENTRY_DURATION, COUNTDOWN_DURATION, EXIT_DURATION = 650, 3700, 650
+EXIT_START = ENTRY_DURATION + COUNTDOWN_DURATION
+DURATION = EXIT_START + EXIT_DURATION
 
 TRACE = r"""() => {
   if (window.__countdownTrace) cancelAnimationFrame(window.__countdownTrace.raf);
@@ -28,10 +31,16 @@ TRACE = r"""() => {
     if (!trace.active) return;
     const layer = document.querySelector('.match-countdown');
     const number = layer?.querySelector('.countdown-number');
+    const sheet = layer?.querySelector('.countdown-sheet');
+    const content = layer?.querySelector('.countdown-frame');
     trace.frames.push({time: performance.timeOrigin + performance.now(),
-      label: layer?.hidden ? null : layer?.dataset.countdownPhase || null,
+      label: layer?.hidden ? null : layer?.dataset.countdownPhase ?? null,
+      stage: layer?.hidden ? null : layer?.dataset.countdownStage ?? null,
       id: layer?.dataset.countdownId || null,
       opacity: layer ? Number(getComputedStyle(layer).opacity) : 0,
+      sheetOpacity: sheet ? Number(getComputedStyle(sheet).opacity) : 0,
+      sheetX: sheet ? new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m41 : 0,
+      contentOpacity: content && !content.hidden ? Number(getComputedStyle(content).opacity) : 0,
       numberOpacity: number ? Number(getComputedStyle(number).opacity) : 0,
       animations: number?.getAnimations().map(a => ({easing:a.effect.getTiming().easing,
         keyframes:a.effect.getKeyframes().map(k=>k.easing),
@@ -146,6 +155,72 @@ def number_geometry(page, expected):
     return result
 
 
+def sweep_mask(page):
+    """Freeze the real layer clock and animations to inspect its actual PNG mask."""
+    page.evaluate('''async()=>{
+      const state=await fetch('/api/state').then(r=>r.json()),canvas=document.querySelector('#canvas');
+      const controller=BroadcastCountdown.createLayer(canvas),element=canvas.lastElementChild;
+      element.dataset.maskFixture='true';
+      const start=Date.now(),client={connected:true,now:()=>start,cue:null};
+      window.__countdownMaskFixture={controller,element,client,state,start,sequence:0};
+    }''')
+    captures=[capture.bounding_box() for capture in page.locator('[data-capture]').all()]
+    points=[(int(box['x']+box['width']*fx),int(box['y']+box['height']*fy))
+            for fy in [.2,.8] for box in captures for fx in [.2,.5,.8]]
+    half=len(points)//2
+    samples=[]
+    try:
+        for elapsed in [0,130,260,390,520,650,EXIT_START,EXIT_START+130,EXIT_START+260,EXIT_START+390,EXIT_START+520,DURATION]:
+            styles=page.evaluate('''elapsed=>{
+              const f=window.__countdownMaskFixture;
+              f.client.now=()=>f.start+elapsed;
+              f.client.cue={id:'mask-'+(++f.sequence),startsAt:f.start,endsAt:f.start+BroadcastCountdown.DURATION,
+                context:BroadcastCountdown.context(f.state)};
+              f.controller.update(f.client,f.state,f.state.scene);
+              for(const animation of f.element.getAnimations({subtree:true})){
+                const time=animation.currentTime;animation.pause();animation.currentTime=time;
+              }
+              const sheet=f.element.querySelector('.countdown-sheet'),frame=f.element.querySelector('.countdown-frame');
+              return {stage:f.element.dataset.countdownStage||null,hidden:f.element.hidden,
+                x:new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m41,
+                sheetOpacity:Number(getComputedStyle(sheet).opacity),contentOpacity:frame.hidden?0:Number(getComputedStyle(frame).opacity)};
+            }''',elapsed)
+            png=page.screenshot(omit_background=True)
+            image=Image.open(io.BytesIO(png)).convert('RGBA')
+            alpha=[image.getpixel(point)[3] for point in points]
+            samples.append({'elapsed':elapsed,'alpha':alpha,**styles})
+            if elapsed in [260,EXIT_START+260]:
+                name='match-countdown-'+('enter' if elapsed<ENTRY_DURATION else 'exit')+'.png'
+                (OUT/name).write_bytes(png)
+            if elapsed<ENTRY_DURATION:
+                assert styles['stage']=='entering' and styles['contentOpacity']==0,('Text before coverage',samples[-1])
+            if elapsed in [ENTRY_DURATION,EXIT_START]:
+                assert all(a==255 for a in alpha),('Counting mask has a capture leak',samples[-1])
+                for point in [(0,0),(1919,0),(0,1079),(1919,1079)]:
+                    assert image.getpixel(point)[3]==255,('Oversized slanted sheet misses a corner',point)
+        entry=samples[:6]
+        assert all(a==0 for a in entry[0]['alpha']),('Entry pops in before sweeping',entry[0])
+        assert any(0<sum(s['alpha'])<255*len(points) for s in entry[1:-1]),'No progressive capture coverage'
+        for before,after in zip(entry,entry[1:]):
+            assert after['x']<=before['x']+.1,('Entrance moves the wrong way',before,after)
+            assert all(b<=a+2 for b,a in zip(before['alpha'],after['alpha'])),('Entrance reveals covered captures',before,after)
+        for sample in entry[1:-1]:
+            for row in [sample['alpha'][:half],sample['alpha'][half:]]:
+                assert all(a<=b+2 for a,b in zip(row,row[1:])),('Entry must cover rightmost captures first',sample)
+        assert any(sum(s['alpha'][half:])>sum(s['alpha'][:half])+20 for s in entry[1:-1]),'The sweep edge is vertical rather than slanted'
+        exit_samples=samples[6:]
+        for before,after in zip(exit_samples[:-1],exit_samples[1:-1]):
+            assert after['x']>=before['x']-.1,('Exit moves the wrong way',before,after)
+            assert after['sheetOpacity']<=before['sheetOpacity']+.001,('Exit does not fade',before,after)
+            assert all(a<=b+2 for b,a in zip(before['alpha'],after['alpha'])),('Exit covers previously revealed captures',before,after)
+        assert any(0<s['sheetOpacity']<1 and s['x']>0 for s in exit_samples[1:-1]),'Missing simultaneous right slide and fade'
+        assert samples[-1]['hidden'] and all(a==0 for a in samples[-1]['alpha']),'Expired sweep did not restore transparent captures'
+        REPORT['sweepMask']=samples
+        check('real PNG alpha shows a slanted right-to-left cover, opaque count, then rightward fade revealing captures')
+    finally:
+        page.evaluate('''()=>{window.__countdownMaskFixture.controller.dispose();delete window.__countdownMaskFixture;}''')
+
+
 with tempfile.TemporaryDirectory(prefix='acahku-countdown-browser-') as data_dir:
     code = """
 const fs=require('node:fs'),path=require('node:path');
@@ -242,6 +317,8 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             crew.evaluate('scrollTo(0,0)')
             check('countdown controls fit tablet and phone without overlapping or clipping',geometries)
 
+            sweep_mask(live)
+
             for page in sources:page.evaluate(TRACE)
             first=start()
             for page in sources:label(page,'3')
@@ -260,26 +337,38 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             REPORT['rawTimelines']=timelines
             REPORT['frameCounts']=[len(trace) for trace in traces]
             for name,timeline,trace in zip(['live','clock-offset fixed','control preview'],timelines,traces):
-                phases=[step for step in timeline if step['label'] is not None]
+                phases=[step for step in timeline if step['label']]
                 assert [step['label'] for step in phases]==['3','2','1','START'],(name,timeline)
                 assert all(step['id']==first['id'] for step in phases),(name,'Timeline was restarted')
                 end=next(step['time'] for step in timeline if step['label'] is None and step['time']>phases[-1]['time'])
-                for step,expected in zip(phases[1:],[1000,2000,3000]):
+                for step,expected in zip(phases,[650,1650,2650,3650]):
                     assert abs(step['time']-first['startsAt']-expected)<130,(name,step,first)
                 assert abs(end-first['endsAt'])<130,(name,'Wrong end time',end,first['endsAt'])
-                fades=[f for f in trace if f['label']=='START' and .01<f['opacity']<.99]
-                assert fades and min(f['time'] for f in fades)>=first['startsAt']+3600,(name,'Missing or premature curtain fade')
+                entry=[f for f in trace if f['stage']=='entering']
+                assert entry and all(not f['label'] and f['contentOpacity']==0 for f in entry),(name,'Countdown appears before full coverage')
+                assert any(f['sheetX']>20 for f in entry),(name,'Missing entrance from the right')
+                # A trace rAF can run before the layer's own rAF updates its
+                # stage, while compositor animation styles already use the
+                # new frame time. Inspect the held interval away from those
+                # two frame boundaries; exact endpoints are checked by PNG.
+                counting=[f for f in trace if f['stage']=='counting' and
+                    ENTRY_DURATION+40<=f['time']-first['startsAt']<=EXIT_START-40]
+                assert counting and all(abs(f['sheetX'])<.1 and f['sheetOpacity']>.999 for f in counting),(name,'Countdown sheet is not held opaque',
+                    [f for f in counting if abs(f['sheetX'])>=.1 or f['sheetOpacity']<=.999])
+                fades=[f for f in trace if f['stage']=='exiting' and .01<f['sheetOpacity']<.99]
+                assert fades and min(f['time'] for f in fades)>=first['startsAt']+EXIT_START,(name,'Missing or premature curtain fade')
+                assert any(f['sheetX']>20 for f in fades),(name,'Exit must slide to the right while fading')
                 assert all(any(easing.startswith('cubic-bezier(') for easing in a['keyframes'])
                     for f in trace for a in f['animations']), 'Number entry and exit must use nonlinear easing'
                 for index,value in enumerate(['3','2','1']):
                     middle=[f for f in trace if f['label']==value and
-                        300<=f['time']-first['startsAt']-index*1000<=750]
+                        300<=f['time']-first['startsAt']-ENTRY_DURATION-index*1000<=750]
                     assert middle and min(f['numberOpacity'] for f in middle)>.95,(name,value,'Digit fades too early')
                 REPORT['timelines'][name]=timeline
             for phase_name in ['2','1','START']:
                 measured=[next(t['time'] for t in line if t['label']==phase_name) for line in timelines]
                 assert max(measured)-min(measured)<100,(phase_name,'Sources visibly drift',measured)
-            check('3 sources share one timeline despite a wrong local clock; real phases and fade end on schedule')
+            check('3 sources share one timeline: right entrance, opaque 3/2/1/START, then right exit with fade')
 
             cover_cue=start();label(live,'3')
             command('set-qualifier-score',{'playerId':'p1','songIndex':0,'score':985432})
@@ -356,7 +445,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             for value in ['2','1','START']:label(reduced,value)
             hidden(reduced)
             reduced_trace=stop_trace(reduced)
-            assert [t['label'] for t in transitions(reduced_trace) if t['label'] is not None]==['3','2','1','START']
+            assert [t['label'] for t in transitions(reduced_trace) if t['label']]==['3','2','1','START']
             assert not any(f['animations'] for f in reduced_trace), 'Reduced motion retained decorative number animations'
             live.reload();idle(live,'double-elimination-match');hidden(live)
             capture_alpha(live,0)
@@ -369,6 +458,25 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             recording=new_browser().new_context(viewport={'width':1920,'height':1080},
                 record_video_dir=str(OUT/'countdown-video'),record_video_size={'width':1920,'height':1080})
             recorded=recording.new_page();recorded.goto(base+'/overlay/live.html');idle(recorded,'double-elimination-match')
+            # Test-only inputs below the real HTML holes make the cover/reveal
+            # visible in the preview. The PNG alpha assertions above use the
+            # untouched transparent overlay with no simulated OBS sources.
+            recorded.evaluate('''()=>{
+              const canvas=document.querySelector('#canvas'),underlay=document.createElement('div');
+              Object.assign(underlay.style,{position:'absolute',inset:'0',zIndex:'0',pointerEvents:'none'});
+              for(const capture of document.querySelectorAll('[data-capture]')){
+                const box=document.createElement('div');
+                for(const key of ['left','top','width','height'])box.style[key]=capture.style[key];
+                const handcam=capture.dataset.feed==='handcam';
+                Object.assign(box.style,{position:'absolute',display:'grid',placeItems:'center',color:'#fff',
+                  font:'700 '+(handcam?18:30)+'px sans-serif',background:handcam?
+                    'repeating-linear-gradient(135deg,#214841 0 35px,#18332f 35px 70px)':
+                    'repeating-linear-gradient(135deg,#20466a 0 60px,#172e47 60px 120px)'});
+                box.textContent=handcam?'HANDCAM':'CAPTURE CARD';underlay.append(box);
+              }
+              canvas.prepend(underlay);
+            }''')
+            recorded.wait_for_timeout(400)
             video=recorded.video
             start();label(recorded,'3');recorded.wait_for_timeout(650)
             REPORT['countdownGeometry']={'3':number_geometry(recorded,'3')}
@@ -387,7 +495,8 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(video_path),
                 '-an','-c:v','libx264','-preset','fast','-crf','23','-pix_fmt','yuv420p','-movflags','+faststart',
                 str(OUT/'match-countdown-preview.mp4')],check=True)
-            REPORT['artifacts']=['match-countdown-3.png','match-countdown-start.png','match-countdown-preview.mp4']
+            REPORT['artifacts']=['match-countdown-enter.png','match-countdown-3.png','match-countdown-start.png',
+                                 'match-countdown-exit.png','match-countdown-preview.mp4']
             check('delivered screenshots and MP4 show the real full-screen animation')
             assert not REPORT['pageErrors'], REPORT['pageErrors']
             check('all real browser pages run without uncaught JavaScript errors')

@@ -1,20 +1,18 @@
-/* Menu UI: 15-degree surfaces, upright type and white selected states.
-   Countdown motion is clocked by countdown.js; no ambient animation loops. */
-.match-countdown{position:absolute;inset:0;z-index:10000;pointer-events:none;overflow:hidden;color:#f7f8fa;background:#101319;font-family:var(--broadcast-font);isolation:isolate}
-.match-countdown[hidden]{display:none}
-.match-countdown:before,.match-countdown:after{content:'';position:absolute;z-index:-1;top:-10%;bottom:-10%;transform:skewX(-15deg);pointer-events:none}
-.match-countdown:before{left:12%;width:43%;background:#ffffff03}
-.match-countdown:after{right:12%;width:16%;background:#0000001c}
+/* One oversized menu surface covers and reveals the real OBS sources.
+   Movement and opacity share the server clock; text stays upright. */
+.match-countdown{position:absolute;inset:0;z-index:10000;pointer-events:none;overflow:hidden;color:#f7f8fa;background:transparent;font-family:var(--broadcast-font);isolation:isolate}
+.match-countdown[hidden],.countdown-frame[hidden]{display:none}
+.countdown-sheet{position:absolute;inset:0;will-change:transform,opacity}
+.countdown-surface{position:absolute;left:-300px;top:-160px;width:2520px;height:1400px;background:#101319;border-left:6px solid #f7f8fa;transform:skewX(-15deg)}
 .countdown-frame{position:absolute;inset:0;width:1520px;margin:0 auto;text-align:center}
-.countdown-panel{position:absolute;left:130px;right:130px;top:232px;height:572px;background:#1b2028;border:1px solid #ffffff29;border-left:6px solid #f7f8fa;transform:skewX(-15deg)}
 .countdown-eyebrow{position:absolute;left:240px;right:240px;top:148px;margin:0;font-size:28px;font-weight:600;line-height:42px;letter-spacing:.18em;color:#b4bcc7}
 .countdown-eyebrow:before{content:'';display:inline-block;width:5px;height:24px;margin-right:18px;background:#64d7f3;transform:skewX(-15deg);vertical-align:-3px}
-.countdown-number{position:absolute;left:240px;right:240px;top:272px;height:430px;display:grid;place-items:center;font-size:380px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.015em;color:#f7f8fa}
-.countdown-caption{position:absolute;left:240px;right:240px;top:728px;margin:0;font-size:32px;font-weight:600;line-height:48px;letter-spacing:.18em;color:#b4bcc7}
-.countdown-progress{position:absolute;left:650px;top:876px;display:flex;gap:14px;width:220px;height:10px}
+.countdown-number{position:absolute;left:240px;right:240px;top:250px;height:460px;display:grid;place-items:center;font-size:400px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.015em;color:#f7f8fa}
+.countdown-caption{position:absolute;left:240px;right:240px;top:786px;margin:0;font-size:32px;font-weight:600;line-height:48px;letter-spacing:.18em;color:#b4bcc7}
+.countdown-progress{position:absolute;left:650px;top:896px;display:flex;gap:14px;width:220px;height:10px}
 .countdown-progress i{display:block;flex:1;background:#ffffff26;transform:skewX(-15deg)}
 .countdown-progress i.is-current{background:#64d7f3}
 .countdown-progress i.is-complete{background:#f7f8fa}
-.is-start .countdown-panel{background:#f7f8fa;border-color:#f7f8fa}
-.is-start .countdown-number{font-size:200px;letter-spacing:.045em;color:#101319}
-.is-start .countdown-caption{color:#38414d}
+.is-start .countdown-number{font-size:225px;letter-spacing:.045em}
+.is-start .countdown-caption{color:#f7f8fa}
+@media(prefers-reduced-motion:reduce){.countdown-sheet{will-change:auto}}
