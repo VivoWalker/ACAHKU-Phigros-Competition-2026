@@ -14,12 +14,46 @@
   const motion = BroadcastMotion.createScene(mount, { canvas });
   const countdownLayer = BroadcastCountdown.createLayer(canvas);
   let countdownClient;
+  let previewCatalog = new Map(), previewFocus = null, previewRenderPending = false, obsActive = true, obsVisible = true;
+  const previewEnabled = query.get('preview') !== '1' && query.get('audio') !== '0';
+  const audioPrompt = document.createElement('button');
+  audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
+  audioPrompt.textContent = 'Enable song previews · 啟用音樂預覽'; audioPrompt.hidden = true;
+  document.body.append(audioPrompt);
+  const previewNow = () => countdownClient?.connected && countdownClient.now() > 0 ? countdownClient.now() : Date.now();
+  const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, now: previewNow,
+    onFocus(songId) {
+      if (previewFocus === songId) return;
+      previewFocus = songId;
+      if (!previewRenderPending) {
+        previewRenderPending = true;
+        queueMicrotask(() => { previewRenderPending = false; render(); });
+      }
+    },
+    onStatus(status) {
+      canvas.dataset.selectionAudio = status.state;
+      canvas.dataset.selectionAudioSong = status.songId || '';
+      audioPrompt.hidden = status.state !== 'blocked';
+    }
+  });
+  audioPrompt.addEventListener('click', () => selectionAudio.retry());
   const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
   const refreshCountdown = () => countdownLayer.update(countdownClient, state, shownScene());
   const requestedRound = Number(query.get('round'));
   const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
   const url = path => '/' + encodeURI(path);
   const art = song => url(song?.art || 'assets/song/cover-1.svg');
+  function selectionFocus(s) {
+    const m = B.currentMatch(s), tie = B.matchTiebreak(s);
+    const preview = m?.id !== 'GF' && !tie ? [...(m?.songs || []), ...(m?.candidates || [])].find(song => song.id === previewFocus) : null;
+    return tie?.song || preview || m?.songs[m.currentSong] || m?.candidates.find(c => c.id === m.selectionPreviewCue?.songIds[0]) || m?.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m?.candidates[0];
+  }
+  function previewSongs(m) {
+    return [...(m?.songs || []), ...(m?.candidates || [])].filter(song => !song.hidden).map(song => {
+      const bundled = previewCatalog.get(song.id);
+      return { ...song, previewAudio: Object.hasOwn(song, 'previewAudio') ? song.previewAudio : bundled?.output || '', previewDuration: bundled?.duration };
+    });
+  }
   function fit() {
     const scale = Math.min(innerWidth / 1920, innerHeight / 1080);
     canvas.style.transform = `scale(${scale})`;
@@ -139,7 +173,7 @@
     const m = B.currentMatch(s);
     if (!m) return doubleWaiting(s);
     if (m.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return grandFinalAnnouncement(s);
-    const tie = B.matchTiebreak(s), focus = tie?.song || m.songs[m.currentSong] || m.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m.candidates[0];
+    const tie = B.matchTiebreak(s), focus = selectionFocus(s);
     return backdrop() + header(s, `R${m.round} · ${m.id}`) + title(tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲', 'SONG SELECTION') + `<div class='selection'><div class='candidate-list ${m.id === 'GF' ? 'final-list' : ''}'>${(tie ? [tie.song] : m.candidates).map((song, i) => {
       const banned = m.bans.indexOf(song.id), picked = m.songs.some(x => !x.hidden && x.id === song.id);
       return `<div data-motion-key='candidate-${e(song.id)}' class='candidate ${banned >= 0 ? 'banned' : ''} ${picked ? 'picked' : ''}'><span class='index'>${String(i + 1).padStart(2, '0')}</span><h3>${e(song.title)}</h3><span class='candidate-status'>${banned >= 0 ? 'BAN' : picked ? 'PICK' : e(song.difficulty + ' ' + song.level)}</span></div>`;
@@ -154,11 +188,14 @@
   function render() {
     if (!state) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
+    const current = B.currentMatch(state);
+    selectionAudio.update({ cue: current?.selectionPreviewCue, songs: previewSongs(current),
+      active: obsActive && obsVisible && countdownClient?.connected && countdownClient.now() > 0 && scene === 'song-selection' && state.scene === 'song-selection' && state.stage === 'double-elimination' && current?.id !== 'GF' && current?.status !== 'complete' && !B.matchTiebreak(state) });
     refreshCountdown();
     bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
     const mode = showHandcams(state) ? 'dual' : 'single', hasVisual = !!branding.visual, revision = state.revision;
-    const m = B.currentMatch(state), focus = B.matchTiebreak(state)?.song || m?.songs[m.currentSong] || m?.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m?.candidates[0];
+    const m = B.currentMatch(state), focus = selectionFocus(state);
     const focusIndex = m?.candidates.findIndex(song => song.id === focus?.id);
     motion.update(next, { scene, animateEntries: scene !== 'bracket', onCommit({ previousScene }) {
       canvas.dataset.renderedScene = scene;
@@ -185,8 +222,16 @@
     if (!result) return;
     branding = result; render();
   }).catch(() => {});
+  fetch('/assets/song-preview/manifest.json').then(response => response.ok ? response.json() : null).then(result => {
+    if (!Array.isArray(result?.tracks)) return;
+    previewCatalog = new Map(result.tracks.flatMap(track => (track.songIds || []).map(id => [id, track])));
+    render();
+  }).catch(() => {});
+  addEventListener('pagehide', () => selectionAudio.dispose(), { once: true });
+  addEventListener('obsSourceActiveChanged', event => { obsActive = event.detail?.active !== false; render(); });
+  addEventListener('obsSourceVisibleChanged', event => { obsVisible = event.detail?.visible !== false; render(); });
   const socket = createBroadcastSocket('/overlay');
-  countdownClient = BroadcastCountdown.createClient(socket, refreshCountdown);
+  countdownClient = BroadcastCountdown.createClient(socket, () => { refreshCountdown(); render(); });
   socket.on('state', next => { state = next; render(); });
   socket.on('connect', () => canvas.classList.remove('is-offline'));
   socket.on('disconnect', () => canvas.classList.add('is-offline'));

@@ -238,16 +238,18 @@ For a lost score screen, inspect the livestream recording first. A rematch requi
 
 The organiser's song list has **47 unique jackets** bundled in [`public/assets/song/song-list-2026/`](public/assets/song/song-list-2026/README.md), matching all 49 input lines. These are original 2048×1080 PNGs from Rhythm Archive, verified against the source catalog's SHA-256. Use [`song-map.csv`](public/assets/song/song-list-2026/song-map.csv) to find each song's local artwork path; duplicate input lines share one file. The folder's manifest preserves source URLs and credits.
 
-The control panel's **Event & library → Song library** form keeps a **Local artwork path** field and adds an optional **Music preview path** field. Copy artwork into `public/assets/song/` and already-trimmed audio clips of about **10 seconds** into `public/assets/song-preview/`, then fill in their paths relative to `public/`:
+The control panel's **Event & library → Song library** form accepts a **Local artwork path** and an optional **Music preview path**. Copy artwork into `public/assets/song/` and trimmed **10–15 second** clips into `public/assets/song-preview/`, then fill in their paths relative to `public/`:
 
 ```text
 Artwork: assets/song/song-01.webp
 Preview: assets/song-preview/song-01.mp3
 ```
 
-Preview paths support MP3, OGG, WAV and M4A. Use ASCII filenames with letters, digits, underscores or hyphens. The preview field can remain blank, or hold a path before the file is supplied. This version reserves and saves the optional song field `previewAudio`; it does not load, play or trim audio yet. A future player should read this field only for a visible, unsealed song. The audio clip's approximate 10-second length is a preparation guideline, not an enforced playback limit.
+Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. Grand Final playback is unchanged.
 
-Save media paths **before drawing candidates or selecting match songs**. Existing candidates and match picks retain their saved metadata; editing the library affects future draws. To fill artwork or audio for a saved selection, replace the file at its existing path and refresh the relevant browser. Old event files without `previewAudio` remain compatible, and older clients that omit the field preserve an existing value; explicitly clearing it removes the path. After upgrading the server files, restart the local server and refresh the control panel and OBS Browser Source, preserving the existing `data/` directory.
+The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable song previews** button; use OBS **Interact** if needed. See [preview preparation and playback details](public/assets/song-preview/README.md) for the local manifest and clipping tool. The empty bundled manifest currently denotes music awaiting import; no substitute tracks are shipped.
+
+Save manually entered media paths **before drawing candidates or selecting match songs**. Existing candidates and match picks retain their saved metadata; editing the library affects future draws. The bundled preview manifest also supplies audio for saved selections whose snapshots have no `previewAudio` field. An explicitly empty field disables that song's preview. Old event files remain compatible, and older clients that omit the field preserve an existing value. After upgrading the server files or importing a manifest, restart the local server and refresh the control panel and OBS Browser Source, preserving the existing `data/` directory.
 
 Song-art switches in both the staff selection panel and the broadcast selection screen take **550 ms**, with nonlinear easing, decoded-image loading and at most two clipped artwork layers.
 
@@ -263,6 +265,13 @@ Challenge qualifier regressions also cover direct totals, zero versus unrecorded
 
 ```sh
 python3 test/challenge-qualifier-browser.py
+```
+
+Song preview checks use generated temporary tones to exercise actual Chromium decoding, ban loops and fades, ordered picks, jacket synchronization, silent staff previews, scene cancellation and completed-preview reloads. The preparation checks verify ZIP safety, title matching and real MP3 encoding:
+
+```sh
+python3 test/selection-audio-browser.py
+python3 test/song-preview-preparation.py
 ```
 
 ```sh
