@@ -250,7 +250,9 @@
       release(current); release(retiring); release(prepared); current = retiring = prepared = context = null;
       durationCache.clear(); failedSources.clear(); key = lastFocus = null;
     }
-    return { update, retry, dispose, get phase() { return context && phase(context.cue, context.songs, now(), fadeMs); } };
+    return { update, retry, dispose,
+      get hasMedia() { return !!(current?.audio || retiring?.audio || prepared?.audio); },
+      get phase() { return context && phase(context.cue, context.songs, now(), fadeMs); } };
   }
   return { createPlayer, phase, safePath, FADE_MS, DEFAULT_DURATION };
 });

@@ -45,7 +45,7 @@ process.on('SIGTERM',()=>broadcast.close().then(()=>process.exit()));
 # Counters are primitives and weak references only: instrumentation must not
 # itself retain every image/audio/animation under test.
 PROBE = r"""(() => {
-  const diagnostics=window.__lifecycle={maxAudio:0,maxCovers:0,weakRoots:[],weakAudio:[],weakImages:[],warmups:[],sockets:[],createdAudio:0};
+  const diagnostics=window.__lifecycle={maxAudio:0,maxBgm:0,maxCovers:0,weakRoots:[],weakAudio:[],weakImages:[],warmups:[],sockets:[],createdAudio:0};
   const NativeAudio=window.Audio;
   window.Audio=function(...args){diagnostics.createdAudio++;const item=new NativeAudio(...args);diagnostics.weakAudio.push(new WeakRef(item));return item};
   window.Audio.prototype=NativeAudio.prototype;
@@ -218,12 +218,15 @@ def scene(page, name):
 def bounded(page):
     value = page.evaluate('''()=>{
       const audio=document.querySelectorAll('audio[data-selection-audio],audio[data-selection-audio-prepared],audio[data-selection-audio-retiring]').length;
+      const bgm=document.querySelectorAll('audio[data-scene-bgm],audio[data-scene-bgm-retiring]').length;
       const covers=Math.max(0,...[...document.querySelectorAll('.selection-art,.cover-window')].map(node=>node.querySelectorAll('img').length));
-      __lifecycle.maxAudio=Math.max(__lifecycle.maxAudio,audio);__lifecycle.maxCovers=Math.max(__lifecycle.maxCovers,covers);
+      __lifecycle.maxAudio=Math.max(__lifecycle.maxAudio,audio);__lifecycle.maxBgm=Math.max(__lifecycle.maxBgm,bgm);__lifecycle.maxCovers=Math.max(__lifecycle.maxCovers,covers);
       const warmups=__lifecycle.warmups.map(ref=>ref.deref()).filter(Boolean).map(item=>item.status());
-      return {audio,covers,warmups};
+      return {audio,bgm,covers,warmups};
     }''')
     assert value['audio'] <= 3, value
+    assert value['bgm'] <= 2, value
+    assert not value['audio'] or not value['bgm'], value
     assert value['covers'] <= 2, value
     assert all(item['ready'] + item['loading'] <= 12 and item['loading'] <= 2 for item in value['warmups']), value
 
@@ -245,9 +248,10 @@ def cycle(page, index, real_audio=True):
         scene(page, name)
         bounded(page)
     page.wait_for_function("document.querySelectorAll('audio[data-selection-audio],audio[data-selection-audio-prepared],audio[data-selection-audio-retiring]').length===0", timeout=5000)
+    page.wait_for_function("(()=>{const audio=document.querySelector('audio[data-scene-bgm]');return audio&&!audio.paused&&audio.readyState>=2&&audio.volume>.2&&!document.querySelector('audio[data-scene-bgm-retiring]')})()", timeout=5000)
 
 
-def sample(page, cdp, name, cycles):
+def sample(page, cdp, name, cycles, expected_bgm=0):
     page.evaluate('performance.clearResourceTimings()')
     # Two event-loop turns let promises cancelled by disposal release closures.
     page.wait_for_timeout(100)
@@ -262,6 +266,8 @@ def sample(page, cdp, name, cycles):
       return {
       transient:document.querySelectorAll('[data-motion-ghost],[data-motion-live],[data-motion-placeholder],[data-motion-exits],[data-motion-cover-old],[data-bracket-ghost]').length,
       audio:document.querySelectorAll('audio').length,
+      bgm:document.querySelectorAll('audio[data-scene-bgm]').length,
+      retiringBgm:document.querySelectorAll('audio[data-scene-bgm-retiring]').length,
       animations:document.getAnimations().filter(a=>a.playState==='running'||a.pending).length,
       weakRoots:__lifecycle.weakRoots.filter(ref=>ref.deref()).length,
       survivingAudio:__lifecycle.weakAudio.filter(ref=>ref.deref()).length,
@@ -274,7 +280,9 @@ def sample(page, cdp, name, cycles):
               **dom, **resources, 'elapsedSeconds': round(time.monotonic() - STARTED, 2)}
     REPORT['samples'].append(result)
     print('SAMPLE ' + json.dumps(result), flush=True)
-    assert resources['transient'] == resources['audio'] == resources['animations'] == resources['weakRoots'] == 0, result
+    assert resources['transient'] == resources['animations'] == resources['weakRoots'] == resources['retiringBgm'] == 0, result
+    assert resources['audio'] == resources['bgm'] == expected_bgm, result
+    assert resources['survivingAudio'] == expected_bgm, result
     return result
 
 
@@ -354,23 +362,23 @@ try:
                 warm_cycles, batch_cycles = 8, 20
                 for index in range(warm_cycles):
                     cycle(page, index)
-                live_samples = [sample(page, cdp, 'live-warm-baseline', warm_cycles)]
+                live_samples = [sample(page, cdp, 'live-warm-baseline', warm_cycles, expected_bgm=1)]
                 for batch in range(3):
                     for index in range(batch_cycles):
                         cycle(page, index)
-                    live_samples.append(sample(page, cdp, 'live-batch-' + str(batch + 1), warm_cycles + batch_cycles * (batch + 1)))
+                    live_samples.append(sample(page, cdp, 'live-batch-' + str(batch + 1), warm_cycles + batch_cycles * (batch + 1), expected_bgm=1))
                 plateau(live_samples, str(batch_cycles * 3) + ' regular scene/selection cycles')
-                check('actual selection media, cover layers and decoded-image caches stay bounded', page.evaluate('''()=>({maxAudio:__lifecycle.maxAudio,maxCovers:__lifecycle.maxCovers,mediaCreated:__lifecycle.createdAudio})'''))
+                check('actual selection media, looping BGM, cover layers and decoded-image caches stay bounded without audio ownership overlap', page.evaluate('''()=>({maxAudio:__lifecycle.maxAudio,maxBgm:__lifecycle.maxBgm,maxCovers:__lifecycle.maxCovers,mediaCreated:__lifecycle.createdAudio})'''))
 
                 page.evaluate(COMPONENT_BATCH, 12)
-                component_samples = [sample(page, cdp, 'components-warm-baseline', 12)]
+                component_samples = [sample(page, cdp, 'components-warm-baseline', 12, expected_bgm=1)]
                 for batch in range(3):
                     page.evaluate(COMPONENT_BATCH, 30)
-                    component_samples.append(sample(page, cdp, 'components-batch-' + str(batch + 1), 12 + 30 * (batch + 1)))
+                    component_samples.append(sample(page, cdp, 'components-batch-' + str(batch + 1), 12 + 30 * (batch + 1), expected_bgm=1))
                 plateau(component_samples, 'Ninety component create/restart/cancel/dispose cycles')
                 check('disposed component roots are collectable; no retained countdown/cover/scene DOM or animations')
                 page.evaluate(DETACHED_BATCH, 30)
-                sample(page, cdp, 'automatically-disposed-detached-scenes', 30)
+                sample(page, cdp, 'automatically-disposed-detached-scenes', 30, expected_bgm=1)
                 check('thirty detached scene mounts are automatically disposed and become collectable while the live scene remains connected')
 
                 # Real animation paths, including an interrupted active countdown,
@@ -380,7 +388,7 @@ try:
                     scene(page, name)
                 page.evaluate(INTERRUPTION)
                 page.emulate_media(reduced_motion='reduce')
-                sample(page, cdp, 'after-real-animation-transitions', 3)
+                sample(page, cdp, 'after-real-animation-transitions', 3, expected_bgm=1)
                 check('normal-motion transitions and active scene/countdown interruption settle without leftover animations or unresolved promises')
 
                 scene(page, 'double-elimination-match')

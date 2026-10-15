@@ -49,7 +49,7 @@ Every OBS overlay prepares its own shared images and Saira font weights before i
 
 The checked-in display bundle contains 53 WebP images: 135 MB of original image files becomes about 8.2 MB of display files, plus a 136 KB pre-blurred background layer. Jackets use 1280×675 variants, and logos retain transparency. Original files and the song library's editable artwork paths remain available. `GET /api/display-assets` checks both original and derivative hashes before publishing a mapping; replacing an original or losing a derived file causes the next page load to use the original. The prepared background keeps the existing crop, opacity and animated capture mask, with the blur computed ahead of broadcast.
 
-Candidate draws still make no audio requests. After a ban or final pick cue, its next clip can load during the fade; while pick one plays, pick two loads silently and its prepared media element is reused at the switch. Ban loops also reuse their buffered media element. Leaving the scene or replacing the cue cancels the queued audio; staff previews and Grand Final remain silent. Public images, fonts and preview clips support HTTP cache revalidation, while event APIs and frontend documents keep `no-store`.
+Candidate draws still make no audio requests. After a ban or final pick cue, its next clip can load during the fade; while pick one plays, pick two loads silently and its prepared media element is reused at the switch. Ban loops also reuse their buffered media element. Leaving the scene or replacing the cue cancels the queued audio; staff previews and Grand Final song previews remain silent. Public images, fonts and audio support HTTP cache revalidation, while event APIs and frontend documents keep `no-store`.
 
 The ready-to-use derivatives require no new runtime packages. After changing original artwork, rebuild with Python, Pillow and NumPy if a new optimized version is wanted, then refresh the OBS source:
 
@@ -284,9 +284,32 @@ Preview: assets/song-preview/song-01.mp3
 
 Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. Grand Final playback is unchanged.
 
-The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable song previews** button; use OBS **Interact** if needed. The organiser's audio is now bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. The two Grand Final assets are prepared without enabling playback on that page. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
+The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable broadcast audio / 啟用直播音訊** button; use OBS **Interact** if needed. The organiser's audio is bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. The two Grand Final assets are prepared without enabling song-preview playback on that page. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
 
 Save manually entered media paths **before drawing candidates or selecting match songs**. Existing candidates and match picks retain their saved metadata; editing the library affects future draws. The bundled preview manifest also supplies audio for saved selections whose snapshots have no `previewAudio` field. An explicitly empty field disables that song's preview. Old event files remain compatible, and older clients that omit the field preserve an existing value. After upgrading the server files or importing a manifest, restart the local server and refresh the control panel and OBS Browser Source, preserving the existing `data/` directory.
+
+## Scene background music
+
+Four complete Phigros 4.0.1 interface loops are bundled locally, separately from the competition-song previews. Original WAV hashes were checked against a pinned community extraction mirror; the Ogg files retain the full duration and are normalized to approximately −18 LUFS before the default 25% playback volume. Exact sources, processing and output checksums are recorded in [the BGM manifest](public/assets/bgm/manifest.json) and [source notes](public/assets/bgm/README.md).
+
+| Broadcast scene | Background music |
+| --- | --- |
+| Main / both waiting screens | `ChapterSelect0` · chapter selection |
+| Per-song statistics | `LevelOver2` · IN results |
+| Overall results / qualifier ranking | `LevelOver3` · AT results |
+| Bracket / Grand Final announcement | Chapter 9 inner-pack ambience |
+| Qualifier / double-elimination gameplay and countdown | Silent |
+| Song selection, including the initial six-song draw | No BGM; existing ban/pick previews only |
+
+Music loops and crossfades for 650 ms when the mapped track changes. Ordinary score updates and switches between screens using the same track keep its playback position. Gameplay, inactive/hidden OBS sources, disconnection and final page exit immediately stop and unload BGM. Fixed pages play only while their scene is actually on air. A retiring song preview finishes its fade before scene BGM starts, keeping the two separate.
+
+`audio=0` or `preview=1` disables all overlay audio. `bgm=0` disables only scene BGM, preserving song previews. `bgmVolume=0.15` sets BGM to 15% (range `0`–`1`, default `0.25`); for example, `overlay/live.html?bgmVolume=0.15`. These are per-source settings, so keep other OBS Browser Sources muted with `audio=0`. Refresh the OBS source after updating application files. For scene assignments or local replacements, edit `public/assets/bgm/manifest.json`; paths must stay within `assets/bgm/`.
+
+The optional real-browser BGM regression checks packaged audio, scene assignments, uninterrupted loops, crossfades, gameplay silence, preview exclusivity, OBS visibility, autoplay retry and cleanup:
+
+```sh
+python3 test/scene-bgm-browser.py
+```
 
 Song-art switches in both the staff selection panel and the broadcast selection screen take **550 ms**, with nonlinear easing, decoded-image loading and at most two clipped artwork layers.
 

@@ -30,9 +30,15 @@
   let countdownClient;
   let previewCatalog = new Map(), previewFocus = null, previewRenderPending = false, obsActive = true, obsVisible = true;
   const previewEnabled = query.get('preview') !== '1' && query.get('audio') !== '0';
+  const bgmScenes = new Map(), bgmTracks = new Map();
+  const bgmVolume = query.has('bgmVolume') && Number.isFinite(Number(query.get('bgmVolume')))
+    ? Math.max(0, Math.min(1, Number(query.get('bgmVolume')))) : .25;
+  const bgmEnabled = previewEnabled && query.get('bgm') !== '0' && bgmVolume > 0;
+  const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
+  let bgmStatus = 'silent', selectionStatus = 'silent', audioSyncPending = false;
   const audioPrompt = document.createElement('button');
   audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
-  audioPrompt.textContent = 'Enable song previews · 啟用音樂預覽'; audioPrompt.hidden = true;
+  audioPrompt.textContent = 'Enable broadcast audio · 啟用直播音訊'; audioPrompt.hidden = true;
   document.body.append(audioPrompt);
   const previewNow = () => countdownClient?.connected && countdownClient.now() > 0 ? countdownClient.now() : Date.now();
   const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, now: previewNow,
@@ -49,11 +55,39 @@
       if (pageDisposed) return;
       canvas.dataset.selectionAudio = status.state;
       canvas.dataset.selectionAudioSong = status.songId || '';
-      audioPrompt.hidden = status.state !== 'blocked';
+      selectionStatus = status.state; refreshAudioPrompt();
+      // A preview's outgoing fade owns the audio until its element is released.
+      // Starting menu music from this status callback would overlap that fade.
+      if (!audioSyncPending) {
+        audioSyncPending = true;
+        queueMicrotask(() => { audioSyncPending = false; syncBgm(); });
+      }
     }
   });
-  listen(audioPrompt, 'click', () => selectionAudio.retry());
+  const sceneBgm = BroadcastSceneBgm.createPlayer({ enabled: bgmEnabled, gain: bgmVolume,
+    onStatus(status) {
+      if (pageDisposed) return;
+      bgmStatus = status.state;
+      canvas.dataset.sceneBgm = status.state; canvas.dataset.sceneBgmTrack = status.trackId || '';
+      refreshAudioPrompt();
+    }
+  });
+  listen(audioPrompt, 'click', () => { selectionAudio.retry(); sceneBgm.retry(); });
   const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
+  function refreshAudioPrompt() {
+    if (pageDisposed) return;
+    const scene = shownScene(), onAir = previewEnabled && obsActive && obsVisible && countdownClient?.connected && scene === state?.scene;
+    audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) || selectionStatus === 'blocked' && scene === 'song-selection');
+  }
+  function syncBgm() {
+    if (pageDisposed) return;
+    const scene = shownScene();
+    const active = bootReady && bgmEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected
+      && scene === state?.scene && bgmAllowedScenes.has(scene) && !selectionAudio.hasMedia;
+    sceneBgm.update({ track: bgmTracks.get(bgmScenes.get(scene)) || null, active: !!active });
+    refreshAudioPrompt();
+  }
+  listen(document, 'visibilitychange', syncBgm);
   const refreshCountdown = () => countdownLayer.update(countdownClient, state, shownScene());
   const requestedRound = Number(query.get('round'));
   const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
@@ -250,6 +284,7 @@
     const current = B.currentMatch(state);
     selectionAudio.update({ cue: current?.selectionPreviewCue, songs: previewSongs(current),
       active: obsActive && obsVisible && countdownClient?.connected && countdownClient.now() > 0 && scene === 'song-selection' && state.scene === 'song-selection' && state.stage === 'double-elimination' && current?.id !== 'GF' && current?.status !== 'complete' && !B.matchTiebreak(state) });
+    syncBgm();
     refreshCountdown();
     bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
@@ -298,6 +333,14 @@
     previewCatalog = new Map(result.tracks.flatMap(track => (track.songIds || []).map(id => [id, track])));
     render();
   }).catch(() => {});
+  fetch('/assets/bgm/manifest.json', { signal: lifecycle.signal }).then(response => response.ok ? response.json() : null).then(result => {
+    if (pageDisposed || !Array.isArray(result?.tracks)) return;
+    for (const track of result.tracks.slice(0, 16)) {
+      if (typeof track.id === 'string' && BroadcastSceneBgm.safePath(track.path)) bgmTracks.set(track.id, track);
+    }
+    for (const scene of bgmAllowedScenes) if (typeof result.scenes?.[scene] === 'string') bgmScenes.set(scene, result.scenes[scene]);
+    syncBgm();
+  }).catch(() => {});
   function disposePage(event) {
     // A cached history entry keeps its live controllers for restoration.
     if (event.persisted || pageDisposed) return;
@@ -305,10 +348,10 @@
     lifecycle.abort(); brandingRequest.abort(); clearTimeout(brandingTimer);
     clearInterval(rankingTimer); resolveInitialState();
     countdownClient?.dispose(); countdownLayer.dispose();
-    selectionAudio.dispose(); bracketMotion.dispose(); motion.dispose();
+    selectionAudio.dispose(); sceneBgm.dispose(); bracketMotion.dispose(); motion.dispose();
     mediaWarmup.dispose(); displayMedia.dispose();
     socket.removeAllListeners(); socket.disconnect();
-    previewCatalog.clear(); state = null; audioPrompt.remove();
+    previewCatalog.clear(); bgmTracks.clear(); bgmScenes.clear(); state = null; audioPrompt.remove();
   }
   listen(window, 'pagehide', disposePage);
   listen(window, 'obsSourceActiveChanged', event => { obsActive = event.detail?.active !== false; render(); });

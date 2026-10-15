@@ -136,7 +136,11 @@ def wait_playing(page, song_id):
 
 
 def wait_silent(page):
-    page.wait_for_function('''()=>window.__fixtureMedia.every(media=>media.paused&&media.volume===0)''', timeout=5000)
+    # Other scenes may now own a separate BGM decoder. This suite checks that
+    # the outgoing song previews stop; scene-bgm-browser covers BGM ownership.
+    page.wait_for_function('''()=>window.__fixtureMedia.filter(media=>
+      !media.matches('[data-scene-bgm],[data-scene-bgm-retiring]'))
+      .every(media=>media.paused&&media.volume===0)''', timeout=5000)
 
 
 def wait_prepared(page, song_id):
