@@ -70,7 +70,12 @@ PROBE = r"""() => {
     }));
     const ghosts=Array.from(mount?.querySelectorAll('[data-motion-ghost]')||[]).filter(visible).map(el=>el.dataset.motionGhost);
     const covers=Array.from(document.querySelectorAll('.selection-art,.cover-window')).map(el=>({
-      phase:el.dataset.coverMotionPhase||'idle',images:Array.from(el.querySelectorAll('img')).map(i=>({src:i.getAttribute('src'),old:i.hasAttribute('data-motion-cover-old')}))
+      phase:el.dataset.coverMotionPhase||'idle',height:el.clientHeight,
+      edge:parseFloat(getComputedStyle(el).clipPath.match(/^polygon\((.*)\)$/)?.[1].split(',')[0]),
+      images:Array.from(el.querySelectorAll('img')).map(i=>{
+        const matrix=new DOMMatrix(getComputedStyle(i).transform);
+        return {src:i.getAttribute('src'),old:i.hasAttribute('data-motion-cover-old'),x:matrix.m41,y:matrix.m42};
+      })
     }));
     probe.frames.push({phase:mount?.dataset.motionPhase||'control',scene:canvas?.dataset.renderedScene||'',
       keys:mount?descriptors():{},ghosts,animations,covers,maskCount:mount?document.querySelectorAll('[id="capture-mask"]').length:0});
@@ -145,6 +150,11 @@ def validate_trace(trace, label, scene_motion=True, cross_scene=False, logos_onl
                 assert animation['duration'] < 1000, (label, 'Slow branding', animation)
         for cover in frame['covers']:
             assert len(cover['images']) <= 2, (label, 'More than two artwork layers', cover)
+            if cover['phase'] == 'move':
+                for image in cover['images']:
+                    sign = 1 if image['old'] else -1
+                    assert sign*image['y'] >= -.02 and sign*image['x'] <= .02, (label, 'Artwork reversed downward direction', image)
+                    assert abs(image['x'] + cover['edge'] / cover['height'] * image['y']) < .02, (label, 'Artwork movement diverged from clip side', cover)
     if scene_motion:
         # A different key/tag identifies non-shared content. Ghosts carry the
         # old/new block pictures; original shared children retain their identity.
@@ -197,6 +207,119 @@ def validate_cover_no_flashback(trace, latest_src):
             if arrived:
                 assert current == latest_src, ('Repeated state flashed an older bitmap', latest_src, current)
     assert arrived, ('No frame observed the requested bitmap', latest_src)
+
+
+def validate_diagonal_cover(page, selector, label, screenshot_dir=None):
+    """Inspect the actual clipped window at paused animation times, including scale.
+
+    Hit testing omits the outgoing image (pointer-events:none), so coverage is
+    checked against both painted rectangles. Screenshot comparisons separately
+    check that images cannot paint into either excluded slanted corner.
+    """
+    page.locator(selector).scroll_into_view_if_needed()
+    original = page.locator(selector + ' img').get_attribute('src')
+    prefix = '../' if selector == '.cover-window' else '/'
+    alternate = prefix + 'assets/song/' + ('cover-2.svg' if original.endswith('cover-1.svg') else 'cover-1.svg')
+    page.evaluate('''({selector,original,alternate})=>{
+      const el=document.querySelector(selector);
+      window.__diagonalCoverPromise=BroadcastMotion.coverSlide(el,original,{src:alternate});
+    }''', {'selector': selector, 'original': original, 'alternate': alternate})
+    page.wait_for_function('''selector=>{
+      const el=document.querySelector(selector);
+      if(el.dataset.coverMotionPhase!=='move')return false;
+      const animations=el.getAnimations({subtree:true});
+      if(animations.length!==2)return false;
+      for(const animation of animations){animation.pause();animation.currentTime=0;}
+      return true;
+    }''', arg=selector)
+    results = []
+    for step in [0, .25, .5, .75, 1]:
+        geometry = page.evaluate('''({selector,step})=>{
+          const el=document.querySelector(selector),style=getComputedStyle(el);
+          const animations=el.getAnimations({subtree:true});
+          for(const animation of animations)animation.currentTime=animation.effect.getTiming().duration*step;
+          const box=el.getBoundingClientRect(),width=el.clientWidth,height=el.clientHeight;
+          const first=style.clipPath.match(/^polygon\\((.*)\\)$/)?.[1].split(',')[0];
+          const edge=parseFloat(first),scale=box.width/width;
+          const images=Array.from(el.querySelectorAll('img')).map(image=>{
+            const matrix=new DOMMatrix(getComputedStyle(image).transform);
+            return {old:image.hasAttribute('data-motion-cover-old'),x:image.offsetLeft+matrix.m41,
+              y:image.offsetTop+matrix.m42,width:image.offsetWidth,height:image.offsetHeight};
+          });
+          const animation=animations.find(a=>a.effect.target.hasAttribute('data-motion-cover-old'));
+          const progress=animation.effect.getComputedTiming().progress;
+          const branding=Array.from(document.querySelectorAll('[data-motion-key="club-soc"],[data-motion-key="club-kirameki"],[data-motion-key="phigros-logo"]')).map(logo=>{
+            const b=logo.getBoundingClientRect();return {key:logo.dataset.motionKey,x:b.x,y:b.y,width:b.width,height:b.height};
+          });
+          return {step,progress,edge,width,height,scale,images,branding,clipPath:style.clipPath,
+            box:{x:box.x,y:box.y,width:box.width,height:box.height}};
+        }''', {'selector': selector, 'step': step})
+        edge, width, height = geometry['edge'], geometry['width'], geometry['height']
+        assert abs(edge / height - .2679491924) < .00001, (label, 'Unexpected slanted clip', geometry)
+        progress = geometry['progress']
+        old = next(image for image in geometry['images'] if image['old'])
+        incoming = next(image for image in geometry['images'] if not image['old'])
+        assert abs(old['x'] + edge * progress) < .02 and abs(old['y'] - height * progress) < .02, (label, 'Outgoing cover must move down parallel to clip', geometry)
+        assert abs(incoming['x'] - edge * (1-progress)) < .02 and abs(incoming['y'] + height * (1-progress)) < .02, (label, 'Incoming cover must follow outgoing cover', geometry)
+        # Sample both sides of the moving join as well as the window edges.
+        rows = [.001, .02, .25, .5, .75, .98, .999]
+        rows += [value for value in [progress-.001, progress+.001] if 0 < value < 1]
+        for fy in rows:
+            left, right = edge * (1-fy), width - edge * fy
+            for fx in [.001, .1, .5, .9, .999]:
+                x, y = left + (right-left)*fx, height*fy
+                assert any(image['x']-.02 <= x <= image['x']+image['width']+.02 and image['y']-.02 <= y <= image['y']+image['height']+.02 for image in geometry['images']), (label, 'Uncovered point in clipped window', step, x, y, geometry)
+        box = geometry['box']
+        for logo in geometry['branding']:
+            assert box['x']+box['width'] <= logo['x'] or logo['x']+logo['width'] <= box['x'] or box['y']+box['height'] <= logo['y'] or logo['y']+logo['height'] <= box['y'], (label, 'Cover window overlaps branding', logo, box)
+        if screenshot_dir:
+            page.screenshot(path=str(screenshot_dir / f'{label}-{int(step*100):03}.png'))
+        if step == .5:
+            painted = Image.open(io.BytesIO(page.screenshot())).convert('RGB')
+            page.locator(selector + ' img').evaluate_all("images=>images.forEach(image=>image.style.visibility='hidden')")
+            baseline = Image.open(io.BytesIO(page.screenshot())).convert('RGB')
+            page.locator(selector + ' img').evaluate_all("images=>images.forEach(image=>image.style.removeProperty('visibility'))")
+            for x, y in [(edge*.2, height*.05), (width-edge*.2, height*.95), (-3, height*.5), (width+3, height*.5)]:
+                point = (round(box['x']+x*geometry['scale']), round(box['y']+y*geometry['scale']))
+                if 0 <= point[0] < painted.width and 0 <= point[1] < painted.height:
+                    assert max(abs(a-b) for a,b in zip(painted.getpixel(point),baseline.getpixel(point))) <= 1, (label, 'Artwork escaped clipping window', point)
+        results.append(geometry)
+    page.evaluate('''async({selector,original,alternate})=>{
+      const el=document.querySelector(selector);
+      await BroadcastMotion.coverSlide(el,alternate,{src:original,immediate:true});
+      await window.__diagonalCoverPromise;
+    }''', {'selector': selector, 'original': original, 'alternate': alternate})
+    try:
+        cover_idle(page, selector)
+    except Exception:
+        print(label, page.locator(selector).evaluate('''el=>({phase:el.dataset.coverMotionPhase,html:el.innerHTML,animations:el.getAnimations({subtree:true}).map(a=>({state:a.playState,currentTime:a.currentTime}))})'''), flush=True)
+        raise
+    return results
+
+
+def validate_reduced_cover_interruption(page, selector):
+    original = page.locator(selector + ' img').get_attribute('src')
+    prefix = '../' if selector == '.cover-window' else '/'
+    alternate = prefix + 'assets/song/' + ('cover-2.svg' if original.endswith('cover-1.svg') else 'cover-1.svg')
+    page.evaluate('''({selector,original,alternate})=>{
+      BroadcastMotion.coverSlide(document.querySelector(selector),original,{src:alternate});
+    }''', {'selector': selector, 'original': original, 'alternate': alternate})
+    page.wait_for_function('''selector=>{
+      const el=document.querySelector(selector);
+      if(el.dataset.coverMotionPhase!=='move')return false;
+      for(const animation of el.getAnimations({subtree:true})){animation.pause();animation.currentTime=275;}
+      return true;
+    }''', arg=selector)
+    page.emulate_media(reduced_motion='reduce')
+    cover_idle(page, selector)
+    if selector == '.cover-window':
+        assert page.locator(selector + ' img').get_attribute('src') == alternate, 'Reduced motion retained an obsolete cover'
+    # The broadcast renderer can reconcile its logical song focus in response
+    # to the media change. It must still remove every obsolete artwork layer.
+    assert not page.locator(selector + ' [data-motion-cover-old]').count()
+    page.emulate_media(reduced_motion='no-preference')
+    page.evaluate('''({selector,original,alternate})=>BroadcastMotion.coverSlide(document.querySelector(selector),alternate,{src:original,immediate:true})''', {'selector': selector, 'original': original, 'alternate': alternate})
+    cover_idle(page, selector)
 
 
 def directed_scene_walk():
@@ -290,16 +413,42 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 crew.click('.tabs [data-tab="songs"]'); crew.wait_for_selector('.song-preview-button')
                 candidates = next(m for m in state()['tournament']['matches'] if m['id'] == 'W2')['candidates']
                 forward = next(i for i in range(1, len(candidates)) if candidates[i]['art'] != candidates[0]['art'])
+                diagonal_dir = OUT / 'diagonal-cover'
+                diagonal_dir.mkdir(exist_ok=True, parents=True)
+                diagonal_results = {}
+                for width in [1194, 1000, 768, 390]:
+                    crew.set_viewport_size({'width': width, 'height': 834})
+                    label = f'control-{width}'
+                    diagonal_results[label] = validate_diagonal_cover(crew, '.cover-window', label)
+                crew.set_viewport_size({'width': 1194, 'height': 834})
+                for width, height in [(1920,1080), (1280,720), (960,540)]:
+                    live.set_viewport_size({'width':width,'height':height})
+                    live.wait_for_function('(width)=>Math.abs(document.querySelector("#canvas").getBoundingClientRect().width-width)<.1', arg=width)
+                    label = f'broadcast-{width}'
+                    diagonal_results[label] = validate_diagonal_cover(live, '.selection-art', label, diagonal_dir if width == 1280 else None)
+                live.set_viewport_size({'width':1920,'height':1080})
+                validate_reduced_cover_interruption(crew, '.cover-window')
+                validate_reduced_cover_interruption(live, '.selection-art')
+                (diagonal_dir / 'geometry.json').write_text(json.dumps(diagonal_results,indent=2)+'\n')
+                from PIL import ImageDraw
+                sheet = Image.new('RGB', (640*3, 384*2), '#17111d')
+                draw = ImageDraw.Draw(sheet)
+                for index, step in enumerate([0,25,50,75,100]):
+                    tile = Image.open(diagonal_dir / f'broadcast-1280-{step:03}.png').convert('RGB')
+                    tile.thumbnail((640,360))
+                    x,y = index%3*640, index//3*384
+                    sheet.paste(tile,(x,y)); draw.text((x+8,y+365),f'Animation time {step}%',fill='white')
+                sheet.save(diagonal_dir / 'contact-sheet.jpg', quality=92)
                 direction_results = []
-                for index, expected_sign in [(forward, 1), (0, -1)]:
+                for index in [forward, 0]:
                     start_trace(crew)
                     button = crew.locator(f'.song-preview-button[data-focus-song="{candidates[index]["id"]}"]')
                     button.focus(); crew.keyboard.press('Enter'); cover_idle(crew, '.cover-window')
                     trace = stop_trace(crew); checked_cover_trace(trace, 'keyboard cover direction', False)
-                    transforms = [f['transform'] for frame in trace['frames'] for animation in frame['animations'] for f in animation['frames'] if f.get('transform')]
-                    assert any(f'translateY({expected_sign * 100}%)' == transform for transform in transforms), (index, transforms)
+                    assert any(animation['artwork'] for frame in trace['frames'] for animation in frame['animations']), ('No keyboard artwork animation observed',index)
+                    # Candidate order must not reverse the requested downward path.
+                    direction_results.append('down-left')
                     assert crew.evaluate('document.activeElement.dataset.focusSong') == candidates[index]['id']
-                    direction_results.append(expected_sign)
 
                 start_trace(crew)
                 indices = [forward, 0, len(candidates)-1, 1, forward, len(candidates)-1]
@@ -372,6 +521,11 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 latest=next(m for m in state()['tournament']['matches'] if m['id']=='W2')['songs'][0]
                 validate_cover_no_flashback(trace,'/'+latest['art'])
                 assert live.locator('.selection-detail h2').inner_text()==latest['title']
+                # An active two-song music preview intentionally owns selection
+                # focus independently of the gameplay cursor. Suspend that cue
+                # through OBS visibility before testing cursor-driven movement.
+                live.evaluate("dispatchEvent(new CustomEvent('obsSourceVisibleChanged',{detail:{visible:false}}))")
+                idle(live,'song-selection');cover_idle(live,'.selection-art')
                 start_trace(live)
                 revision=crew.evaluate('''async()=>{let result;for(const index of [1,0,1,0,1])result=await window.__fixtureCommand('set-song-progress',{index});return result.revision}''')
                 idle(live, 'song-selection',revision); cover_idle(live, '.selection-art'); trace = stop_trace(live)
@@ -380,11 +534,15 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 assert live.locator('.selection-art img').get_attribute('src') == '/' + latest['art']
                 assert live.locator('.selection-detail h2').inner_text() == latest['title']
                 revision=set_scene('double-elimination-match'); idle(live, 'double-elimination-match',revision)
+                live.evaluate("dispatchEvent(new CustomEvent('obsSourceVisibleChanged',{detail:{visible:true}}))")
                 start_trace(live); revision=command('set-match-score', {'playerIndex': 0, 'songIndex': 0, 'score': 999201})['revision']; idle(live, 'double-elimination-match',revision)
                 trace = stop_trace(live); checked_cover_trace(trace, 'same-scene score update')
                 assert not ({'exit', 'enter'} & set(trace['phases'])), 'A score update caused a whole-scene exit/enter'
                 assert '999,201' in live.locator('.player-total').first.inner_text()
                 report.update(cover_directions=direction_results, rapid_cover_latest=True,
+                              diagonal_cover_viewports=list(diagonal_results),diagonal_cover_paused_samples=sum(len(samples) for samples in diagonal_results.values()),
+                              diagonal_cover_geometry=str(diagonal_dir / 'geometry.json'),diagonal_cover_contact_sheet=str(diagonal_dir / 'contact-sheet.jpg'),
+                              reduced_motion_during_cover_clears_old_layer=True,
                               keyboard_focus_retained=True, maximum_cover_layers=2,
                               duplicate_state_during_decode=True,score_during_cover_motion=True,
                               control_cover_identity=True,duplicate_cover_motion_not_restarted=True)

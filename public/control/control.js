@@ -604,7 +604,6 @@
     const openDetails = [...$('content').querySelectorAll('details[open][id]')].map(el => el.id);
     const previousArtWindow = $('content').querySelector('.cover-window');
     const previousSrc = previousArtWindow?.querySelector('img:not([data-motion-cover-old])')?.getAttribute('src');
-    const previousFocus = $('content').querySelector('.candidate-row.focused')?.dataset.focusSong;
     const nextHTML = pages[activeTab]();
     const template = document.createElement('template'); template.innerHTML = nextHTML;
     reconcileDrafts(); prepareDrafts(template.content);
@@ -627,11 +626,7 @@
     for (const id of openDetails) if ($(id)) $(id).open = true;
     const artWindow = $('content').querySelector('.cover-window');
     if (artWindow && requestedCover) {
-      const candidates = B.currentMatch(state)?.candidates || [];
-      const nextFocus = $('content').querySelector('.candidate-row.focused')?.dataset.focusSong;
-      const previousIndex = candidates.findIndex(s => s.id === previousFocus), nextIndex = candidates.findIndex(s => s.id === nextFocus);
-      const direction = previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? -1 : 1;
-      BroadcastMotion.coverSlide(artWindow, previousSrc, direction, requestedCover);
+      BroadcastMotion.coverSlide(artWindow, previousSrc, requestedCover);
     }
     if (focused && $(focused.id)?.dataset.draftScope === focused.scope) { const next = $(focused.id); next.focus({ preventScroll: true }); try { if (focused.start !== null) next.setSelectionRange(focused.start, focused.end); } catch (_) {} }
     else if (keyboardSelector) $('content').querySelector(`button${keyboardSelector}`)?.focus({ preventScroll: true });

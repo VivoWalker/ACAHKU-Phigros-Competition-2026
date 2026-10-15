@@ -480,11 +480,13 @@
   }
   function stopCover(controller, latest) {
     latest ||= controller.pending || controller.active?.record;
+    const active = controller.active, pending = controller.pending;
     controller.token++; clearCover(controller);
     if (latest) applyCover(controller, latest);
-    if (controller.windowEl.isConnected) mountCover(controller);
-    controller.active?.record.resolve(); controller.pending?.resolve(); latest?.resolve();
+    // Drop the retired layer before remounting, including interrupted movement.
     controller.active = controller.pending = null;
+    if (controller.windowEl.isConnected) mountCover(controller);
+    active?.record.resolve(); pending?.resolve(); latest?.resolve();
     controller.visibleSrc = controller.renderedSrc; activeCovers.delete(controller);
   }
   async function runCover(controller, record) {
@@ -519,8 +521,11 @@
     applyCover(controller, record); controller.active.started = true; controller.windowEl.append(old);
     controller.windowEl.dataset.coverMotionPhase = 'move';
     const options = { duration: DURATION, easing: EASING, fill: 'both' };
-    const incoming = controller.image.animate([{ transform: `translateY(${record.direction * 100}%)` }, { transform: 'translateY(0%)' }], options);
-    const outgoing = old.animate([{ transform: 'translateY(0%)' }, { transform: `translateY(${-record.direction * 100}%)` }], options);
+    // Share the clip's horizontal inset so both bitmaps travel down its slanted
+    // sides. Percent heights stay in local coordinates even on a scaled canvas.
+    const edge = getComputedStyle(controller.windowEl).getPropertyValue('--cover-edge-offset').trim() || '0px';
+    const incoming = controller.image.animate([{ transform: `translate(${edge}, -100%)` }, { transform: 'translate(0, 0)' }], options);
+    const outgoing = old.animate([{ transform: 'translate(0, 0)' }, { transform: `translate(calc(-1 * ${edge}), 100%)` }], options);
     controller.active.animations = [incoming, outgoing];
     await Promise.all([incoming.finished.catch(() => {}), outgoing.finished.catch(() => {})]);
     if (token !== controller.token) return;
@@ -528,7 +533,7 @@
     const latest = controller.pending; controller.pending = null;
     if (latest) runCover(controller, latest); else activeCovers.delete(controller);
   }
-  function coverSlide(windowEl, oldSrc, direction = 1, requested) {
+  function coverSlide(windowEl, oldSrc, requested) {
     if (!windowEl) return Promise.resolve();
     const target = windowEl.querySelector('img:not([data-motion-cover-old])');
     if (!target) return Promise.resolve();
@@ -555,7 +560,7 @@
       if (controller.active.started) applyCover(controller, controller.active.record);
       mountCover(controller); return controller.active.record.promise;
     }
-    const record = { src: requestedSrc, attrs, direction: direction < 0 ? -1 : 1, loader: null, ready: null };
+    const record = { src: requestedSrc, attrs, loader: null, ready: null };
     if (typeof requested?.decodeImage === 'function') {
       record.ready = Promise.resolve().then(() => requested.decodeImage(requestedSrc)).then(result => { record.loader = result?.image; }).catch(() => {});
     } else {

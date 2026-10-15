@@ -10,7 +10,7 @@
   const rankPage = Number.parseInt(query.get('rankPage'), 10);
   const fixedRankPage = Number.isInteger(rankPage) && rankPage > 0;
   let rankingTick = 0;
-  let state, committedCover, committedFocus, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
+  let state, committedCover, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
   let bootReady = false, resolveInitialState;
   const initialState = new Promise(resolve => { resolveInitialState = resolve; });
   const displayMedia = BroadcastDisplayMedia.createClient();
@@ -227,8 +227,7 @@
     bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
     const mode = showHandcams(state) ? 'dual' : 'single', hasVisual = !!branding.visual, revision = state.revision;
-    const m = B.currentMatch(state), focus = selectionFocus(state);
-    const focusIndex = m?.candidates.findIndex(song => song.id === focus?.id);
+    const focus = selectionFocus(state);
     motion.update(next, { scene, animateEntries: scene !== 'bracket', onCommit({ previousScene }) {
       canvas.dataset.renderedScene = scene;
       canvas.dataset.renderedRevision = String(revision);
@@ -236,12 +235,11 @@
       canvas.dataset.displayMode = mode;
       const windowEl = mount.querySelector('.selection-art'), src = windowEl ? art(focus) : undefined;
       if (windowEl && previousScene !== scene) {
-        BroadcastMotion.coverSlide(windowEl, committedCover, 1, { src, alt: focus?.title || 'Song artwork', immediate: true, decodeImage: mediaWarmup.decodeImage });
+        BroadcastMotion.coverSlide(windowEl, committedCover, { src, alt: focus?.title || 'Song artwork', immediate: true, decodeImage: mediaWarmup.decodeImage });
       } else if (windowEl && committedCover) {
-        const direction = focusIndex >= 0 && committedFocus >= 0 && focusIndex < committedFocus ? -1 : 1;
-        BroadcastMotion.coverSlide(windowEl, committedCover, direction, { src, alt: focus?.title || 'Song artwork', decodeImage: mediaWarmup.decodeImage });
+        BroadcastMotion.coverSlide(windowEl, committedCover, { src, alt: focus?.title || 'Song artwork', decodeImage: mediaWarmup.decodeImage });
       }
-      committedCover = src; committedFocus = focusIndex;
+      committedCover = src;
       bracketMotion.afterCommit();
     } });
   }

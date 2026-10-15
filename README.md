@@ -336,7 +336,7 @@ The song-pool browser regression uses dummy pairing codes and private temporary 
 python3 test/song-pool-master.py
 ```
 
-The motion regression checks all 56 directed page changes frame by frame: logo duration/layering, left-to-right exit/entrance order, right-to-left fade/slide, outgoing snapshot cleanup, element overlap, stage bounds, rapid updates, reduced motion and transparent captures. Cover loading, replacement and keyboard interaction use a separate suite. Both operate on temporary event data:
+The motion regression checks all 56 directed page changes frame by frame: logo duration/layering, left-to-right exit/entrance order, right-to-left fade/slide, outgoing snapshot cleanup, element overlap, stage bounds, rapid updates, reduced motion and transparent captures. Cover loading, replacement and keyboard interaction use a separate suite. Song jackets slide down and left parallel to their parallelogram's sides in 550 ms, with the next image entering from the upper right; both broadcast and control use the same direction. Both suites operate on temporary event data:
 
 ```sh
 python3 test/motion-layout.py
