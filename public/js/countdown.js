@@ -71,10 +71,10 @@
   function createLayer(canvas) {
     const layer = document.createElement('section'); layer.className = 'match-countdown'; layer.hidden = true;
     layer.setAttribute('role', 'status'); layer.setAttribute('aria-live', 'assertive'); layer.setAttribute('aria-atomic', 'true');
-    layer.innerHTML = '<div class="countdown-stage" aria-hidden="true"><div class="countdown-lane is-left"><i class="countdown-note is-tap"></i><i class="countdown-note is-hold"></i><i class="countdown-note is-flick"></i></div><div class="countdown-lane is-right"><i class="countdown-note is-tap"></i><i class="countdown-note is-hold"></i><i class="countdown-note is-flick"></i></div><div class="countdown-judgment"><i></i><b></b></div><div class="countdown-hit is-left"></div><div class="countdown-hit is-right"></div></div><div class="countdown-frame"><p class="countdown-eyebrow">PHIGROS</p><div class="countdown-number"></div><p class="countdown-caption">GET READY</p><div class="countdown-progress" aria-hidden="true"><i></i></div></div>';
+    layer.innerHTML = '<div class="countdown-frame"><div class="countdown-panel" aria-hidden="true"></div><p class="countdown-eyebrow">MATCH START</p><div class="countdown-number"></div><p class="countdown-caption">準備開始</p><div class="countdown-progress" aria-hidden="true"><i></i><i></i><i></i></div></div>';
     canvas.append(layer);
-    const number = layer.querySelector('.countdown-number'), caption = layer.querySelector('.countdown-caption'), progress = layer.querySelector('.countdown-progress i');
-    const line = layer.querySelector('.countdown-judgment'), notes = [...layer.querySelectorAll('.countdown-note')], hits = [...layer.querySelectorAll('.countdown-hit')];
+    const number = layer.querySelector('.countdown-number'), caption = layer.querySelector('.countdown-caption'), panel = layer.querySelector('.countdown-panel');
+    const steps = [...layer.querySelectorAll('.countdown-progress i')];
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
     let client, eligible, cueId, shown = -1, frame = null, fadeAnimation = null, disposed = false;
     const beatAnimations = [];
@@ -91,7 +91,7 @@
       if (layer.hidden && shown === -1 && !beatAnimations.length && !fadeAnimation) return;
       layer.hidden = true; layer.style.opacity = ''; layer.removeAttribute('data-countdown-id'); delete layer.dataset.countdownPhase;
       cancelBeat(); fadeAnimation?.cancel(); fadeAnimation = null;
-      layer.classList.remove('is-start'); delete layer.dataset.countdownBeat;
+      layer.classList.remove('is-start');
       cueId = null; shown = -1;
     }
     function paint() {
@@ -102,43 +102,26 @@
       if (cueId !== cue.id || shown !== current.index) {
         cancelBeat(); if (cueId !== cue.id) { fadeAnimation?.cancel(); fadeAnimation = null; }
         cueId = cue.id; shown = current.index; number.textContent = current.label;
-        layer.classList.toggle('is-start', current.index === 3); layer.dataset.countdownBeat = ['tap', 'hold', 'flick', 'start'][current.index];
-        caption.textContent = current.index === 3 ? '開始比賽' : 'GET READY';
+        layer.classList.toggle('is-start', current.index === 3);
+        caption.textContent = current.index === 3 ? '開始比賽' : '準備開始';
+        steps.forEach((step, index) => {
+          step.classList.toggle('is-current', current.index === index);
+          step.classList.toggle('is-complete', current.index > index);
+        });
         if (!reduce.matches) {
           const elapsed = client.now() - current.startsAt;
           // Each beat comes from the same server clock. Late sources seek into
           // the current motion rather than replaying its entrance.
-          const frames = [{ opacity: 0, transform: 'translate(42px, 18px) scale(.9)', offset: 0, easing: EASE }, { opacity: 1, transform: 'translate(0, 0) scale(1)', offset: .2 }];
-          if (current.index < 3) frames.push({ opacity: 1, transform: 'translate(0, 0) scale(1)', offset: .85, easing: EASE }, { opacity: 0, transform: 'translate(-32px, -10px) scale(1.025)', offset: 1 });
-          else frames.push({ opacity: 1, transform: 'translate(0, 0) scale(1)' });
+          const frames = [{ opacity: 0, transform: 'translateX(40px)', offset: 0, easing: EASE }, { opacity: 1, transform: 'translateX(0)', offset: .2 }];
+          if (current.index < 3) frames.push({ opacity: 1, transform: 'translateX(0)', offset: .85, easing: EASE }, { opacity: 0, transform: 'translateX(-32px)', offset: 1 });
+          else frames.push({ opacity: 1, transform: 'translateX(0)' });
           animateBeat(number, frames, current.index === 3 ? 700 : 1000, elapsed);
-          if (current.index < 3) {
-            const type = ['is-tap', 'is-hold', 'is-flick'][current.index];
-            const skew = current.index === 2 ? ' skewX(-15deg)' : '';
-            for (const note of notes) if (note.classList.contains(type)) animateBeat(note, [
-              { opacity: 0, transform: `translateY(-580px)${skew}`, offset: 0, easing: 'cubic-bezier(.45, 0, .55, 1)' },
-              { opacity: 1, transform: `translateY(-540px)${skew}`, offset: .08, easing: 'cubic-bezier(.45, 0, .55, 1)' },
-              { opacity: 1, transform: `translateY(0)${skew}`, offset: .76 },
-              { opacity: 0, transform: `translateY(10px)${skew}`, offset: .83 },
-              { opacity: 0, transform: `translateY(10px)${skew}`, offset: 1 }
-            ], 1000, elapsed);
-            for (const hit of hits) animateBeat(hit, [
-              { opacity: 0, transform: 'scale(.3)', offset: 0 },
-              { opacity: 0, transform: 'scale(.3)', offset: .74, easing: EASE },
-              { opacity: .65, transform: 'scale(1)', offset: .79, easing: EASE },
-              { opacity: 0, transform: 'scale(1.65)', offset: 1 }
-            ], 1000, elapsed);
-            animateBeat(line, [
-              { opacity: .65, offset: 0 }, { opacity: .65, offset: .74, easing: EASE },
-              { opacity: 1, offset: .79, easing: EASE }, { opacity: .65, offset: 1 }
-            ], 1000, elapsed);
-          } else animateBeat(line, [
-            { transform: 'scaleX(.3)', opacity: .65, easing: EASE },
-            { transform: 'scaleX(1)', opacity: 1 }
-          ], 650, elapsed);
+          if (current.index === 3) animateBeat(panel, [
+            { backgroundColor: '#1b2028', easing: EASE },
+            { backgroundColor: '#f7f8fa' }
+          ], 220, elapsed);
         }
       }
-      progress.style.transform = `scaleX(${current.progress})`;
       if (current.fading && !fadeAnimation && !reduce.matches) {
         fadeAnimation = layer.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, easing: EASE, fill: 'both' });
         fadeAnimation.startTime = (document.timeline.currentTime ?? performance.now()) - (client.now() - (cue.endsAt - 250));
