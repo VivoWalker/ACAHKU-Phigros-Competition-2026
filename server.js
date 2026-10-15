@@ -13,6 +13,7 @@ const obsAdapter = require('./lib/obs-adapter');
 const { context: countdownContext } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
+const { PairingAttempts } = require('./lib/pairing-attempts');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
   const publicDir = options.publicDir || path.join(__dirname, 'public');
@@ -31,7 +32,7 @@ function createBroadcastServer(options = {}) {
     const [, nonce, signature] = token.split('.');
     return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(scorekeeperSign(nonce), 'hex'));
   };
-  const attempts = new Map();
+  const attempts = new PairingAttempts();
   const app = express(); const server = http.createServer(app);
   const io = new Server(server, { maxHttpBufferSize: 100000, cors: false });
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb' }));
@@ -83,14 +84,14 @@ function createBroadcastServer(options = {}) {
   app.post('/api/session', (req, res) => {
     const role = req.body?.role === undefined ? 'control' : req.body.role;
     if (!['control', 'scorekeeper'].includes(role)) return res.status(400).json({ error: 'Unknown panel role.', code: 'INVALID' });
-    const key = role + ':' + req.ip; const now = Date.now(); const failed = (attempts.get(key) || []).filter(t => now - t < 60000);
-    if (failed.length >= 10) return res.status(429).json({ error: 'Too many pairing attempts. Wait one minute.' });
+    const key = role + ':' + req.ip;
+    if (attempts.blocked(key)) return res.status(429).json({ error: 'Too many pairing attempts. Wait one minute.' });
     const expectedPin = role === 'control' ? pin : scorekeeperPin;
     const candidate = String(req.body?.pin || '');
     if (Buffer.byteLength(candidate) !== Buffer.byteLength(expectedPin) || !timingSafeEqual(Buffer.from(candidate), Buffer.from(expectedPin))) {
-      failed.push(now); attempts.set(key, failed); return res.status(401).json({ error: 'Incorrect pairing code.' });
+      attempts.fail(key); return res.status(401).json({ error: 'Incorrect pairing code.' });
     }
-    attempts.delete(key); const nonce = randomBytes(32).toString('hex');
+    attempts.clear(key); const nonce = randomBytes(32).toString('hex');
     res.json({ token: role === 'control' ? nonce + '.' + sign(nonce) : 'scorekeeper.' + nonce + '.' + scorekeeperSign(nonce), role });
   });
   app.get('/api/control-state', authenticated, (req, res) => res.json(controlState()));
@@ -205,7 +206,7 @@ function createBroadcastServer(options = {}) {
   app.use((err, req, res, next) => res.status(400).json({ error: 'Invalid request.' }));
   return { app, server, io, store, pin, scorekeeperPin,
     listen(port = 3000, host = '0.0.0.0') { return new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.removeListener('error', reject); resolve(server.address()); }); }); },
-    close() { clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null; return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
+    close() { attempts.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null; return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
   };
 }
 if (require.main === module) {

@@ -81,7 +81,7 @@
     + 'object-fit object-position transform transform-origin clip-path mask-image mask-size mask-position mask-repeat '
     + 'filter box-shadow text-shadow z-index -webkit-line-clamp -webkit-box-orient').split(' ');
   function createScene(mount, { canvas } = {}) {
-    let backdrop, markup, scene, epoch = 0, running = false, current, presentation, lastLayout = new Map();
+    let backdrop, markup, scene, epoch = 0, running = false, disposed = false, current, presentation, lastLayout = new Map();
     let apertures = new Map();
     const content = document.createElement('div'), branding = document.createElement('div'), logoNodes = new Map();
     content.dataset.motionContent = '';
@@ -409,6 +409,7 @@
       restoreAll(); normalizeApertures(); settled(); current = null; record.resolve({ superseded: false });
     }
     function update(html, { scene: nextScene = scene, onCommit, animateEntries = true } = {}) {
+      if (disposed) return Promise.resolve({ superseded: true });
       const record = { html, scene: nextScene, onCommit, animateEntries };
       const promise = new Promise((resolve, reject) => { record.resolve = resolve; record.reject = reject; });
       if (html === markup && nextScene === scene) {
@@ -445,7 +446,19 @@
       const template = document.createElement('template'); template.innerHTML = record.html;
       commit(record, template); normalizeApertures(); settled(); record.resolve({ superseded: false });
     }
-    const controller = { update, finish, idle, reduced }; sceneControllers.add(controller); return controller;
+    function dispose() {
+      if (disposed) return;
+      disposed = true; cancel(); settled();
+      disposeCovers(mount);
+      content.replaceChildren(); branding.replaceChildren();
+      content.remove(); branding.remove(); backdrop?.remove();
+      backdrop = markup = scene = undefined;
+      apertures.clear(); logoNodes.clear(); lastLayout.clear();
+      sceneControllers.delete(controller);
+    }
+    const controller = { update, finish, idle, reduced, dispose,
+      wasConnected: mount.isConnected, get connected() { return mount.isConnected; } };
+    sceneControllers.add(controller); return controller;
   }
   function decoded(image) {
     if (image.complete && image.naturalWidth) return Promise.resolve();
@@ -575,13 +588,25 @@
     else runCover(controller, record);
     return promise;
   }
+  function disposeCovers(root = document) {
+    for (const controller of [...activeCovers])
+      if (root === controller.windowEl || root.contains(controller.windowEl)) controller.stop();
+  }
   // Detached cover windows must release animations and their obsolete artwork.
-  const observer = new MutationObserver(() => { for (const controller of activeCovers) if (!controller.windowEl.isConnected) controller.stop(); });
+  const observer = new MutationObserver(() => {
+    for (const controller of [...activeCovers]) if (!controller.windowEl.isConnected) controller.stop();
+    // Mounted scenes can be replaced by a preview or operator UI. The shared
+    // reduced-motion registry must not retain their detached DOM afterwards.
+    for (const controller of sceneControllers) {
+      if (controller.connected) controller.wasConnected = true;
+      else if (controller.wasConnected) controller.dispose();
+    }
+  });
   observer.observe(document.documentElement, { childList: true, subtree: true });
   reduce.addEventListener('change', () => {
     if (!reduce.matches) return;
     for (const controller of sceneControllers) controller.reduced();
     for (const controller of [...activeCovers]) controller.stop();
   });
-  window.BroadcastMotion = { createScene, coverSlide };
+  window.BroadcastMotion = { createScene, coverSlide, disposeCovers };
 })();

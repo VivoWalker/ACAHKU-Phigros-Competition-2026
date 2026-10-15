@@ -10,7 +10,7 @@ const { createDefaultState } = require('./helpers/legacy-state');
 function controlOperation() {
   // Exercise the shipped async handler: the queue/socket stubs expose a real timing race.
   const source = fs.readFileSync(path.join(__dirname, '../public/control/control.js'), 'utf8');
-  const begin = source.indexOf('  async function sendCountdown('), end = source.indexOf('  setInterval(refreshCountdownControls', begin);
+  const begin = source.indexOf('  async function sendCountdown('), end = source.indexOf('  const countdownRefreshTimer =', begin);
   assert.ok(begin >= 0 && end > begin, 'The shipped countdown handler must exist');
   const state = createDefaultState(); state.scene = 'qualifier-match';
   let release;

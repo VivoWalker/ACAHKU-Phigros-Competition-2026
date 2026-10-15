@@ -222,3 +222,20 @@ test('dispose cancels every timer and pending playback promises cannot revive ol
   assert.equal(f.audios[0].removed, true); assert.equal(f.timers.size, 0);
   assert.equal(f.statuses.some(status => status.state === 'playing'), false);
 });
+
+test('replaced catalog files release old duration and failure records during a long-lived cue', async t => {
+  const f = fixture(t), banned = cue('edit-preview', 'ban', ['a']);
+  f.update(banned); f.advance(FADE_MS); await flush();
+  f.audios[0].duration = 10; f.audios[0].emit('loadedmetadata');
+  assert.equal(f.player.phase.duration, 10);
+  f.audios[0].emit('error');
+  const replacement = songs.map(song => song.id === 'a' ? { ...song, previewAudio: 'assets/song-preview/replacement.mp3' } : song);
+  f.update(banned, { songs: replacement }); await flush();
+  assert.equal(f.player.phase.duration, 12);
+  f.update(banned); await flush();
+  assert.equal(f.audios.length, 3);
+  assert.equal(f.audios[2].src, '/assets/song-preview/a.mp3');
+  assert.equal(f.statuses.at(-1).state, 'playing');
+  assert.equal(f.player.phase.duration, 12);
+  assert.ok(f.audios.slice(0, 2).every(audio => audio.removed && audio.listeners.size === 0));
+});

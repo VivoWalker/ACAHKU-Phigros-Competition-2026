@@ -1,5 +1,8 @@
 (function () {
   const B = Broadcast, e = B.escape, canvas = document.getElementById('canvas'), mount = document.getElementById('scene');
+  const lifecycle = new AbortController(), brandingRequest = new AbortController();
+  const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: lifecycle.signal });
+  let pageDisposed = false, brandingTimer;
   const requested = document.body.dataset.scene || 'start';
   const query = new URLSearchParams(location.search);
   const follow = query.has('follow') ? query.get('follow') !== '0' : requested === 'start' || requested === 'live';
@@ -16,6 +19,7 @@
   const displayMedia = BroadcastDisplayMedia.createClient();
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 12, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800,
     onStatus(status) {
+      if (pageDisposed) return;
       canvas.dataset.mediaWarmup = status.targetPending ? 'loading' : status.failed ? 'fallback' : 'ready';
       canvas.dataset.mediaDecoded = String(status.ready);
       canvas.dataset.mediaPending = String(status.targetPending);
@@ -33,6 +37,7 @@
   const previewNow = () => countdownClient?.connected && countdownClient.now() > 0 ? countdownClient.now() : Date.now();
   const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, now: previewNow,
     onFocus(songId) {
+      if (pageDisposed) return;
       if (previewFocus === songId) return;
       previewFocus = songId;
       if (!previewRenderPending) {
@@ -41,12 +46,13 @@
       }
     },
     onStatus(status) {
+      if (pageDisposed) return;
       canvas.dataset.selectionAudio = status.state;
       canvas.dataset.selectionAudioSong = status.songId || '';
       audioPrompt.hidden = status.state !== 'blocked';
     }
   });
-  audioPrompt.addEventListener('click', () => selectionAudio.retry());
+  listen(audioPrompt, 'click', () => selectionAudio.retry());
   const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
   const refreshCountdown = () => countdownLayer.update(countdownClient, state, shownScene());
   const requestedRound = Number(query.get('round'));
@@ -89,7 +95,7 @@
     canvas.style.left = `${(innerWidth - 1920 * scale) / 2}px`;
     canvas.style.top = `${(innerHeight - 1080 * scale) / 2}px`;
   }
-  addEventListener('resize', fit); fit();
+  listen(window, 'resize', fit); fit();
   function logo(className = '') {
     return branding.logo ? `<img data-motion-key='phigros-logo' class='phigros-logo ${className}' src='${e(url(displayPath(branding.logo)))}' alt='Phigros'>` : `<span data-motion-key='phigros-wordmark' class='phigros-wordmark ${className}'>Phigros</span>`;
   }
@@ -238,7 +244,7 @@
   }
   const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
-    if (!state || !bootReady) return;
+    if (pageDisposed || !state || !bootReady) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
     warmImages(state, scene);
     const current = B.currentMatch(state);
@@ -264,32 +270,49 @@
       bracketMotion.afterCommit();
     } });
   }
-  setInterval(() => {
+  const rankingTimer = setInterval(() => {
     if (!fixedRankPage && state?.stage === 'qualifier' && canvas.dataset.renderedScene === 'result' && ['A', 'B'].some(group => B.rankings(state, group).length > 8)) {
       rankingTick++; render();
     }
   }, 12000);
   async function prepareBranding() {
-    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 1800);
+    brandingTimer = setTimeout(() => brandingRequest.abort(), 1800);
     try {
-      const response = await fetch('/api/branding', { signal: controller.signal });
-      if (response.ok) branding = await response.json();
+      const response = await fetch('/api/branding', { signal: brandingRequest.signal });
+      if (response.ok) {
+        const next = await response.json();
+        if (!pageDisposed) branding = next;
+      }
     } catch (_) { /* Missing branding leaves the existing text fallback. */ }
-    finally { clearTimeout(timer); }
+    finally { clearTimeout(brandingTimer); }
   }
   Promise.all([displayMedia.ready, prepareBranding(), mediaWarmup.prepareFonts(), initialState]).then(async () => {
+    if (pageDisposed) return;
     canvas.dataset.displayAssets = displayMedia.status;
     await mediaWarmup.prepare(warmImages(state, shownScene()));
+    if (pageDisposed) return;
     bootReady = true; canvas.dataset.mediaBoot = 'ready'; render();
-  }).catch(() => { bootReady = true; canvas.dataset.mediaBoot = 'fallback'; render(); });
-  fetch('/assets/song-preview/manifest.json').then(response => response.ok ? response.json() : null).then(result => {
-    if (!Array.isArray(result?.tracks)) return;
+  }).catch(() => { if (!pageDisposed) { bootReady = true; canvas.dataset.mediaBoot = 'fallback'; render(); } });
+  fetch('/assets/song-preview/manifest.json', { signal: lifecycle.signal }).then(response => response.ok ? response.json() : null).then(result => {
+    if (pageDisposed || !Array.isArray(result?.tracks)) return;
     previewCatalog = new Map(result.tracks.flatMap(track => (track.songIds || []).map(id => [id, track])));
     render();
   }).catch(() => {});
-  addEventListener('pagehide', () => { selectionAudio.dispose(); mediaWarmup.dispose(); displayMedia.dispose(); }, { once: true });
-  addEventListener('obsSourceActiveChanged', event => { obsActive = event.detail?.active !== false; render(); });
-  addEventListener('obsSourceVisibleChanged', event => { obsVisible = event.detail?.visible !== false; render(); });
+  function disposePage(event) {
+    // A cached history entry keeps its live controllers for restoration.
+    if (event.persisted || pageDisposed) return;
+    pageDisposed = true;
+    lifecycle.abort(); brandingRequest.abort(); clearTimeout(brandingTimer);
+    clearInterval(rankingTimer); resolveInitialState();
+    countdownClient?.dispose(); countdownLayer.dispose();
+    selectionAudio.dispose(); bracketMotion.dispose(); motion.dispose();
+    mediaWarmup.dispose(); displayMedia.dispose();
+    socket.removeAllListeners(); socket.disconnect();
+    previewCatalog.clear(); state = null; audioPrompt.remove();
+  }
+  listen(window, 'pagehide', disposePage);
+  listen(window, 'obsSourceActiveChanged', event => { obsActive = event.detail?.active !== false; render(); });
+  listen(window, 'obsSourceVisibleChanged', event => { obsVisible = event.detail?.visible !== false; render(); });
   const socket = createBroadcastSocket('/overlay');
   countdownClient = BroadcastCountdown.createClient(socket, () => { refreshCountdown(); render(); });
   socket.on('state', next => { state = next; resolveInitialState(); render(); });

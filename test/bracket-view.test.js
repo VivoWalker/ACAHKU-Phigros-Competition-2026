@@ -47,3 +47,24 @@ test('controller keeps R1 focused when a ready R2 match finishes early, includin
   scheduled();assert.equal(controller.round,2);
  }
 });
+
+test('disposed bracket controllers remove media-query listeners, hold timers and never render again', t => {
+ const originalMedia=globalThis.matchMedia, originalDocument=globalThis.document;
+ const listeners=new Set(), timers=new Map();let serial=0, renders=0;
+ const media={matches:false,addEventListener:(event,fn)=>listeners.add(fn),removeEventListener:(event,fn)=>listeners.delete(fn)};
+ globalThis.matchMedia=()=>media;globalThis.document={timeline:{currentTime:0}};
+ t.after(()=>{if(originalMedia===undefined)delete globalThis.matchMedia;else globalThis.matchMedia=originalMedia;
+  if(originalDocument===undefined)delete globalThis.document;else globalThis.document=originalDocument;});
+ t.mock.method(globalThis,'setTimeout',fn=>{const id=++serial;timers.set(id,fn);return id;});
+ t.mock.method(globalThis,'clearTimeout',id=>timers.delete(id));
+ const mount={querySelector:()=>null,querySelectorAll:()=>[]};
+ const s=expandSongLibrary(createDefaultState());command(s,'seed-bracket',{ids:['p1','p2','p3','p4','p5','p6','p7','p8']});
+ for(let iteration=0;iteration<30;iteration++){
+  const controller=createController(mount,()=>renders++);controller.prepare(s,true);
+  const finished=structuredClone(s);finished.tournament.matches[0].status='complete';finished.tournament.matches[0].winnerId='p1';
+  controller.prepare(finished,true);assert.equal(timers.size,1);assert.equal(listeners.size,1);
+  controller.dispose();controller.dispose();assert.equal(timers.size,0);assert.equal(listeners.size,0);
+  controller.prepare(finished,true);controller.afterCommit();
+ }
+ media.matches=true;for(const listener of listeners)listener();assert.equal(renders,0);
+});

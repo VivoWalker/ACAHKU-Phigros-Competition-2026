@@ -1,5 +1,9 @@
 (function () {
   const B = Broadcast, e = B.escape, $ = id => document.getElementById(id);
+  const lifecycle = new AbortController();
+  const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: lifecycle.signal });
+  const exportURLs = new Map();
+  let pageDisposed = false;
   const displayMedia = BroadcastDisplayMedia.createClient();
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
@@ -10,7 +14,7 @@
   let backupList = [], backupsLoaded = false, selectedBackupId = '', backupPreview = null, backupEpoch = 0;
   let correctionMatchId = '', correctionPreview = null, correctionEpoch = 0;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  reducedMotion.addEventListener('change', () => {
+  listen(reducedMotion, 'change', () => {
     if (reducedMotion.matches) { tabAnimation?.cancel(); tabAnimation = null; }
   });
   const button = (label, attrs = '', primary = false) => {
@@ -349,7 +353,7 @@
     return draftForm(scope, type, () => payload, { expectedRevision: revision, guard() { if (scope.split(':')[1] !== encodeURIComponent(incidentContext())) throw new Error('比赛内容已变化，请重新核对裁判操作。'); } });
   }
   async function requestJSON(path, options = {}) {
-    const response = await fetch(path, { ...options, headers: { Authorization: 'Bearer ' + token, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers } });
+    const response = await fetch(path, { ...options, signal: lifecycle.signal, headers: { Authorization: 'Bearer ' + token, ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers } });
     const result = await response.json(); if (!response.ok) { const error = new Error(result.error || '请求未完成'); error.code = result.code; throw error; } return result;
   }
   async function loadBackups() {
@@ -391,7 +395,7 @@
     await draftForm(scope, 'reopen-result', () => ({ matchId: id, reason, affectedMatchIds: preview.impact.affectedMatchIds, confirmClear: values['correction-confirm-clear'] === true }), { expectedRevision: preview.revision });
     correctionPreview = null; render(); toast('场次已重新打开；请复核并重新确认赛果。');
   }
-  function toast(message, error = false) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').className = 'visible' + (error ? ' error' : ''); toastTimer = setTimeout(() => { $('toast').className = ''; }, error ? 7000 : 2500); }
+  function toast(message, error = false) { if (pageDisposed) return; clearTimeout(toastTimer); $('toast').textContent = message; $('toast').className = 'visible' + (error ? ' error' : ''); toastTimer = setTimeout(() => { $('toast').className = ''; }, error ? 7000 : 2500); }
   function send(type, payload = {}, { snapshot = [], guard, expectedRevision } = {}) {
     const contextMatch = (typeof payload !== 'function' && payload.matchId) || $('content')?.dataset.matchId || state?.tournament.currentMatchId;
     const contextSignature = matchContext(state, contextMatch);
@@ -410,7 +414,7 @@
       });
     }));
     queue = task.catch(() => {});
-    task.catch(error => { for (const item of snapshot) item.record.pending.delete(normal(item.record, item.value)); reconcileDrafts(); refreshDraftNotice(); toast(error.message, true); $('sync-status').textContent = 'Update not saved · 草稿保留'; });
+    task.catch(error => { for (const item of snapshot) item.record.pending.delete(normal(item.record, item.value)); if (pageDisposed) return; reconcileDrafts(); refreshDraftNotice(); toast(error.message, true); $('sync-status').textContent = 'Update not saved · 草稿保留'; });
     return task;
   }
   function controlStatus(connected) {
@@ -419,8 +423,9 @@
     if (!connected) $('sync-status').textContent = 'Offline · editing paused';
   }
   function connect() {
+    if (pageDisposed) return;
     countdownClient?.dispose();
-    if (socket) socket.disconnect();
+    if (socket) { socket.removeAllListeners(); socket.disconnect(); }
     socket = createBroadcastSocket('/control', { token });
     countdownClient = BroadcastCountdown.createClient(socket, refreshCountdownControls);
     socket.on('connect', () => { $('pairing').hidden = true; $('workspace').hidden = false; controlStatus(true); });
@@ -432,14 +437,14 @@
       if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionStorage.removeItem('broadcast-token'); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
     });
   }
-  $('pair-form').addEventListener('submit', async event => {
+  listen($('pair-form'), 'submit', async event => {
     event.preventDefault(); $('pair-error').textContent = '';
     const submit = event.target.querySelector('button'); submit.disabled = true;
     try {
-      const response = await fetch('../api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: $('pin').value }) });
-      const result = await response.json(); if (!response.ok) throw new Error(result.error);
+      const response = await fetch('../api/session', { method: 'POST', signal: lifecycle.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: $('pin').value }) });
+      const result = await response.json(); if (pageDisposed) return; if (!response.ok) throw new Error(result.error);
       token = result.token; sessionStorage.setItem('broadcast-token', token); $('pin').value = ''; connect();
-    } catch (error) { $('pair-error').textContent = error.message; } finally { submit.disabled = false; }
+    } catch (error) { if (!pageDisposed) $('pair-error').textContent = error.message; } finally { if (!pageDisposed) submit.disabled = false; }
   });
   function refreshConnections() {
     if ($('overlay-count')) $('overlay-count').textContent = connections.overlays ? `${connections.overlays} source${connections.overlays === 1 ? '' : 's'} connected` : 'No overlay connected';
@@ -478,8 +483,8 @@
       if (el.textContent !== text) el.textContent = text;
     }
   }
-  setInterval(refreshCountdownControls, 100);
-  setInterval(refreshWaitControls, 1000);
+  const countdownRefreshTimer = setInterval(refreshCountdownControls, 100);
+  const waitRefreshTimer = setInterval(refreshWaitControls, 1000);
   function sourcePanel() {
     const status = state.broadcast?.sourceStatus;
     if (!status) return '<section class="panel broadcast-sources-panel"><h2>OBS 来源人工核对</h2><p class="secondary">等待来源状态。</p></section>';
@@ -772,9 +777,20 @@
   const pages = { broadcast, qualifiers, bracket, songs: songSelection, event: eventSettings };
   displayMedia.ready.then(() => render());
   mediaWarmup.prepareFonts();
-  addEventListener('pagehide', () => { mediaWarmup.dispose(); displayMedia.dispose(); }, { once: true });
+  function disposePage(event) {
+    if (event.persisted || pageDisposed) return;
+    pageDisposed = true; lifecycle.abort();
+    clearInterval(countdownRefreshTimer); clearInterval(waitRefreshTimer); clearTimeout(toastTimer);
+    tabAnimation?.cancel(); tabAnimation = null;
+    countdownClient?.dispose(); BroadcastMotion.disposeCovers($('content'));
+    mediaWarmup.dispose(); displayMedia.dispose();
+    if (socket) { socket.removeAllListeners(); socket.disconnect(); socket = null; }
+    for (const [url, timer] of exportURLs) { clearTimeout(timer); URL.revokeObjectURL(url); }
+    exportURLs.clear(); drafts.clear(); state = null;
+  }
+  listen(window, 'pagehide', disposePage);
   function render() {
-    if (!state) return;
+    if (pageDisposed || !state) return;
     const currentMatch = B.currentMatch(state);
     const visibleSongs = activeTab === 'songs' || activeTab === 'broadcast' && productionInfo().phase === 'selection' ? (fixedFinal(currentMatch) ? currentMatch.songs : currentMatch?.candidates) || [] : [];
     mediaWarmup.setImages(visibleSongs.filter(song => !song.hidden).map(song => '../' + displayArt(song.art)));
@@ -829,7 +845,7 @@
     if (state.recovery?.message) { const notice = document.createElement('div'); notice.className = 'notice recovery-alert'; notice.setAttribute('role', 'alert'); notice.innerHTML = `<strong>赛事数据已自动恢复</strong><p>${e(state.recovery.message)}</p><p>请核对当前名单、分数及赛果。原文件已保留：${e(state.recovery.preservedFile || '')}</p>`; $('content').prepend(notice); }
     refreshDraftNotice(); refreshConnections(); refreshCountdownControls(); refreshWaitControls();
   }
-  document.addEventListener('click', event => {
+  listen(document, 'click', event => {
     const target = event.target.closest('button,[data-focus-song]'); if (!target || target.disabled || !state) return;
     if (target.hasAttribute('data-discard-drafts')) {
       if ([...drafts.values()].some(record => record.pending.size)) { toast('正在保存，請等候確認後再處理草稿。', true); return; }
@@ -898,11 +914,16 @@
     if (target.hasAttribute('data-new-song')) { editingSongId = null; render(); $('song-title').focus(); return; }
     if (target.dataset.editSong) { editingSongId = target.dataset.editSong; render(); $('song-title').focus(); return; }
     if (target.hasAttribute('data-export')) {
-      fetch('../api/export', { headers: { Authorization: 'Bearer ' + token } }).then(response => { if (!response.ok) throw new Error('Pair this device again to export.'); return response.blob(); }).then(blob => { const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'match-state-backup.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }).catch(error => toast(error.message, true));
+      fetch('../api/export', { signal: lifecycle.signal, headers: { Authorization: 'Bearer ' + token } }).then(response => { if (!response.ok) throw new Error('Pair this device again to export.'); return response.blob(); }).then(blob => {
+        if (pageDisposed) return;
+        const url = URL.createObjectURL(blob), a = document.createElement('a');
+        a.href = url; a.download = 'match-state-backup.json'; a.click();
+        exportURLs.set(url, setTimeout(() => { URL.revokeObjectURL(url); exportURLs.delete(url); }, 1000));
+      }).catch(error => toast(error.message, true));
     }
   });
-  document.addEventListener('input', event => { if (state) rememberDraft(event.target); });
-  document.addEventListener('change', event => {
+  listen(document, 'input', event => { if (state) rememberDraft(event.target); });
+  listen(document, 'change', event => {
     const el = event.target; if (!state) return;
     rememberDraft(el);
     if (el.id === 'readiness-player') { readinessPlayerId = el.value; render(); return; }
@@ -925,7 +946,7 @@
     if (el.dataset.matchScore !== undefined) send('set-match-score', { matchId: el.dataset.matchId, playerIndex: Number(el.dataset.matchScore), songIndex: Number(el.dataset.songIndex), score: el.value === '' ? null : Number(el.value) }, { snapshot }).catch(() => {});
     if (el.hasAttribute('data-stage')) send('set-stage', { stage: el.value }, { snapshot }).catch(() => {});
   });
-  document.addEventListener('submit', event => {
+  listen(document, 'submit', event => {
     if (event.target.id === 'pair-form') return; event.preventDefault(); if (!state) return;
     const form = event.target;
     const scope = form.dataset.draftScope, entity = scope?.split(':')[1];

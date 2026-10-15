@@ -148,6 +148,9 @@ def number_geometry(page, expected):
 
 with tempfile.TemporaryDirectory(prefix='acahku-countdown-browser-') as data_dir:
     code = """
+const fs=require('node:fs'),path=require('node:path');
+fs.writeFileSync(path.join(process.argv[1],'match-state.json'),
+  JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'countdown-browser-fixture'});
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));
 process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
@@ -204,6 +207,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 assert result, 'UI start did not produce a cue'
                 return result
 
+            crew.locator('#production-advanced').evaluate('(details)=>details.open=true')
             crew.click('[data-scene="qualifier-match"]')
             crew.wait_for_function("!document.querySelector('[data-start-countdown]').disabled")
             # Separate browser processes model separate active OBS sources;

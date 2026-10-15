@@ -224,6 +224,11 @@
     }
     function update({ cue, songs = [], active = false } = {}) {
       if (disposed) return;
+      // Catalog edits may replace a preview URL while this page remains open
+      // for the whole event. Retain metadata/failures only for current files.
+      const paths = new Set(songs.map(song => song.previewAudio).filter(safePath));
+      for (const path of durationCache.keys()) if (!paths.has(path)) durationCache.delete(path);
+      for (const path of failedSources) if (!paths.has(path)) failedSources.delete(path);
       const next = active && validCue(cue) ? { cue, rawSongs: songs, songs: catalog(songs) } : null;
       const nextKey = next ? JSON.stringify([cue.id, cue.kind, cue.songIds, cue.startedAt]) : null;
       if (nextKey !== key) {
@@ -243,6 +248,7 @@
     function dispose() {
       disposed = true; if (timer !== null) clearTimer(timer); timer = null;
       release(current); release(retiring); release(prepared); current = retiring = prepared = context = null;
+      durationCache.clear(); failedSources.clear(); key = lastFocus = null;
     }
     return { update, retry, dispose, get phase() { return context && phase(context.cue, context.songs, now(), fadeMs); } };
   }

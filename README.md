@@ -88,6 +88,8 @@ Scorekeeper permissions are enforced by the server: its session can only submit 
 
 The countdown uses one server timestamp for all connected sources and the control-panel preview. Refreshing or reconnecting during a countdown resumes the current number; an expired countdown or server restart does not replay it. Changing the scene, match, selected players, current song, single/dual mode or saved source assignments cancels it. Score updates keep its original timing. Countdown commands require a paired staff session and do not change scores, save a revision or create a backup. This is a visual start cue without audio.
 
+The Phigros-style cue pairs large white digits with a gold judgment line: cyan tap notes accompany **3**, hold notes accompany **2**, and pink flick notes accompany **1**. **START** expands a cyan line before the curtain fades. Notes stay in two side lanes so the center remains readable. Motion seeks to the shared clock, uses a fixed set of elements, and stops when the cue ends or is cancelled. Reduced-motion mode keeps the timing and readable static symbols.
+
 All overlay documents keep their root and body backgrounds transparent. Opaque or translucent information panels are intentional; gameplay and webcam interiors contain no fill. The canvas is always 1920×1080 and fits smaller viewports with its 16:9 ratio intact.
 
 The pre-blurred background stays mounted between scenes; its HTML mask covers and reveals the calibrated video apertures. A custom image without a verified display variant uses the existing live SVG blur fallback. Exit snapshots copy only the appearance/layout styles they use, keeping scene switches lightweight. On a scene change, the old content first slides **left and fades out**, starting with the leftmost element. Capture-card and handcam windows gradually close **from right to left with a fade** as their borders exit. Exits use the same nonlinear easing, 560 ms duration and 65 ms stagger as entrances. Outgoing snapshots are clipped to their original slots and removed automatically; score and state revisions continue to commit immediately. Logos then move on the top layer for **760 ms**, using nonlinear easing. During that travel, the new scene's content and video apertures wait so branding never crosses visible content. New elements and video windows then enter **from right to left with a fade**, beginning with the leftmost element (top to bottom for equal horizontal positions); each entrance lasts 560 ms and starts 65 ms after the preceding one. Incoming elements stay inside their final slots, and logos are never clipped behind text or video. The aperture mask becomes fully transparent when each window settles. Switching single/dual view animates the changed handcam windows while the existing capture-card windows stay open at their calibrated positions. OBS video sources stay beneath the Browser Source; these transitions require no extra OBS plugin or source movement. Score and state revisions apply immediately; in-flight animations retain their original timing when those revisions arrive. Song artwork keeps its 550 ms nonlinear slide inside its fixed slanted window, with at most two images. Rapid requests retain the latest scene, and Reduce motion makes every transition immediate.
@@ -333,6 +335,14 @@ The countdown server regressions use real paired/public Socket.IO clients to che
 ```sh
 python3 test/countdown-layout.py
 ```
+
+The optional lifecycle regression repeatedly draws/bans/selects songs, switches broadcast scenes, restarts countdowns and creates/disposes animation, image and audio controllers. It collects Chromium garbage before comparing retained JavaScript, DOM nodes and event listeners, checks that detached component roots can be collected, and checks page teardown in the overlay and both staff panels:
+
+```sh
+python3 test/memory-lifecycle-browser.py
+```
+
+Image warming limits both decoded images and queued requests; cancelled loads clear their source and callbacks so Chromium can release detached SVG documents. Preview duration/failure records follow the current audio catalog. Scene, bracket and countdown controllers expose idempotent disposal. Final page exit cancels owned timers, animations, listeners, requests and sockets; a persisted browser-history page keeps its controllers and unsaved drafts for restoration. Failed pairing records expire after their one-minute window and are capped at 2,048 role/device keys without evicting active lockouts. These checks measure browser JavaScript/DOM retention; actual OBS, decoder and GPU memory still require a soak test on the broadcast machine.
 
 Optional browser smoke test, if Python Playwright, Pillow and Chromium are installed:
 

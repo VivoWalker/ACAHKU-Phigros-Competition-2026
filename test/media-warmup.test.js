@@ -14,11 +14,16 @@ function fixture(t, options = {}) {
   const clearTimer = id => timers.delete(id);
   class Picture {
     constructor() {
-      this.decoding = ''; this.decodeCalls = 0;
-      this.promise = new Promise((resolve, reject) => { this.complete = resolve; this.fail = reject; });
+      this.decoding = ''; this.decodeCalls = 0; this.sourceChanges = [];
+      this.promise = new Promise((resolve, reject) => {
+        this.complete = () => { this.onload?.(); resolve(); };
+        this.fail = error => { this.onerror?.(); if (this.decodeCalls) reject(error); };
+      });
     }
+    set src(value) { this.source = value; this.sourceChanges.push(value); }
+    get src() { return this.source; }
     decode() { this.decodeCalls++; return this.promise; }
-    removeAttribute(name) { if (name === 'src') this.src = ''; }
+    removeAttribute(name) { if (name === 'src') this.source = ''; }
   }
   const controller = createController({
     origin: 'http://broadcast.test',
@@ -139,6 +144,25 @@ test('a supplied whole-library list is capped instead of decoding every jacket',
   assert.equal(f.controller.status().ready, 12);
 });
 
+test('rapid explicit cover requests have a bounded queue while decoders stall and obsolete requests settle', async t => {
+  const f = fixture(t, { maxDecoded: 4 });
+  const requests = Array.from({ length: 80 }, (_, index) => f.controller.decodeImage(asset('burst-' + index)));
+  assert.equal(f.images.length, 2);
+  assert.equal(f.controller.status().loading, 2);
+  assert.equal(f.controller.status().pending, 4);
+  const cancelled = await Promise.all(requests.slice(2, -4));
+  assert.ok(cancelled.every(result => !result.ok));
+  for (let round = 0; round < 3; round++) {
+    f.images.filter(image => !image.done).forEach(image => { image.done = true; image.complete(); });
+    await flush(); f.advance(32);
+  }
+  const results = await Promise.all(requests);
+  assert.deepEqual(results.filter(result => result.ok).map(result => result.src), [0, 1, 76, 77, 78, 79].map(index => asset('burst-' + index)));
+  assert.equal(f.images.length, 6);
+  assert.equal(f.controller.status().pending, 0);
+  assert.ok(f.statuses.every(status => status.loading <= 2 && status.pending <= 4 && status.loading + status.ready <= 4));
+});
+
 test('failed or stalled media never blocks preparation, and state updates do not retry failures', async t => {
   const f = fixture(t, { timeoutMs: 200 });
   f.controller.setImages([asset('broken'), asset('stalled')]);
@@ -200,4 +224,15 @@ test('disposal cancels queued loads, clears timers and settles in-flight image/f
   assert.equal(f.timers.size, 0);
   f.advance(10000); assert.equal(f.images.length, 2); assert.equal(f.controller.status().ready, 0);
   assert.equal((await f.controller.decodeImage(asset('new'))).ok, false);
+});
+
+test('cancelling an in-flight image explicitly empties its source and removes event handlers', async t => {
+  const f = fixture(t);
+  const ready = f.controller.prepare([asset('cancel-a'), asset('cancel-b')]);
+  assert.ok(f.images.every(image => image.decodeCalls === 1));
+  f.controller.dispose();
+  assert.ok((await ready).every(result => !result.ok));
+  assert.ok(f.images.every(image => image.onload === null && image.onerror === null && image.sourceChanges.at(-1) === ''));
+  f.images.forEach(image => image.complete()); await flush();
+  assert.equal(f.controller.status().ready, 0);
 });

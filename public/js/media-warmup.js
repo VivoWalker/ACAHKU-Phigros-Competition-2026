@@ -89,7 +89,11 @@
         complete = true;
         if (timer !== null) clearTimer(timer);
         if (image) { image.onload = null; image.onerror = null; }
-        if (!ok) image?.removeAttribute?.('src');
+        // Removing src alone leaves cancelled SVG documents retained by
+        // Chromium. Assigning an empty source explicitly releases that load.
+        if (!ok && image) image.src = '';
+        // A late decode callback must also release the request's local image.
+        image = null;
         loading--;
         entry.state = ok && !disposed ? 'ready' : 'failed';
         if (entry.state !== 'ready') entry.image = null;
@@ -98,10 +102,7 @@
         entry.cancel = null;
         pruneFailures(); report(); schedule();
       };
-      entry.cancel = () => {
-        if (image) { image.onload = null; image.onerror = null; image.removeAttribute?.('src'); }
-        finish(false);
-      };
+      entry.cancel = () => finish(false);
       try {
         image = createImage(); entry.image = image;
         image.decoding = 'async';
@@ -110,7 +111,7 @@
         image.onerror = () => finish(false);
         timer = setTimer(() => finish(false), timeoutMs);
         image.src = entry.src;
-        if (typeof image.decode === 'function') Promise.resolve(image.decode()).then(() => finish(true), () => finish(false));
+        if (typeof image?.decode === 'function') Promise.resolve(image.decode()).then(() => finish(true), () => finish(false));
       } catch (_) { finish(false); }
     }
     function pump() {
@@ -129,6 +130,15 @@
         entry.priority = Math.max(entry.priority, priority);
         entry.explicit ||= explicit; touch(entry);
         return entry;
+      }
+      // A burst of cover changes can outrun two stalled image decoders. Bound
+      // their waiting records as well as the decoded bitmap cache, settling
+      // displaced requests so an obsolete cover cannot hold its scene open.
+      const queued = [...entries.values()].filter(item => item.state === 'queued');
+      if (queued.length >= maxDecoded) {
+        const oldest = queued.sort((a, b) => a.priority - b.priority || a.order - b.order)[0];
+        oldest.state = 'cancelled'; oldest.resolve(result(oldest, false));
+        wanted.delete(oldest.src); pinned.delete(oldest.src); discard(oldest);
       }
       entry = { src, priority, explicit, order: ++serial, used: ++stamp, image: null, state: 'queued' };
       entry.promise = new Promise(resolve => { entry.resolve = resolve; });

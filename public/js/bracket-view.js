@@ -64,7 +64,7 @@
   }
   function createController(mount, requestRender, fixedRound = null) {
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    let seen = null, latest, active = false, round = null, hold = null, timer, pending = null, reveal = null, transition = null, generation = 0;
+    let seen = null, latest, active = false, disposed = false, round = null, hold = null, timer, pending = null, reveal = null, transition = null, generation = 0;
     const animations = new Set(), restores = [];
     const clock = () => document.timeline.currentTime ?? performance.now();
     function clearVisuals() {
@@ -88,6 +88,7 @@
       }, Math.max(0, hold - clock()));
     }
     function prepare(state, isActive) {
+      if (disposed) return round;
       latest = state;
       const nextSeen = new Map(state.tournament.matches.map(m => [m.id, signature(m)]));
       const corrected = seen && [...seen].some(([id, sig]) => sig && nextSeen.get(id) !== sig);
@@ -112,7 +113,7 @@
       return round;
     }
     function afterCommit() {
-      if (!active) return;
+      if (disposed || !active) return;
       const board = mount.querySelector('.bracket-board');
       if (!board) return;
       const token = generation, jobs = [], now = clock();
@@ -159,10 +160,18 @@
         clearVisuals(); transition = null; board.dataset.bracketPhase = 'idle';
       });
     }
-    reduce.addEventListener('change', () => {
+    function reduced() {
       if (reduce.matches) { clearVisuals(); clearHold(); transition = reveal = null; if (latest) round = fixedRound || focusRound(latest); requestRender(); }
-    });
-    return { prepare, afterCommit, get round() { return round; } };
+    }
+    reduce.addEventListener('change', reduced);
+    function dispose() {
+      if (disposed) return;
+      disposed = true; active = false;
+      reduce.removeEventListener?.('change', reduced);
+      clearVisuals(); clearHold();
+      seen = latest = pending = reveal = transition = null;
+    }
+    return { prepare, afterCommit, dispose, get round() { return round; } };
   }
   return { focusRound, destination, nextMatches, render, createController };
 });
