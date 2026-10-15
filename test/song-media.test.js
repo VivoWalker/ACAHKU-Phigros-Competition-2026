@@ -6,6 +6,7 @@ const path = require('node:path');
 const { StateStore, validateState } = require('../lib/store');
 const { createDefaultState } = require('./helpers/legacy-state');
 const { applyAction } = require('../lib/tournament');
+const CompetitionConfig = require('../public/js/competition-config');
 
 function storeFixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-song-media-'));
@@ -26,6 +27,35 @@ test('optional preview paths preserve legacy events, survive restart and clear o
   save(olderClient);
   assert.equal(store.state.library[0].previewAudio, 'assets/song-preview/song-01.mp3');
   save({ ...store.state.library[0], previewAudio: '' });
+  assert.equal(store.state.library[0].previewAudio, '');
+  assert.equal(new StateStore(dir).state.library[0].previewAudio, '');
+});
+
+test('older clients editing pre-audio official saves inherit bundled previews while explicit disables stay disabled', t => {
+  const { dir, store, save } = storeFixture(t);
+  const songId = CompetitionConfig.DOUBLE_ELIMINATION_SONG_IDS[0];
+  const song = store.state.library.find(value => value.id === songId);
+  const bundledAudio = CompetitionConfig.LIBRARY.find(value => value.id === songId).previewAudio;
+  assert.ok(bundledAudio);
+  delete song.previewAudio;
+  store.write(store.state); // Simulate a valid event saved before previews were bundled.
+  const olderClient = { ...song, artist: 'Edited by an older control panel' };
+  save(olderClient);
+  assert.equal(store.state.library.find(value => value.id === songId).previewAudio, bundledAudio);
+  assert.equal(new StateStore(dir).state.library.find(value => value.id === songId).previewAudio, bundledAudio);
+  save({ ...olderClient, previewAudio: '' });
+  save({ ...olderClient, artist: 'Another older-client metadata edit' });
+  assert.equal(store.state.library.find(value => value.id === songId).previewAudio, '');
+  assert.equal(new StateStore(dir).state.library.find(value => value.id === songId).previewAudio, '');
+});
+
+test('unbundled legacy songs without preview metadata retain their silent default after older-client edits', t => {
+  const { dir, store, save } = storeFixture(t);
+  store.state = createDefaultState();
+  store.write(store.state);
+  const song = { ...store.state.library[0], artist: 'Legacy metadata edit' };
+  assert.equal(Object.hasOwn(song, 'previewAudio'), false);
+  save(song);
   assert.equal(store.state.library[0].previewAudio, '');
   assert.equal(new StateStore(dir).state.library[0].previewAudio, '');
 });

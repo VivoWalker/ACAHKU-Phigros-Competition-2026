@@ -1,4 +1,1339 @@
 {
   "schemaVersion": 1,
-  "tracks": []
+  "tracks": [
+    {
+      "title": "Secret Illumination",
+      "songIds": [
+        "competition-2026-q1-01"
+      ],
+      "output": "assets/song-preview/competition-2026-q1-01.mp3",
+      "duration": 12.042449,
+      "highlightStart": 96.0,
+      "highlightDuration": 12,
+      "sourceSha256": "c2be84d2e5625c19fae13d21d8bde5cdb71fe61b5a1623b6e700dbb29a725f44",
+      "sha256": "8338b0be51f3b9e705c10c71334583014b3496effa0a7afd2fd8a8f51cdc365d",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 96.0,
+        "referencePreviewEnd": 109.5,
+        "gameSongId": "SecretIllumination.Yooh.0"
+      },
+      "artist": "Yooh"
+    },
+    {
+      "title": "On And On!!",
+      "songIds": [
+        "competition-2026-q1-02"
+      ],
+      "output": "assets/song-preview/competition-2026-q1-02.mp3",
+      "duration": 12.042449,
+      "highlightStart": 11.287,
+      "highlightDuration": 12,
+      "sourceSha256": "beaf9d8baf73698b50fe285e989a5863c12c4e8afcd815770a592adf9f1a1e2b",
+      "sha256": "84bad647d8e354b39afff5de829d49de526a8728fe200d56e18756d673d5a302",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 11.287,
+        "referencePreviewEnd": 24.356,
+        "gameSongId": "OnAndOn.ETIAfeatJenga.0"
+      },
+      "artist": "ETIA. feat. Jenga"
+    },
+    {
+      "title": "白と黒のバケモノ",
+      "songIds": [
+        "competition-2026-q1-03"
+      ],
+      "output": "assets/song-preview/competition-2026-q1-03.mp3",
+      "duration": 12.042449,
+      "highlightStart": 62.0,
+      "highlightDuration": 12,
+      "sourceSha256": "0b97ccafc3d2dcea1f03b2b0f577da36308e565289ce706d63e6142379d7ec2d",
+      "sha256": "5b995770c89480b3b25cf5556af430b59e4440d529f3e85df2439c0c716fe57b",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 62.0,
+        "referencePreviewEnd": 82.0,
+        "gameSongId": "白と黒のバケモノ.テヅカ.0"
+      },
+      "artist": "テヅカ"
+    },
+    {
+      "title": "INFiNiTE ENERZY -Overdoze-",
+      "songIds": [
+        "competition-2026-q2-01",
+        "competition-2026-de-30"
+      ],
+      "output": "assets/song-preview/competition-2026-q2-01.mp3",
+      "duration": 12.042449,
+      "highlightStart": 48.0,
+      "highlightDuration": 12,
+      "sourceSha256": "b81aaf0befc6f11a826612d08af1d8aa5170eb26e91cd4643ee00b964a63293f",
+      "sha256": "1f1c68191e85330650e4c848eac930b67e0bb8ada7d75d21073bbad9c3d9149a",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 48.0,
+        "referencePreviewEnd": 73.333,
+        "gameSongId": "INFiNiTEENERZYOverdoze.RekuMochizuki.0"
+      },
+      "artist": "Reku Mochizuki"
+    },
+    {
+      "title": "Stasis",
+      "songIds": [
+        "competition-2026-q2-02"
+      ],
+      "output": "assets/song-preview/competition-2026-q2-02.mp3",
+      "duration": 12.042449,
+      "highlightStart": 42.666,
+      "highlightDuration": 12,
+      "sourceSha256": "bbcbc9ca772fb9645dad9ad2896b23ff1339bab7b617299aae5344f9a0a0443e",
+      "sha256": "596aa601f438703c2b5a037efda878d3956d8fd6daa78ba69f83d6c21dd44e7b",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 42.666,
+        "referencePreviewEnd": 65.333,
+        "gameSongId": "Stasis.Maozon.0"
+      },
+      "artist": "Maozon"
+    },
+    {
+      "title": "Re：End of a Dream",
+      "songIds": [
+        "competition-2026-q2-03",
+        "competition-2026-de-33"
+      ],
+      "output": "assets/song-preview/competition-2026-q2-03.mp3",
+      "duration": 10.03102,
+      "highlightStart": 113.396,
+      "highlightDuration": 10,
+      "sourceSha256": "08970e4cffa907684186ffebef7c3f71e0c8b10ca49eaf4238289434f0b11a08",
+      "sha256": "71a2b180485dc1743ad9bcdfab7711daafd377cbe19e1b11bbd3b08b5eedf5d2",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax. The original window is 9.34 seconds; include 0.66 seconds of non-silent lead-in to meet the 10-second minimum while retaining its end.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 114.056,
+        "referencePreviewEnd": 123.396,
+        "gameSongId": "ReEndofaDream.umavsモリモリあつし.0"
+      },
+      "artist": "uma vs. モリモリあつし"
+    },
+    {
+      "title": "Cthugha",
+      "songIds": [
+        "competition-2026-de-01"
+      ],
+      "output": "assets/song-preview/competition-2026-de-01.mp3",
+      "duration": 12.042449,
+      "highlightStart": 56.901,
+      "highlightDuration": 12,
+      "sourceSha256": "855c3fbf9685c247e11e404f5ffb6356a4e15f19fd2b3478437cd00678301dab",
+      "sha256": "f65086a21cd3e4ba7b4cb9f07044b3dc43d5a265c510cc45f76272f87ed4b2fc",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 56.901,
+        "referencePreviewEnd": 79.436,
+        "gameSongId": "Cthugha.USAO.0"
+      },
+      "artist": "USAO"
+    },
+    {
+      "title": "Rrhar'il",
+      "songIds": [
+        "competition-2026-de-02"
+      ],
+      "output": "assets/song-preview/competition-2026-de-02.mp3",
+      "duration": 12.042449,
+      "highlightStart": 84.622,
+      "highlightDuration": 12,
+      "sourceSha256": "6ce40687a39da0ef370bbee8fd62563dcaabc3883f575b3cd5192e8d64bd776a",
+      "sha256": "791a80be4b0b9da0b54d8b908c80db9a1ff804d07867524cc3353748322c51a3",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 84.622,
+        "referencePreviewEnd": 99.797,
+        "gameSongId": "Rrharil.TeamGrimoire.0"
+      },
+      "artist": "Team Grimoire"
+    },
+    {
+      "title": "Retribution ~ Cycle of Redemption ~",
+      "songIds": [
+        "competition-2026-de-03"
+      ],
+      "output": "assets/song-preview/competition-2026-de-03.mp3",
+      "duration": 12.042449,
+      "highlightStart": 124.225,
+      "highlightDuration": 12,
+      "sourceSha256": "96edbe69313cddf2a377103f6d25a3540554ece101673493e62bee95bf25efdb",
+      "sha256": "c3bb0c01b9760e67c86a56ade2a920fe293b02445b8c01aa8307cec945cb6225",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Prefer the later return after the long quieter middle section: entry rises 5.63 dB while the following 12 seconds stay within 1.86 dB of the track's upper energy range. This captures the return rather than an already-running loud passage. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Ardolf vs. Daily天利"
+    },
+    {
+      "title": "Retribution",
+      "songIds": [
+        "competition-2026-de-04"
+      ],
+      "output": "assets/song-preview/competition-2026-de-04.mp3",
+      "duration": 12.042449,
+      "highlightStart": 102.315,
+      "highlightDuration": 12,
+      "sourceSha256": "dec60123b14f578740079de68f5a5ec8d0686f2b7da23efe1eceea4e16ddad7a",
+      "sha256": "9e0c15428590c34b11e14328ab2e7ea74e0bac15dac0743b3f88b8d14482c40f",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 102.315,
+        "referencePreviewEnd": 122.526,
+        "gameSongId": "Retribution.nmyKryexe.0"
+      },
+      "artist": "nm-y & Kry.exe"
+    },
+    {
+      "title": "Chronos Collapse - La Campanella",
+      "songIds": [
+        "competition-2026-de-05"
+      ],
+      "output": "assets/song-preview/competition-2026-de-05.mp3",
+      "duration": 12.042449,
+      "highlightStart": 12.214,
+      "highlightDuration": 12,
+      "sourceSha256": "6e58d390ac528dcc9ae7aa9207bf6089659cb9b56116a63b325671d12b413a30",
+      "sha256": "d9cfbe7cfd649aadb42111b574d55f02d86dce3e04e72b2a09e05cc2c7f9f70c",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 12.214,
+        "referencePreviewEnd": 30.033,
+        "gameSongId": "ChronosCollapseLaCampanella.SunsetRay.0"
+      },
+      "artist": "SunsetRay"
+    },
+    {
+      "title": "QZKago Requiem",
+      "songIds": [
+        "competition-2026-de-06"
+      ],
+      "output": "assets/song-preview/competition-2026-de-06.mp3",
+      "duration": 12.042449,
+      "highlightStart": 100.819,
+      "highlightDuration": 12,
+      "sourceSha256": "463cc9b65e01d1a40e45157de5cec6237bd2bf1882f913141c476565fab469de",
+      "sha256": "2201f26a072ee762ef2b78d750a9970055fa990d61a3024702d4da562cb63951",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Clear later entry after the lower-energy passage around the preceding section; 5.93 dB entry rise and sustained high energy across the whole clip. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "t+pazolite"
+    },
+    {
+      "title": "Fractured Angel",
+      "songIds": [
+        "competition-2026-de-07"
+      ],
+      "output": "assets/song-preview/competition-2026-de-07.mp3",
+      "duration": 12.042449,
+      "highlightStart": 67.0,
+      "highlightDuration": 12,
+      "sourceSha256": "459fbe8ae1ce053ac854d17a342fdbfbb22c7f43a52806b868510d9b67f8fd98",
+      "sha256": "f43a68e378e4a17fad22321a32f75bae285e6c934e4b50a784d78bd0c3e36729",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 67.0,
+        "referencePreviewEnd": 81.0,
+        "gameSongId": "FracturedAngel.DJRaisei.0"
+      },
+      "artist": "DJ Raisei"
+    },
+    {
+      "title": "Ad astra per aspera",
+      "songIds": [
+        "competition-2026-de-08"
+      ],
+      "output": "assets/song-preview/competition-2026-de-08.mp3",
+      "duration": 10.396735,
+      "highlightStart": 60.304,
+      "highlightDuration": 10.355,
+      "sourceSha256": "a3f18c56caa17b26418952f390650a4434255516812870583e8ff150b9921052",
+      "sha256": "5d5923f53e846e7c06717a0c0c8d561cf6f6d00969b1811656cc6a4fa7102c07",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 60.304,
+        "referencePreviewEnd": 70.659,
+        "gameSongId": "Adastraperaspera.RabbitHouse.0"
+      },
+      "artist": "Rabbit House"
+    },
+    {
+      "title": "Ark",
+      "songIds": [
+        "competition-2026-de-09"
+      ],
+      "output": "assets/song-preview/competition-2026-de-09.mp3",
+      "duration": 12.042449,
+      "highlightStart": 42.686,
+      "highlightDuration": 12,
+      "sourceSha256": "4572f9410ee040869f49e0c3dc70e45c227d35f5216d33316f05f89c3047614c",
+      "sha256": "5b86dd5c93379d0adc5ddea0d88acc0d19e6ff77789ed7c200dca1f9c0c78458",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 42.686,
+        "referencePreviewEnd": 60.0,
+        "gameSongId": "Ark.kanoryo.0"
+      },
+      "artist": "kanoryo"
+    },
+    {
+      "title": "彩",
+      "songIds": [
+        "competition-2026-de-10"
+      ],
+      "output": "assets/song-preview/competition-2026-de-10.mp3",
+      "duration": 12.042449,
+      "highlightStart": 126.663,
+      "highlightDuration": 12,
+      "sourceSha256": "faae832c80c786eaecd601fa68c70e3dfdc905ef3db8838e37ad15ae1d174bc8",
+      "sha256": "33c7440f7875371c20813aa0e5b6e1cab08e41f7b2719b611dbe3d9e5620f3df",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Choose the later return after the strong reduction around 120–126 seconds. The entry rises 8.67 dB, giving a more recognizable arrival than the earlier sustained-energy passage. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "MisoilePunch♪"
+    },
+    {
+      "title": "KIZUNA Resolution",
+      "songIds": [
+        "competition-2026-de-11"
+      ],
+      "output": "assets/song-preview/competition-2026-de-11.mp3",
+      "duration": 12.042449,
+      "highlightStart": 70.5,
+      "highlightDuration": 12,
+      "sourceSha256": "78cbbee9a40d7a35ca557750472c59a6c8b738d426f170ca3c4557601454d254",
+      "sha256": "bdffd8a8dbf256bb0e23278e415fffc77956a2f7dd1f8175e560512084641c05",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 70.5,
+        "referencePreviewEnd": 87.5,
+        "gameSongId": "KIZUNAResolution.TAG.0"
+      },
+      "artist": "TAG"
+    },
+    {
+      "title": "CROSS†SOUL",
+      "songIds": [
+        "competition-2026-de-12"
+      ],
+      "output": "assets/song-preview/competition-2026-de-12.mp3",
+      "duration": 12.042449,
+      "highlightStart": 92.4,
+      "highlightDuration": 12,
+      "sourceSha256": "a4f42317dcfdc93bcf4aa21218f901530d3ca3d2dd876c846b33c72a2250fa06",
+      "sha256": "1bd149926ef81f7e54381912688c90ab6d09fb0a00b6d8b195ba26234f2d61eb",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 92.4,
+        "referencePreviewEnd": 111.6,
+        "gameSongId": "CROSSSOUL.HyuNfeatSyepias.0"
+      },
+      "artist": "HyuN feat. Syepias"
+    },
+    {
+      "title": "Indelible Scar",
+      "songIds": [
+        "competition-2026-de-13"
+      ],
+      "output": "assets/song-preview/competition-2026-de-13.mp3",
+      "duration": 12.042449,
+      "highlightStart": 92.556,
+      "highlightDuration": 12,
+      "sourceSha256": "d5369bc9db9e3c8c2929862a65b536d52ce6bdbdd49c10af98a5ac0ff4d9a2a3",
+      "sha256": "6a515743d6d2a1a302b93e6bc2b9e41578f3671f64438048a72dd228231e903d",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 92.556,
+        "referencePreviewEnd": 108.968,
+        "gameSongId": "IndelibleScar.Noah.0"
+      },
+      "artist": "Noah"
+    },
+    {
+      "title": "Lyrith -迷宮リリス-",
+      "songIds": [
+        "competition-2026-de-14"
+      ],
+      "output": "assets/song-preview/competition-2026-de-14.mp3",
+      "duration": 12.042449,
+      "highlightStart": 92.866,
+      "highlightDuration": 12,
+      "sourceSha256": "d569c81ae53449c803c6611058178486abf1ced688c801c8a17aef256df6bd99",
+      "sha256": "6589d44ea6f098c6e8622eeae00d4ea79aed4a307473deacd4b19ba7c493a47d",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 92.866,
+        "referencePreviewEnd": 114.577,
+        "gameSongId": "Lyrith迷宮リリス.ユメミド.0"
+      },
+      "artist": "ユメミド"
+    },
+    {
+      "title": "Verrückt",
+      "songIds": [
+        "competition-2026-de-15"
+      ],
+      "output": "assets/song-preview/competition-2026-de-15.mp3",
+      "duration": 12.042449,
+      "highlightStart": 85.912,
+      "highlightDuration": 12,
+      "sourceSha256": "54038c8ae96bf0e02fb06e5c7730be5ac0acadb725ddd498f653d118f05a7305",
+      "sha256": "9873cb5ceff7088550c32afbf10f808169303be692e4562d717c2438c7015a6f",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Later return following the lower-energy middle section; 3.15 dB entry rise, with the following 12 seconds remaining consistently energetic. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Raimukun"
+    },
+    {
+      "title": "Stardust:RAY",
+      "songIds": [
+        "competition-2026-de-16"
+      ],
+      "output": "assets/song-preview/competition-2026-de-16.mp3",
+      "duration": 12.042449,
+      "highlightStart": 122.878,
+      "highlightDuration": 12,
+      "sourceSha256": "f53a3b20e4c65575d19dbfbd2265f9aa78a2130288821f43337bc9b6dd67bd6d",
+      "sha256": "5be0fc16bc6b3db35f2e181c728adf4bf77d2721f9e1c4c4af6bc646f5b7cf9e",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "The later section returns after the comparatively reduced middle passage. Start at its arrival rather than the slightly louder but already-running final passage. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "kanone vs. BlackY"
+    },
+    {
+      "title": "Avataar ~Reincarnation of Kalpa~",
+      "songIds": [
+        "competition-2026-de-17"
+      ],
+      "output": "assets/song-preview/competition-2026-de-17.mp3",
+      "duration": 12.042449,
+      "highlightStart": 58.5,
+      "highlightDuration": 12,
+      "sourceSha256": "b33bea88a5f97dbee05b229592060182bc6c605fc4ede6670283fbef661c62ea",
+      "sha256": "fbec6cbddb9cee735aada39b555b952994e5272549281991d412033538b18452",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "The pronounced lower-energy section around 43–55 seconds resolves into this return. Prefer its clear structural arrival over the later continuous loud passage at 129 seconds. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Scarlette a.k.a CrYmson"
+    },
+    {
+      "title": "volcanic",
+      "songIds": [
+        "competition-2026-de-18"
+      ],
+      "output": "assets/song-preview/competition-2026-de-18.mp3",
+      "duration": 12.042449,
+      "highlightStart": 111.832,
+      "highlightDuration": 12,
+      "sourceSha256": "2d428dd94016cb9a042900d13fdc20056a56b74731feb63076f868a103341c53",
+      "sha256": "2f23c5c8863cce5fabedaaa38cd1428447d0cc2ff3d190bcea70e8de2d33110d",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 111.832,
+        "referencePreviewEnd": 131.937,
+        "gameSongId": "volcanic.DETROakaルゼ.0"
+      },
+      "artist": "DETRO a.k.a. ルゼ"
+    },
+    {
+      "title": "ATHAZA",
+      "songIds": [
+        "competition-2026-de-19"
+      ],
+      "output": "assets/song-preview/competition-2026-de-19.mp3",
+      "duration": 12.042449,
+      "highlightStart": 42.214,
+      "highlightDuration": 12,
+      "sourceSha256": "9125f5df224eeebff45f7ef230da1ef6126e6b0bc9f326d5021a7e6aa94a0f75",
+      "sha256": "9efce06639a88a897ad91beded08c9d1e78aa0ef015eb5e76d3fc09f109d0025",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 42.214,
+        "referencePreviewEnd": 55.929,
+        "gameSongId": "ATHAZA.LeaF.0"
+      },
+      "artist": "LeaF"
+    },
+    {
+      "title": "PRAGMATISM -RESURRECTION-",
+      "songIds": [
+        "competition-2026-de-20"
+      ],
+      "output": "assets/song-preview/competition-2026-de-20.mp3",
+      "duration": 12.042449,
+      "highlightStart": 117.62,
+      "highlightDuration": 12,
+      "sourceSha256": "68479bd73afaddc4aa89db3991df7639b2f40d4ca7f8c0c38166923d0c1adcd6",
+      "sha256": "300a81694fed80d625ec9cf2fef093c2e1a66bb27206d560d5a3710274278363",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 117.62,
+        "referencePreviewEnd": 137.62,
+        "gameSongId": "PRAGMATISMRESURRECTION.Laur.0"
+      },
+      "artist": "Laur"
+    },
+    {
+      "title": "夢の降る日に",
+      "songIds": [
+        "competition-2026-de-21"
+      ],
+      "output": "assets/song-preview/competition-2026-de-21.mp3",
+      "duration": 12.042449,
+      "highlightStart": 86.957,
+      "highlightDuration": 12,
+      "sourceSha256": "d74f811d83213f46952cb476716e668b9fb365ba113743b9212c819aadd3c025",
+      "sha256": "8f0ce8d3471fba91a5a25c1e40abd7512631b04691bf3d1593d73d4a21878a90",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Strong return after the quiet break around the preceding section; 14.87 dB entry rise and sustained high energy throughout the selected 12 seconds. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "seatrus"
+    },
+    {
+      "title": "Gungnir Fracture",
+      "songIds": [
+        "competition-2026-de-22"
+      ],
+      "output": "assets/song-preview/competition-2026-de-22.mp3",
+      "duration": 12.042449,
+      "highlightStart": 101.702,
+      "highlightDuration": 12,
+      "sourceSha256": "3fa00336c74f096161635201436660869d6b58d5b7adc79120a7af88dcbe276a",
+      "sha256": "3a9f9a272919d5bd0ad422d121a423351d5d99b221d6e72bbd28aa940f6d135c",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Prefer the second major return after the extended quiet section around 70–100 seconds. Entry rises 8.97 dB, and the whole 12-second segment stays energetic, avoiding the early generic loud passage. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Kry.exe"
+    },
+    {
+      "title": "Cuvism³",
+      "songIds": [
+        "competition-2026-de-23"
+      ],
+      "output": "assets/song-preview/competition-2026-de-23.mp3",
+      "duration": 12.042449,
+      "highlightStart": 108.865,
+      "highlightDuration": 12,
+      "sourceSha256": "ea86c08dda0e0b0619d7bc3469c355112f9421d38cc209a1e75377aa50da1ad8",
+      "sha256": "393e1ff7a9dd2a0b5e9365541e231c7547a6311919a3a5db9a1e7a1ce7a9c1a6",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 108.865,
+        "referencePreviewEnd": 122.474,
+        "gameSongId": "Cuvism.Fl00tvsHalv.0"
+      },
+      "artist": "Fl00t vs Halv"
+    },
+    {
+      "title": "Diamond Dust",
+      "songIds": [
+        "competition-2026-de-24"
+      ],
+      "output": "assets/song-preview/competition-2026-de-24.mp3",
+      "duration": 12.042449,
+      "highlightStart": 119.418,
+      "highlightDuration": 12,
+      "sourceSha256": "16d7342cf66f51b7ac03bb96dc3d9f542043db4a3554227993547e4ffef98f16",
+      "sha256": "becbe52de203075468fcf1cefc9dd516276640c668a72603bfa12fd6ab240977",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "No uniquely dominant breakdown arrival is evident in the energy envelope. Prefer this later sustained high-energy passage to the comparably energetic early/middle candidate; it ends well before the final fade. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Masahiro “Godspeed” Aoki"
+    },
+    {
+      "title": "Spasmodic",
+      "songIds": [
+        "competition-2026-de-25"
+      ],
+      "output": "assets/song-preview/competition-2026-de-25.mp3",
+      "duration": 12.042449,
+      "highlightStart": 72.6,
+      "highlightDuration": 12,
+      "sourceSha256": "5651d3d1c958b5a0eee216f640e6574c5e944191047c58555b590f10699a4f3b",
+      "sha256": "2885e05e502577466373fd5eaf30c6e64ee830f2f99d5eee655072f06b271e7d",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 72.6,
+        "referencePreviewEnd": 92.4,
+        "gameSongId": "Spasmodic.姜米條颶風元力上人.0"
+      },
+      "artist": "姜米條☆颶風 ~ ♫元力上人♫"
+    },
+    {
+      "title": "BANGING STRIKE",
+      "songIds": [
+        "competition-2026-de-26"
+      ],
+      "output": "assets/song-preview/competition-2026-de-26.mp3",
+      "duration": 12.016327,
+      "highlightStart": 101.237,
+      "highlightDuration": 12,
+      "sourceSha256": "7fb8e2292e07457986016f50eb5177d0a06c4e7f713e6513a21021be9233c968",
+      "sha256": "489bce02f8b5b9c5ce254163f8e43abe3702c8cd10a3338a229cd08b120a36dd",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Strong later return after the reduced-energy section around 80–100 seconds; 6.66 dB entry rise with no low-energy exit inside the clip. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Dew Pleiades"
+    },
+    {
+      "title": "sølips",
+      "songIds": [
+        "competition-2026-de-27"
+      ],
+      "output": "assets/song-preview/competition-2026-de-27.mp3",
+      "duration": 12.016327,
+      "highlightStart": 98.242,
+      "highlightDuration": 12,
+      "sourceSha256": "aecc20e73c9305953b8fe13addee93b81273b58539d9a765886a2982b0fb6548",
+      "sha256": "dd5e0b7fb848b8b17e692981078df76d7ac2314c268a0aad8e7ef8fae0683644",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Later return after the broad quieter middle passage, with a 5.4 dB entry rise. This keeps the structural arrival rather than the later continuation at 121 seconds. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "rintaro soma"
+    },
+    {
+      "title": "Entrance to the Chaos",
+      "songIds": [
+        "competition-2026-de-28"
+      ],
+      "output": "assets/song-preview/competition-2026-de-28.mp3",
+      "duration": 12.016327,
+      "highlightStart": 119.953,
+      "highlightDuration": 12,
+      "sourceSha256": "a7cc24091b4f304416fc26262951306adcf29a664d614375d36680575cc7f7c6",
+      "sha256": "75ff16a2a7d514bf9f0138bfad0486194c39e95d7776a9176b2a5200f6c857bd",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "No uniquely large late breakdown is evident in the envelope. Choose the later high-energy passage instead of the early 33-second candidate; this segment is marginally stronger and remains clear of the ending fade. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "打打だいず vs. siromaru"
+    },
+    {
+      "title": "Exoplanetary Mirage",
+      "songIds": [
+        "competition-2026-de-29"
+      ],
+      "output": "assets/song-preview/competition-2026-de-29.mp3",
+      "duration": 12.042449,
+      "highlightStart": 135.672,
+      "highlightDuration": 12,
+      "sourceSha256": "88c76d9da269f1fab4f8ccba3b486d4c644784aab67f17fd4b92a355fd08df3f",
+      "sha256": "cc037f0b3da3fe02c2871212c003fbb5dd3ba4b57cbf84e2761c6b161d356127",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Choose the later sustained high-energy section rather than the early 48-second entrance. Its 12-second average is stronger and it ends over 30 seconds before the final fade. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Camellia"
+    },
+    {
+      "title": "Der Richter",
+      "songIds": [
+        "competition-2026-de-31"
+      ],
+      "output": "assets/song-preview/competition-2026-de-31.mp3",
+      "duration": 10.657959,
+      "highlightStart": 110.625,
+      "highlightDuration": 10.625,
+      "sourceSha256": "77327e403284c080992cab796118596f911bce4f8e7de81d732c90dd92269719",
+      "sha256": "39e3017896401319425dcb88469b624c85e87e4375cb4eee1f71b9a84565cca7",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 110.625,
+        "referencePreviewEnd": 121.25,
+        "gameSongId": "DerRichter.Ωμεγα.0"
+      },
+      "artist": "Ωμεγα"
+    },
+    {
+      "title": "Archidoxen",
+      "songIds": [
+        "competition-2026-de-32"
+      ],
+      "output": "assets/song-preview/competition-2026-de-32.mp3",
+      "duration": 12.042449,
+      "highlightStart": 85.448,
+      "highlightDuration": 12,
+      "sourceSha256": "337e206bce369412c230c9eced1f4719e657a8fa6950170113a21417ea7fa7e2",
+      "sha256": "2181d7a8fb84334aea85c8e7662bb77d932fbe8d8446d530735edaeb92a7ea9c",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Clear later entrance following the reduced-energy section; 7.6 dB entry rise and the following 12 seconds remain near the track's upper energy range. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Se_IRA"
+    },
+    {
+      "title": "玩具狂奏曲 -終焉-",
+      "songIds": [
+        "competition-2026-de-34"
+      ],
+      "output": "assets/song-preview/competition-2026-de-34.mp3",
+      "duration": 12.042449,
+      "highlightStart": 125.966,
+      "highlightDuration": 12,
+      "sourceSha256": "02ef5afad474bd941201e661760d19acaa00e944acfd986de08f5e3757ccc783",
+      "sha256": "556f983faed8f9ff8c1dccf914ecd0858f82b0653bc8bef4bedddf3c366fc935",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Later return after the reduced-energy passage, with a 4.06 dB entry rise. The clip stays energetic and ends well before the ending fade. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "きくお"
+    },
+    {
+      "title": "Hydra",
+      "songIds": [
+        "competition-2026-de-35"
+      ],
+      "output": "assets/song-preview/competition-2026-de-35.mp3",
+      "duration": 12.042449,
+      "highlightStart": 85.099,
+      "highlightDuration": 12,
+      "sourceSha256": "03990c0ee45900d25568f24d8741fda1c241bf91416c9519877806c65da80bbc",
+      "sha256": "0f65295c8ebc4d35988644dd6033081fa8e6c759bcbe17ad202db4693a03b16f",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Prefer the return after the extended quieter middle section around 60–84 seconds. Its 4.54 dB entry rise is more structurally useful than the slightly louder final continuation or the early 25-second passage. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "James Landino X Akira Complex"
+    },
+    {
+      "title": "AbsoluTe disoRdeR",
+      "songIds": [
+        "competition-2026-de-36"
+      ],
+      "output": "assets/song-preview/competition-2026-de-36.mp3",
+      "duration": 12.042449,
+      "highlightStart": 137.994,
+      "highlightDuration": 12,
+      "sourceSha256": "f59730e6a4e6ffd2bd7b87a50ebcb82e0d81445d4b6b333ba68032350641b953",
+      "sha256": "b7a517359aef9eb3e6007b89dcbeda2e5f164153e26c7cb772d12ef591e485eb",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Later return after the quiet breakdown; the in-game preview at 1.875 seconds is about 11 dB below the upper energy range, so use the sustained later drop instead. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Acute Disarray"
+    },
+    {
+      "title": "DESTRUCTION 3,2,1",
+      "songIds": [
+        "competition-2026-de-37"
+      ],
+      "output": "assets/song-preview/competition-2026-de-37.mp3",
+      "duration": 12.042449,
+      "highlightStart": 105.318,
+      "highlightDuration": 12,
+      "sourceSha256": "69a5751eb1fc22493f592f476d6b09a8c2296becdb377a24b674d3d3badca3b2",
+      "sha256": "c406d126eb25ddfe8253b040bc0add34293210cd265a9559da4298e48897170a",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 105.318,
+        "referencePreviewEnd": 123.961,
+        "gameSongId": "DESTRUCTION321.Normal1zervsBrokenNerdz.0"
+      },
+      "artist": "Normal1zer vs. Broken Nerdz"
+    },
+    {
+      "title": "+ERABY+E CONNEC+10N",
+      "songIds": [
+        "competition-2026-de-38"
+      ],
+      "output": "assets/song-preview/competition-2026-de-38.mp3",
+      "duration": 12.042449,
+      "highlightStart": 75.13,
+      "highlightDuration": 12,
+      "sourceSha256": "df0ea5ffa35c9862993daef98a415b721406dd9b48fc9d057f4816ac3da608f8",
+      "sha256": "ae1068ca55dbf99d9f1dbd73daf760f5a5f23fe2cc77eadeff92fc8ead24cb16",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 75.13,
+        "referencePreviewEnd": 97.826,
+        "gameSongId": "ERABYECONNEC10N.かめりあ.0"
+      },
+      "artist": "かめりあ"
+    },
+    {
+      "title": "祈 -我ら神祖と共に歩む者なり-",
+      "songIds": [
+        "competition-2026-de-39"
+      ],
+      "output": "assets/song-preview/competition-2026-de-39.mp3",
+      "duration": 12.042449,
+      "highlightStart": 110.958,
+      "highlightDuration": 12,
+      "sourceSha256": "2bbe68e5daba59339db6f10bb65590204a56a3ef9848681e9ddfb382548c323d",
+      "sha256": "1269997c917b22420b9eeb78076d98b0277d689f959a6864d0a397da1370897a",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 110.958,
+        "referencePreviewEnd": 128.219,
+        "gameSongId": "祈-我ら神祖と共に歩む者なり-.光吉猛修VS穴山大輔VSKaiVS水野健治VS大国奏音.0"
+      },
+      "artist": "光吉猛修 VS 穴山大輔 VS Kai VS 水野健治 VS 大国奏音"
+    },
+    {
+      "title": "Igallta",
+      "songIds": [
+        "competition-2026-de-40"
+      ],
+      "output": "assets/song-preview/competition-2026-de-40.mp3",
+      "duration": 12.042449,
+      "highlightStart": 79.826,
+      "highlightDuration": 12,
+      "sourceSha256": "56104de0ee013279cfd41c2a7200306c6ee46563f47f4dcda25abc723d03a958",
+      "sha256": "2493e8d2f69d87e06887630932029648405299b4a72bd435cd9b6d073797f654",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 79.826,
+        "referencePreviewEnd": 94.826,
+        "gameSongId": "Igallta.SeURa.0"
+      },
+      "artist": "Se-U-Ra"
+    },
+    {
+      "title": "Distorted Fate",
+      "songIds": [
+        "competition-2026-de-41"
+      ],
+      "output": "assets/song-preview/competition-2026-de-41.mp3",
+      "duration": 12.042449,
+      "highlightStart": 99.4,
+      "highlightDuration": 12,
+      "sourceSha256": "0073ce9d4660d4c3070b8f06023207ada242a3c914bc42d96117abcda036570b",
+      "sha256": "68d7263b76b628682d9a21bf4759a24b112b71d31e3b8f888a43241b3cb020c3",
+      "selection": {
+        "method": "referenced",
+        "reviewed": true,
+        "reviewMethod": "reference-window-and-waveform",
+        "auditioned": false,
+        "note": "Selection anchored to the community-exported in-game preview window and checked against the supplied audio waveform; not a claim of a unique musical climax.",
+        "sourceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+        "referencePreviewStart": 99.4,
+        "referencePreviewEnd": 119.4,
+        "gameSongId": "DistortedFate.Sakuzyo.0"
+      },
+      "artist": "Sakuzyo"
+    },
+    {
+      "title": "Der Schneid",
+      "songIds": [
+        "competition-2026-de-42"
+      ],
+      "output": "assets/song-preview/competition-2026-de-42.mp3",
+      "duration": 12.042449,
+      "highlightStart": 129.008,
+      "highlightDuration": 12,
+      "sourceSha256": "d5ff7b7eac2dd0786eacc51012b15f2a8255223565c35500bc3a4b6ccbda8751",
+      "sha256": "d6c3bb157fb3300ae3bd057bc4321cd6e8c400b3f97ec905c72edb9834991fc6",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Late return after the brief reduction immediately before 129 seconds; 4.07 dB entry rise. The following 12 seconds remain energetic and stop before the tail. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "Ωμεγα"
+    },
+    {
+      "title": "Desultory Signals",
+      "songIds": [
+        "competition-2026-gf-01"
+      ],
+      "output": "assets/song-preview/competition-2026-gf-01.mp3",
+      "duration": 12.042449,
+      "highlightStart": 88.466,
+      "highlightDuration": 12,
+      "sourceSha256": "a25a54588559237cd8ca114e505f677f57e4cb695595146efd30171cbc22bdba",
+      "sha256": "a41467afff9a909ce8da55953b45ab2187f8eae239be6fbc435c77c6f491b569",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Later entrance after a reduced-energy passage, with a 6.01 dB entry rise. Analysis only: prepare metadata without activating Grand Final playback. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "technoplanet"
+    },
+    {
+      "title": "Petrichor",
+      "songIds": [
+        "competition-2026-gf-02"
+      ],
+      "output": "assets/song-preview/competition-2026-gf-02.mp3",
+      "duration": 12.042449,
+      "highlightStart": 142.708,
+      "highlightDuration": 12,
+      "sourceSha256": "94d928f505aa200592dff1e4089e0a3a4921aac70dcaeba2808338424a69a69b",
+      "sha256": "d389638f0b7c53717724fc4d97a40e6aba522ad90d7344f84b827443c36fc361",
+      "selection": {
+        "method": "energy-suggestion",
+        "reviewed": true,
+        "reviewMethod": "spectral-structure-and-waveform",
+        "auditioned": false,
+        "externallyVerified": false,
+        "note": "Prefer the final sustained high-energy passage, which remains clear of the ending fade. No uniquely large late breakdown arrival is evident. Analysis only: prepare metadata without activating Grand Final playback. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "sourceUrl": ""
+      },
+      "artist": "void (Mournfinale)"
+    }
+  ],
+  "songs": {
+    "competition-2026-q1-01": {
+      "previewAudio": "assets/song-preview/competition-2026-q1-01.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-q1-02": {
+      "previewAudio": "assets/song-preview/competition-2026-q1-02.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-q1-03": {
+      "previewAudio": "assets/song-preview/competition-2026-q1-03.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-q2-01": {
+      "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-30": {
+      "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-q2-02": {
+      "previewAudio": "assets/song-preview/competition-2026-q2-02.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-q2-03": {
+      "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
+      "duration": 10.03102
+    },
+    "competition-2026-de-33": {
+      "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
+      "duration": 10.03102
+    },
+    "competition-2026-de-01": {
+      "previewAudio": "assets/song-preview/competition-2026-de-01.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-02": {
+      "previewAudio": "assets/song-preview/competition-2026-de-02.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-03": {
+      "previewAudio": "assets/song-preview/competition-2026-de-03.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-04": {
+      "previewAudio": "assets/song-preview/competition-2026-de-04.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-05": {
+      "previewAudio": "assets/song-preview/competition-2026-de-05.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-06": {
+      "previewAudio": "assets/song-preview/competition-2026-de-06.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-07": {
+      "previewAudio": "assets/song-preview/competition-2026-de-07.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-08": {
+      "previewAudio": "assets/song-preview/competition-2026-de-08.mp3",
+      "duration": 10.396735
+    },
+    "competition-2026-de-09": {
+      "previewAudio": "assets/song-preview/competition-2026-de-09.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-10": {
+      "previewAudio": "assets/song-preview/competition-2026-de-10.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-11": {
+      "previewAudio": "assets/song-preview/competition-2026-de-11.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-12": {
+      "previewAudio": "assets/song-preview/competition-2026-de-12.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-13": {
+      "previewAudio": "assets/song-preview/competition-2026-de-13.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-14": {
+      "previewAudio": "assets/song-preview/competition-2026-de-14.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-15": {
+      "previewAudio": "assets/song-preview/competition-2026-de-15.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-16": {
+      "previewAudio": "assets/song-preview/competition-2026-de-16.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-17": {
+      "previewAudio": "assets/song-preview/competition-2026-de-17.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-18": {
+      "previewAudio": "assets/song-preview/competition-2026-de-18.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-19": {
+      "previewAudio": "assets/song-preview/competition-2026-de-19.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-20": {
+      "previewAudio": "assets/song-preview/competition-2026-de-20.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-21": {
+      "previewAudio": "assets/song-preview/competition-2026-de-21.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-22": {
+      "previewAudio": "assets/song-preview/competition-2026-de-22.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-23": {
+      "previewAudio": "assets/song-preview/competition-2026-de-23.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-24": {
+      "previewAudio": "assets/song-preview/competition-2026-de-24.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-25": {
+      "previewAudio": "assets/song-preview/competition-2026-de-25.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-26": {
+      "previewAudio": "assets/song-preview/competition-2026-de-26.mp3",
+      "duration": 12.016327
+    },
+    "competition-2026-de-27": {
+      "previewAudio": "assets/song-preview/competition-2026-de-27.mp3",
+      "duration": 12.016327
+    },
+    "competition-2026-de-28": {
+      "previewAudio": "assets/song-preview/competition-2026-de-28.mp3",
+      "duration": 12.016327
+    },
+    "competition-2026-de-29": {
+      "previewAudio": "assets/song-preview/competition-2026-de-29.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-31": {
+      "previewAudio": "assets/song-preview/competition-2026-de-31.mp3",
+      "duration": 10.657959
+    },
+    "competition-2026-de-32": {
+      "previewAudio": "assets/song-preview/competition-2026-de-32.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-34": {
+      "previewAudio": "assets/song-preview/competition-2026-de-34.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-35": {
+      "previewAudio": "assets/song-preview/competition-2026-de-35.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-36": {
+      "previewAudio": "assets/song-preview/competition-2026-de-36.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-37": {
+      "previewAudio": "assets/song-preview/competition-2026-de-37.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-38": {
+      "previewAudio": "assets/song-preview/competition-2026-de-38.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-39": {
+      "previewAudio": "assets/song-preview/competition-2026-de-39.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-40": {
+      "previewAudio": "assets/song-preview/competition-2026-de-40.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-41": {
+      "previewAudio": "assets/song-preview/competition-2026-de-41.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-de-42": {
+      "previewAudio": "assets/song-preview/competition-2026-de-42.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-gf-01": {
+      "previewAudio": "assets/song-preview/competition-2026-gf-01.mp3",
+      "duration": 12.042449
+    },
+    "competition-2026-gf-02": {
+      "previewAudio": "assets/song-preview/competition-2026-gf-02.mp3",
+      "duration": 12.042449
+    }
+  },
+  "sourceImport": {
+    "preparedDate": "2026-10-15",
+    "origin": "Organiser-supplied five-volume Phigros_Qualifier_OGG.7z archive",
+    "archiveSha256": "3cf8b933a7fa7275a7ce5881de58cb33618a3dba6af494a7a690ee9d71af4845",
+    "uniqueSourceSongs": 49,
+    "includedSongs": 48,
+    "excludedTitles": [
+      "What do you want more than a Happy ending?"
+    ],
+    "referenceUrl": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+    "referenceSha256": "5366ad84c05237032c5c4e81c983dc3fa14d28fb8b1e030b8b3424c9bb4a1cee",
+    "selectionSummary": {
+      "referenceWindows": 28,
+      "signalAndWaveform": 20,
+      "auditioned": false
+    },
+    "grandFinalPlaybackEnabled": false
+  }
 }

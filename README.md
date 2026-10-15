@@ -247,7 +247,7 @@ Preview: assets/song-preview/song-01.mp3
 
 Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. Grand Final playback is unchanged.
 
-The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable song previews** button; use OBS **Interact** if needed. See [preview preparation and playback details](public/assets/song-preview/README.md) for the local manifest and clipping tool. The empty bundled manifest currently denotes music awaiting import; no substitute tracks are shipped.
+The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable song previews** button; use OBS **Interact** if needed. The organiser's audio is now bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. The two Grand Final assets are prepared without enabling playback on that page. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
 
 Save manually entered media paths **before drawing candidates or selecting match songs**. Existing candidates and match picks retain their saved metadata; editing the library affects future draws. The bundled preview manifest also supplies audio for saved selections whose snapshots have no `previewAudio` field. An explicitly empty field disables that song's preview. Old event files remain compatible, and older clients that omit the field preserve an existing value. After upgrading the server files or importing a manifest, restart the local server and refresh the control panel and OBS Browser Source, preserving the existing `data/` directory.
 
@@ -272,6 +272,7 @@ Song preview checks use generated temporary tones to exercise actual Chromium de
 ```sh
 python3 test/selection-audio-browser.py
 python3 test/song-preview-preparation.py
+python3 test/bundled-song-previews.py
 ```
 
 ```sh

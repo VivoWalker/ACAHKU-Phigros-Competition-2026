@@ -334,7 +334,7 @@ def render_plan(zip_path: Path, plan_path: Path, output_dir: Path, catalog_path:
             destination = output_dir / PurePosixPath(entry["output"]).name
             if destination.is_symlink():
                 raise ValueError("Preview output file must not be a symlink")
-            public_entry = {"title": entry["title"], "songIds": entry["songIds"],
+            public_entry = {"title": entry["title"], "artist": entry.get("artist", ""), "songIds": entry["songIds"],
                             "output": entry["output"], "duration": round(actual_duration, 6),
                             "highlightStart": entry["start"], "highlightDuration": length,
                             "sourceSha256": entry["sourceSha256"], "sha256": digest(rendered),

@@ -1,5 +1,9 @@
 # 本地音乐预览素材
 
+已从主办方提供的五个 7z 分卷导入 **48 首真实歌曲预览，对应全部 50 个谱面**，每段 10–12 秒（MP3 编码补齐后仍小于 15 秒）。同曲 IN / AT 共用音频。旧歌单中额外的 `What do you want more than a Happy ending?` 未纳入当前曲库。Grand Final 两首素材已准备，页面仍不播放音乐。
+
+[preview-map.csv](preview-map.csv) 记录曲名、对应谱面、原文件名、截取起止时间及素材路径；[manifest.json](manifest.json) 保存时长、哈希和选段依据。28 首以社区导出的游戏预览时间窗为参考，20 首使用段落、起音、低频和波形分析后选取。游戏预览不一定是唯一的高潮，这些选段也未经过听觉试听；每项均记录具体方法。Re：End of a Dream 的原预览只有 9.34 秒，因此增加 0.66 秒非静音前导，保留原结束点。
+
 将剪辑好的 **10–15 秒**音频放在此目录，再在控制面板 **Event & library → Song library** 中填写该曲的 **Music preview path**，例如：
 
 ```text
@@ -17,8 +21,8 @@ assets/song-preview/song-01.mp3
 
 主控的内嵌直播预览保持静音。OBS 使用一个承担声音的 `overlay/live.html` 浏览器源；需要画面但不需要声音的额外浏览器源，在网址加 `?audio=0`（已有查询参数则加 `&audio=0`），避免重复出声。OBS 浏览器源启用 **Control audio via OBS** 后，可在混音器调整音量。普通浏览器若拦截自动播放，点击页面的 **Enable song previews**；OBS 可通过“交互”操作该按钮。
 
-`manifest.json` 可将随包素材映射到多个谱面 ID：`tracks` 每项含 `songIds`、`output`（本地路径）和 `duration`（实际秒数），同一歌曲的 IN / AT 共用片段。它也适用于已保存的候选曲目，不必重置比赛。曲目自身显式填写的 `previewAudio` 优先；显式空值表示关闭该曲预览。当前空清单表示尚未导入音乐，不会使用占位音冒充比赛歌曲。
+`manifest.json` 将随包素材映射到多个谱面 ID：`tracks` 每项含 `songIds`、`output`（本地路径）和 `duration`（实际秒数）。它也适用于已保存且没有 `previewAudio` 字段的候选曲目，不必重置比赛。曲目自身显式填写的 `previewAudio` 优先；显式空值表示关闭该曲预览。控制面板在旧曲库缺少该字段时显示内置路径，修改其他资料不会顺便关闭音频；手动更换成其他片段时，播放器读取新文件自己的时长。
 
-源音乐 ZIP 不要放入 `public/` 或提交到仓库。使用 `scripts/prepare-song-previews.py` 生成裁切计划，核对每首歌的时间点后再导出；具体命令见脚本帮助。高潮没有统一标准，自动分析的高能量段必须人工核对，不能视为网上确认的高潮位置。
+完整源音乐和压缩包不要放入 `public/` 或提交到仓库。使用 `scripts/prepare-song-previews.py` 生成裁切计划，核对每首歌的时间点后再导出；具体命令见脚本帮助及 [准备说明](../../../docs/song-preview-preparation.md)。自动分析的高能量段不能视为网上确认的高潮位置，推荐在正式比赛前试听确认。
 
 曲绘放在 `public/assets/song/`，在同一个表单填写 **Local artwork path**，例如 `assets/song/song-01.webp`。手动编辑的素材路径仍保留抽取时快照，请在抽候选之前填写；也可在已有路径替换文件后刷新浏览器源。导入清单后请刷新 OBS 浏览器源。

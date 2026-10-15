@@ -62,6 +62,28 @@ test('all official charts use an existing local jacket and recorded composer', (
   }
 });
 
+test('all official charts map to the bundled preview for their exact song identity', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'public/assets/song-preview/manifest.json'), 'utf8'));
+  const outputs = new Map();
+  for (const track of manifest.tracks) {
+    for (const id of track.songIds) {
+      assert.equal(outputs.has(id), false, `Duplicate preview mapping: ${id}`);
+      outputs.set(id, track);
+    }
+  }
+  assert.equal(outputs.size, config.LIBRARY.length);
+  for (const song of config.LIBRARY) {
+    const track = outputs.get(song.id);
+    assert.ok(track, song.id);
+    assert.equal(track.title, song.title);
+    assert.equal(track.artist, song.artist);
+    assert.equal(song.previewAudio, track.output);
+    assert.match(song.previewAudio, /^assets\/song-preview\/[a-zA-Z0-9_-]+\.mp3$/);
+    assert.equal(fs.statSync(path.join(root, 'public', song.previewAudio)).isFile(), true);
+  }
+  assert.equal(new Set(config.LIBRARY.map(song => song.previewAudio)).size, 48);
+});
+
 test('GF original files match source catalog SHA-256, dimensions and PNG signature', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'public/assets/song/grand-final-2026/manifest.json'), 'utf8'));
   for (const song of manifest.songs) {

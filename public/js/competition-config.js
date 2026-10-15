@@ -18,6 +18,7 @@
     "difficulty": "IN",
     "level": 14,
     "art": "assets/song/song-list-2026/01-secret-illumination.png",
+    "previewAudio": "assets/song-preview/competition-2026-q1-01.mp3",
     "eligible": false
   },
   {
@@ -27,6 +28,7 @@
     "difficulty": "IN",
     "level": 15,
     "art": "assets/song/song-list-2026/02-on-and-on.png",
+    "previewAudio": "assets/song-preview/competition-2026-q1-02.mp3",
     "eligible": false
   },
   {
@@ -36,6 +38,7 @@
     "difficulty": "IN",
     "level": 15,
     "art": "assets/song/song-list-2026/03-song.png",
+    "previewAudio": "assets/song-preview/competition-2026-q1-03.mp3",
     "eligible": false
   },
   {
@@ -45,6 +48,7 @@
     "difficulty": "IN",
     "level": 14,
     "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
+    "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
     "eligible": false
   },
   {
@@ -54,6 +58,7 @@
     "difficulty": "IN",
     "level": 15,
     "art": "assets/song/song-list-2026/05-stasis.png",
+    "previewAudio": "assets/song-preview/competition-2026-q2-02.mp3",
     "eligible": false
   },
   {
@@ -63,6 +68,7 @@
     "difficulty": "IN",
     "level": 15,
     "art": "assets/song/song-list-2026/06-re-end-of-a-dream.png",
+    "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
     "eligible": false
   },
   {
@@ -72,6 +78,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/23-cthugha.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-01.mp3",
     "eligible": true
   },
   {
@@ -81,6 +88,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/26-rrhar-il.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-02.mp3",
     "eligible": true
   },
   {
@@ -90,6 +98,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/28-retribution-cycle-of-redemption.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-03.mp3",
     "eligible": true
   },
   {
@@ -99,6 +108,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/29-retribution.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-04.mp3",
     "eligible": true
   },
   {
@@ -108,6 +118,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/30-chronos-collapse-la-campanella.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-05.mp3",
     "eligible": true
   },
   {
@@ -117,6 +128,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/33-qzkago-requiem.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-06.mp3",
     "eligible": true
   },
   {
@@ -126,6 +138,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/34-fractured-angel.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-07.mp3",
     "eligible": true
   },
   {
@@ -135,6 +148,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/37-ad-astra-per-aspera.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-08.mp3",
     "eligible": true
   },
   {
@@ -144,6 +158,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/10-ark.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-09.mp3",
     "eligible": true
   },
   {
@@ -153,6 +168,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/38-song.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-10.mp3",
     "eligible": true
   },
   {
@@ -162,6 +178,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/39-kizuna-resolution.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-11.mp3",
     "eligible": true
   },
   {
@@ -171,6 +188,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/41-crosssoul.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-12.mp3",
     "eligible": true
   },
   {
@@ -180,6 +198,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/12-indelible-scar.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-13.mp3",
     "eligible": true
   },
   {
@@ -189,6 +208,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/27-lyrith.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-14.mp3",
     "eligible": true
   },
   {
@@ -198,6 +218,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/42-verruckt.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-15.mp3",
     "eligible": true
   },
   {
@@ -207,6 +228,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/43-stardust-ray.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-16.mp3",
     "eligible": true
   },
   {
@@ -216,6 +238,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/07-avataar-reincarnation-of-kalpa.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-17.mp3",
     "eligible": true
   },
   {
@@ -225,6 +248,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/09-volcanic.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-18.mp3",
     "eligible": true
   },
   {
@@ -234,6 +258,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/18-athaza.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-19.mp3",
     "eligible": true
   },
   {
@@ -243,6 +268,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/20-pragmatism-resurrection.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-20.mp3",
     "eligible": true
   },
   {
@@ -252,6 +278,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/44-song.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-21.mp3",
     "eligible": true
   },
   {
@@ -261,6 +288,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/45-gungnir-fracture.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-22.mp3",
     "eligible": true
   },
   {
@@ -270,6 +298,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/08-cuvism3.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-23.mp3",
     "eligible": true
   },
   {
@@ -279,6 +308,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/11-diamond-dust.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-24.mp3",
     "eligible": true
   },
   {
@@ -288,6 +318,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/14-spasmodic.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-25.mp3",
     "eligible": true
   },
   {
@@ -297,6 +328,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/19-banging-strike.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-26.mp3",
     "eligible": true
   },
   {
@@ -306,6 +338,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/21-solips.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-27.mp3",
     "eligible": true
   },
   {
@@ -315,6 +348,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/46-entrance-to-the-chaos.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-28.mp3",
     "eligible": true
   },
   {
@@ -324,6 +358,7 @@
     "difficulty": "IN",
     "level": 16,
     "art": "assets/song/song-list-2026/47-exoplanetary-mirage.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-29.mp3",
     "eligible": true
   },
   {
@@ -333,6 +368,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
+    "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
     "eligible": true
   },
   {
@@ -342,6 +378,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/15-der-richter.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-31.mp3",
     "eligible": true
   },
   {
@@ -351,6 +388,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/16-archidoxen.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-32.mp3",
     "eligible": true
   },
   {
@@ -360,6 +398,7 @@
     "difficulty": "AT",
     "level": 16,
     "art": "assets/song/song-list-2026/06-re-end-of-a-dream.png",
+    "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
     "eligible": true
   },
   {
@@ -369,6 +408,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/22-song.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-34.mp3",
     "eligible": true
   },
   {
@@ -378,6 +418,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/13-hydra.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-35.mp3",
     "eligible": true
   },
   {
@@ -387,6 +428,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/35-absolute-disorder.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-36.mp3",
     "eligible": true
   },
   {
@@ -396,6 +438,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/31-destruction-3-2-1.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-37.mp3",
     "eligible": true
   },
   {
@@ -405,6 +448,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/36-eraby-e-connec-10n.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-38.mp3",
     "eligible": true
   },
   {
@@ -414,6 +458,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/40-song.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-39.mp3",
     "eligible": true
   },
   {
@@ -423,6 +468,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/25-igallta.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-40.mp3",
     "eligible": true
   },
   {
@@ -432,6 +478,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/32-distorted-fate.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-41.mp3",
     "eligible": true
   },
   {
@@ -441,6 +488,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/song-list-2026/24-der-schneid.png",
+    "previewAudio": "assets/song-preview/competition-2026-de-42.mp3",
     "eligible": true
   },
   {
@@ -450,6 +498,7 @@
     "difficulty": "IN",
     "level": 17,
     "art": "assets/song/grand-final-2026/desultory-signals.png",
+    "previewAudio": "assets/song-preview/competition-2026-gf-01.mp3",
     "eligible": false
   },
   {
@@ -459,6 +508,7 @@
     "difficulty": "AT",
     "level": 17,
     "art": "assets/song/grand-final-2026/petrichor.png",
+    "previewAudio": "assets/song-preview/competition-2026-gf-02.mp3",
     "eligible": false
   }
 ]

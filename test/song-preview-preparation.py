@@ -140,6 +140,7 @@ class EncodingTests(unittest.TestCase):
         self.assertGreaterEqual(duration, 10)
         self.assertLessEqual(duration, 15)
         self.assertEqual(manifest["tracks"][0]["sha256"], PREPARE.digest(clip))
+        self.assertEqual(manifest["tracks"][0]["artist"], "Test")
         self.assertNotIn("sourceFile", manifest["tracks"][0])
         self.assertEqual(json.loads((output / "manifest.json").read_text()), manifest)
 

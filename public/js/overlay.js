@@ -51,7 +51,8 @@
   function previewSongs(m) {
     return [...(m?.songs || []), ...(m?.candidates || [])].filter(song => !song.hidden).map(song => {
       const bundled = previewCatalog.get(song.id);
-      return { ...song, previewAudio: Object.hasOwn(song, 'previewAudio') ? song.previewAudio : bundled?.output || '', previewDuration: bundled?.duration };
+      const previewAudio = Object.hasOwn(song, 'previewAudio') ? song.previewAudio : bundled?.output || '';
+      return { ...song, previewAudio, previewDuration: previewAudio === bundled?.output ? bundled.duration : undefined };
     });
   }
   function fit() {
