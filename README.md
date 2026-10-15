@@ -103,12 +103,13 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | Double elimination waiting | `/overlay/double-elimination-waiting.html` |
 | Three-player qualifier match | `/overlay/qualifier-match.html` |
 | Two-player double elimination match, including the three-song final | `/overlay/double-elimination-match.html` |
+| Current-song Perfect / Good / Bad / Miss and score, for either stage | `/overlay/song-result.html` |
 | Group A / B qualifier rankings or double elimination result | `/overlay/result.html` |
 | Current-round bracket focus and advancement destinations | `/overlay/bracket.html` |
 | Additional requested song-selection screen | `/overlay/song-selection.html` |
 | Fixed Grand Final song announcement | `/overlay/grand-final-announcement.html` |
 
-`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are seven main screens, the selection screen and the Grand Final announcement screen.
+`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are ten scenes, including song statistics, selection and the Grand Final announcement.
 
 Capture-card source rectangles in the 1920×1080 canvas, in player order. These positions are identical in single and dual view:
 
@@ -155,6 +156,17 @@ The start screen places the society logos to the right of the organiser's name, 
 Refresh the OBS Browser Source after copying or replacing a file. The API checks the directory on each request, so a server restart is unnecessary. Start and waiting screens show the supplied transparent character alongside short event or next-match information. The PNG keeps its original transparency and proportions, with the full character and book visible. PNG/WebP take priority over older JPG copies. If an asset is absent, the display leaves that area clear and uses event text; it does not substitute a fabricated poster or logo. Original Windows paths such as `E:/...` are not browser assets: the files must exist in this project's `public/assets/event/` directory on the machine running the server. Once copied, artwork is served locally and needs no Internet connection during the event.
 
 ## Staff workflow
+
+### Live production console
+
+**Live production / 賽事操作台** is the default main-control page. It keeps the live preview, current entrants/song, the next broadcast action, countdown and phase-specific controls together. The preview stays connected during edits. The existing qualifier, bracket, selection and event tabs remain available for setup, corrections and advanced operations; manual scene switching, camera modes, source checks and referee tools are also available under **其他播出設定**.
+
+- **Qualifier:** waiting for song 1 → match → song statistics → waiting for song 2 → match → statistics → waiting for song 3 → match → statistics → current ranking. Record the game's three-song Challenge total in the third-song statistics panel. After ranking, advance to the next batch of up to three entrants, or explicitly move to the next group/round. The last batch does not wrap to the first. Plan A still requires verified Round 1 qualification before the revival round.
+- **Double elimination:** preselection waiting → six candidates / bans / two picks → song 1 waiting → match → statistics → song 2 waiting → match → statistics → verified round result → bracket → the next ready match. Enter scores and original ACC/judgements on the same page; result confirmation still enforces all score and tiebreak rules. The fixed Grand Final has its own announcement and bypasses bans; historical finals retain their audience/MC controls.
+
+The **本曲統計** screen shows that song's score and four judgement counts, with unrecorded values shown as `—`. Challenge qualifier song statistics are separate display records: they never supply, average or replace the official `challengeTotal`. Save the directly reported Challenge total separately for ranking. Song-statistic edits are main-control operations; the scorekeeper's existing official-score permissions remain unchanged.
+
+Workflow changes use one validated `set-broadcast-cue` command, so the scene, entrants and song cursor change in the same revision. Unsaved score/statistic drafts prevent advancing the workflow; normal state refreshes preserve those drafts. If another operator changes songs, the pending earlier-song editor remains available without changing the live cue. Discarding drafts requires explicit confirmation. Completed batches are skipped, including after a tiebreak. Existing event files need no manual migration. Restart the server after updating, then refresh the main control and OBS source.
 
 ### Proposal rules and qualifiers
 
@@ -344,6 +356,13 @@ python3 test/background-continuity.py
 ```
 
 Set `MOTION_TEST_SCOPE=scenes` or `MOTION_TEST_SCOPE=covers` for a focused run. `MOTION_RECORD_PREVIEW=1` records a real browser WebM; outputs use `BROADCAST_TEST_OUTPUT` or `test-results/`.
+
+The production-console browser regression uses temporary Plan B and DE/GF fixtures to exercise both complete broadcast flows in one tab, independent Challenge display statistics, draft protection, refresh/restart recovery, preview identity, and responsive form/label geometry. The song-result suite separately checks broadcast data, missing/zero values, completed-match identity and animated entries:
+
+```sh
+python3 test/production-console-browser.py
+python3 test/song-result-browser.py
+```
 
 The aperture regression measures actual compositor PNG alpha by pausing and seeking the browser's native animation effects. Separate real-time traces check score updates and interrupted transitions. It checks right-to-left reveal/cover and left-to-right ordering for every capture-card/handcam window, single/dual switching, rapid scene changes, reduced motion, unchanged background identity/pixels and full-screen countdown coverage:
 

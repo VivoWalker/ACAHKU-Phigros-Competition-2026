@@ -23,7 +23,26 @@
   }
   const total = (state, row) => isChallenge(state) ? row.challengeTotal ?? null : ScoreRules.total(row.scores);
   const complete = (state, row) => isChallenge(state) ? row.challengeTotal !== null && row.challengeTotal !== undefined : row.scores.every(value => value !== null);
-  const recorded = row => row.challengeTotal !== undefined && row.challengeTotal !== null || row.scores.some(value => value !== null) || row.judgements?.some(Boolean);
+  const recorded = row => row.challengeTotal !== undefined && row.challengeTotal !== null || row.scores.some(value => value !== null) || row.judgements?.some(Boolean) || row.songStats?.some(Boolean) || row.songStatsRecorded === true;
+  function normaliseSongStats(raw) {
+    if (raw === null) return null;
+    requireValue(raw && typeof raw === 'object' && !Array.isArray(raw), 'Enter the song score and all four judgement counts.');
+    const fields = ['score', 'perfect', 'good', 'bad', 'miss'];
+    requireValue(Object.keys(raw).every(key => fields.includes(key) || key === 'accuracy'), 'Unknown song statistics field.');
+    requireValue(Number.isSafeInteger(raw.score) && raw.score >= 0 && raw.score <= 1000000,
+      'Song score must be an integer from 0 to 1,000,000.');
+    const stats = { score: raw.score };
+    for (const key of fields.slice(1)) {
+      requireValue(Number.isSafeInteger(raw[key]) && raw[key] >= 0, 'Enter all four nonnegative integer judgement counts.');
+      stats[key] = raw[key];
+    }
+    if (Object.hasOwn(raw, 'accuracy')) {
+      requireValue(typeof raw.accuracy === 'number' && Number.isFinite(raw.accuracy) && raw.accuracy >= 0 && raw.accuracy <= 100,
+        'Accuracy must be a number from 0 to 100.');
+      stats.accuracy = raw.accuracy;
+    }
+    return stats;
+  }
   const roundStarted = (state, group) => Boolean(state.qualifier.rounds?.[group]?.scoringStarted ||
     (configured(state) ? Object.values(state.qualifier.rounds[group].results) : roster(state).filter(player => player.group === group)).some(recorded));
   function canChangeScoringMode(state) {
@@ -31,7 +50,7 @@
     return !t.seeded && !hasScores(state) && !state.result && !t.matches.length && !t.seeds.length && !t.drawLog.length &&
       !Object.keys(t.songHistory || {}).length && !state.correctionLog?.length && !q.scoringStarted &&
       !roster(state).some(player => player.tiePriority !== null) && !q.adjudications?.some(entry => entry.type !== 'set-player-readiness') &&
-      !state.auditLog?.some(entry => ['set-qualifier-total', 'set-qualifier-score', 'set-qualifier-tiebreak-score', 'qualify', 'finalize-qualifier-round', 'seed-bracket', 'restore-backup'].includes(entry.type));
+      !state.auditLog?.some(entry => ['set-qualifier-total', 'set-qualifier-score', 'set-qualifier-song-stats', 'set-qualifier-tiebreak-score', 'qualify', 'finalize-qualifier-round', 'seed-bracket', 'restore-backup'].includes(entry.type));
   }
   function setScoringMode(state, mode) {
     requireValue([CHALLENGE_MODE, 'legacy-score'].includes(mode), 'Choose Challenge Mode total or legacy individual scores.');
@@ -179,6 +198,25 @@
     };
     switch (action.type) {
       case 'set-qualifier-scoring-mode': setScoringMode(state, p.mode); return true;
+      case 'set-qualifier-song-stats': {
+        assert(groups.includes(p.group) && p.group === q.activeGroup, 'Only the active qualifier group may have song statistics entered.');
+        assert(!state.tournament.seeded && !q.rounds?.[group]?.locked, 'Qualifier statistics are locked after round qualification or seeding.');
+        assert(!q.rounds?.[group]?.tiebreaks?.length, 'Base song statistics are locked after a qualifier tiebreak starts.');
+        assert(!isChallenge(state) || configured(state), 'Configure Plan A or Plan B before entering Challenge Mode song statistics.');
+        assert(Number.isInteger(p.songIndex) && p.songIndex >= 0 && p.songIndex < 3, 'Invalid qualifier song number.');
+        assert(q.groups[group]?.songs[p.songIndex], 'Choose the qualifier songs first.');
+        const player = entries(state, group).find(value => value.id === p.playerId);
+        assert(player, 'Player is not eligible in this qualifier round.');
+        const stats = normaliseSongStats(p.stats), row = result(state, group, player.id);
+        row.songStats ??= Array(3).fill(null);
+        row.songStats[p.songIndex] = stats;
+        if (stats !== null) {
+          q.scoringStarted = true;
+          row.songStatsRecorded = true;
+          if (q.rounds?.[group]) q.rounds[group].scoringStarted = true;
+        }
+        return true;
+      }
       case 'set-qualifier-total': {
         assert(isChallenge(state), 'Use Challenge Mode total scoring for this command.');
         assert(configured(state), 'Configure Plan A or Plan B before entering Challenge Mode totals.');
@@ -373,6 +411,6 @@
       default: return false;
     }
   }
-  return { CHALLENGE_MODE, MAX_CHALLENGE_TOTAL, isChallenge, challengeTotal, total, complete, recorded, roundStarted, canChangeScoringMode, setScoringMode,
+  return { CHALLENGE_MODE, MAX_CHALLENGE_TOTAL, isChallenge, challengeTotal, normaliseSongStats, total, complete, recorded, roundStarted, canChangeScoringMode, setScoringMode,
     configured, entries, rankings, seeds, result, tiedSets, activeTiebreak, hasScores, applyAction };
 });

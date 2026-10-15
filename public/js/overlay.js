@@ -126,8 +126,8 @@
     const clubs = clubLogos('hero-club-logos');
     return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 data-motion-block style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p data-motion-block class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><div class='organiser-row ${clubs ? 'with-club-logos' : ''}'><p data-motion-block class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p>${clubs}</div></section></div>`;
   }
-  function waiting(s, context, label, names, currentSong, songCount, song) {
-    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中 <span>PREPARING</span></div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>接下來 · SONG ${currentSong + 1} / ${songCount}</span><h2>${songText(song)}</h2></div></section>${visual('waiting-art')}</div>`;
+  function waiting(s, context, label, names, currentSong, songCount, song, selectionNext = false) {
+    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中 <span>PREPARING</span></div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>${selectionNext ? '選曲前準備 · SONG SELECTION NEXT' : `接下來 · SONG ${currentSong + 1} / ${songCount}`}</span><h2>${selectionNext ? '即將開始選曲' : songText(song)}</h2></div></section>${visual('waiting-art')}</div>`;
   }
   function qualifierWaiting(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs;
@@ -138,7 +138,7 @@
     const m = B.currentMatch(s);
     if (!m) return backdrop() + header(s, '雙淘汰賽') + title('等待晉級選手', 'DOUBLE ELIMINATION') + visual('standby-art');
     const tie = B.matchTiebreak(s);
-    return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong]);
+    return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong], !tie && !m.songs.length);
   }
   function playerName(s, id, scores, songs, index, kind, directTotal) {
     const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
@@ -189,12 +189,33 @@
       return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
     }).join('')}</div>` + footer(ranks.some(group => group.length > 8) && !fixedRankPage ? `${s.qualifier.plan === 'A' ? '各輪獨立排名' : '各組分開排名'} · 每 12 秒換頁` : s.qualifier.plan === 'A' ? '各輪獨立排名 · ROUND STANDINGS' : '各組分開排名 · GROUP STANDINGS');
   }
+  function songResult(s) {
+    const qualifier = s.stage === 'qualifier', q = s.qualifier, m = B.currentMatch(s);
+    if (!qualifier && !m) return backdrop() + header(s, '單曲統計') + title('等待比賽成績', 'SONG STATISTICS');
+    const tie = qualifier ? B.qualifierTiebreak(s) : B.matchTiebreak(s);
+    const index = qualifier ? q.currentSong : m.currentSong, count = qualifier ? 3 : B.matchSongCount(m);
+    const song = tie?.song || (qualifier ? B.song(s, q.groups[q.activeGroup].songs[index]) : m.songs[index]);
+    const context = qualifier ? B.qualifierLabel(s) : `R${m.round} · ${m.id} · ${m.label}`;
+    const entries = qualifier ? B.qualifierPlayers(s, q.activeGroup) : [];
+    const players = (qualifier ? q.activePlayers.slice(0, 3) : m.players.slice(0, 2)).filter(Boolean);
+    const card = (id, pi) => {
+      if (!qualifier) pi = m.players.indexOf(id);
+      const player = entries.find(entry => entry.id === id);
+      const stored = qualifier ? player?.songStats?.[index] : null;
+      const legacy = qualifier && !Array.isArray(player?.songStats);
+      const judgements = tie ? qualifier ? tie.judgements?.[id] : tie.judgements?.[pi] : qualifier ? stored || (legacy ? player?.judgements?.[index] : null) : m.judgements?.[pi]?.[index];
+      const score = tie ? qualifier ? tie.scores?.[id] : tie.scores?.[pi] : qualifier ? stored?.score ?? (legacy ? player?.scores?.[index] : null) : m.scores?.[pi]?.[index];
+      return `<article data-motion-block class='song-result-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='song-result-total'><span>單曲分數 · SONG SCORE</span><strong class='song-result-score' data-stat='score'>${B.score(score)}</strong></div><dl class='song-result-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(judgements?.[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' style='font-size:${Math.min(46, Math.floor(350 / value.length))}px'>${value}</dd></div>`; }).join('')}</dl></article>`;
+    };
+    return backdrop() + header(s, qualifier ? '預選賽 · 單曲統計' : '雙淘汰賽 · 單曲統計') + `<section data-motion-block class='song-result-heading'><p><span>${e(context)}</span><span>${tie ? `TIEBREAK ${tie.index + 1}` : `SONG ${index + 1} / ${count}`}</span>${song ? `<span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span>` : ''}</p><h1>${songText(song)}</h1></section><div class='song-result-cards' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('單曲統計 · SONG STATISTICS', qualifier && B.challengeQualifier(s) ? '晉級排名採用遊戲三首課題結算總分' : 'PERFECT · GOOD · BAD · MISS');
+  }
   function result(s) {
     if (s.stage === 'qualifier') return qualifierResults(s);
     const r = s.result;
     if (!r) return backdrop() + header(s, '比賽結果') + title('等待比賽結果', 'RESULTS');
     const index = r.players.indexOf(r.winnerId), placement = r.placements[r.winnerId] || 'ADVANCES';
-    return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`) + `<div class='result-wrap'><section data-motion-block class='winner-panel'><div class='section-label'>${e(placement)}</div><h1>${r.winnerId ? entrantText(entrant(s, r.winnerId)) : '空缺場次'}</h1>${r.type === 'score' ? `<div class='winner-score'>${B.score(r.totals[index])}</div>${['accuracy', 'tiebreak'].includes(r.decisionReason) ? `<p class='result-note'>${r.decisionReason === 'accuracy' ? 'WIN ON ACCURACY' : 'TIEBREAK WINNER'}</p>` : ''}` : `<p class='result-note'>${e(r.type === 'forfeit' ? '對手取消資格 · FORFEIT' : r.type === 'draw' ? '抽籤晉級' : '輪空晉級')}</p>`}</section><section class='result-rows'>${r.players.filter(Boolean).map(id => { const i = r.players.indexOf(id); return `<div data-motion-block class='result-row result-${BroadcastBracket.destination(s, s.tournament.matches.find(m => m.id === r.matchId), id)?.kind || ''}'><h2>${id === r.winnerId ? e(B.name(s, id)) : entrantText(entrant(s, id))}</h2><strong>${r.type === 'score' ? B.score(r.totals[i]) : '—'}</strong><p>${e(BroadcastBracket.destination(s, s.tournament.matches.find(m => m.id === r.matchId), id)?.label || r.placements[id] || '—')}</p></div>`; }).join('')}</section></div>`;
+    const completed = s.tournament.matches.find(match => match.id === r.matchId);
+    return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`) + `<div class='result-wrap'><section data-motion-block class='winner-panel'><div class='section-label'>${e(placement)}</div><h1>${r.winnerId ? entrantText(entrant(s, r.winnerId)) : '空缺場次'}</h1>${r.type === 'score' ? `<div class='winner-score'>${B.score(r.totals[index])}</div>${['accuracy', 'tiebreak'].includes(r.decisionReason) ? `<p class='result-note'>${r.decisionReason === 'accuracy' ? 'WIN ON ACCURACY' : 'TIEBREAK WINNER'}</p>` : ''}` : `<p class='result-note'>${e(r.type === 'forfeit' ? '對手取消資格 · FORFEIT' : r.type === 'draw' ? '抽籤晉級' : '輪空晉級')}</p>`}</section><section class='result-rows'>${r.players.filter(Boolean).map(id => { const i = r.players.indexOf(id); return `<div data-motion-block class='result-row result-${BroadcastBracket.destination(s, completed, id)?.kind || ''}'><h2>${id === r.winnerId ? e(B.name(s, id)) : entrantText(entrant(s, id))}</h2><strong>${r.type === 'score' ? B.score(r.totals[i]) : '—'}</strong>${r.type === 'score' && completed ? `<div class='result-song-scores'>${completed.songs.map((song, si) => `<span title='${e(song.title)}'>SONG ${si + 1}<b>${B.score(completed.scores?.[i]?.[si])}</b></span>`).join('')}</div>` : ''}<p>${e(BroadcastBracket.destination(s, completed, id)?.label || r.placements[id] || '—')}</p></div>`; }).join('')}</section></div>`;
   }
   function bracket(s) {
     if (!s.tournament.seeded) return backdrop() + header(s, '賽程') + title('等待晉級選手', 'TOURNAMENT BRACKET');
@@ -215,7 +236,7 @@
     if (songs.length !== 2) return backdrop() + header(s, 'GRAND FINAL') + title('等待總決賽曲目', 'GRAND FINAL');
     return backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · TWO SONGS') + `<div class='final-announcement-grid'>${songs.map((song, index) => `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' class='final-song-card'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')}</span><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong></div><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></article>`).join('')}</div>` + footer('兩首曲目 · TWO SONGS', 'ACAHKU PHIGROS COMPETITION');
   }
-  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
+  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
     if (!state || !bootReady) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;

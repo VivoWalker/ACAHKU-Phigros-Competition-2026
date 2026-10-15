@@ -75,6 +75,9 @@ def command_log(page):
 def tab(page, name):
     page.locator(f'.tabs [data-tab="{name}"]').click()
     page.wait_for_function('name => document.querySelector(`.tabs [data-tab="${name}"]`).getAttribute("aria-selected") === "true"', arg=name)
+    if name == 'broadcast':
+        # Keep testing the original manual tools inside the new console.
+        page.locator('#production-advanced').evaluate('details => details.open = true')
 
 
 def wait_commands(page):
@@ -219,7 +222,11 @@ def main():
                 a.click('#song-form button[type="submit"]')
                 a.wait_for_function('fetch("../api/state").then(response=>response.json()).then(state=>state.library.some(song=>song.title === "Draft AT exclusive" && song.difficulty === "AT" && song.level === 17 && song.eligible === false))')
                 assert next(song for song in state()['library'] if song['title']=='Draft AT exclusive')['previewAudio']=='assets/song-preview/prepared.mp3'
-                assert not any('/assets/song-preview/' in url for url in requests), 'Reserved audio field caused an audio request'
+                # The muted program preview fetches the bundled clip catalogue;
+                # entering an optional path must still never request audio.
+                audio_requests = [url for url in requests if '/assets/song-preview/' in url
+                                  and urlsplit(url).path != '/assets/song-preview/manifest.json']
+                assert not audio_requests, ('Reserved audio field caused an audio request', audio_requests)
                 wait_commands(a)
                 report['event_drafts'] = {'title': state()['event']['title'], 'venue': state()['event']['venue']}
                 saved_song = next(song for song in state()['library'] if song['title'] == 'Draft AT exclusive')

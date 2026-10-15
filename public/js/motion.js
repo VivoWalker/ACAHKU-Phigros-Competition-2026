@@ -54,7 +54,7 @@
   const ENTRY_SELECTOR = '.event-title, .topmeta, .event-copy h1, .event-line, .organiser, .key-visual, '
     + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .waiting-song, '
     + '.player-name > h2, .player-total, .song-scores, .handcam-label, .song-band, .scene-head, '
-    + '.ranking-tables > section, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
+    + '.ranking-tables > section, .song-result-heading, .song-result-card, .song-result-empty, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
     + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-detail > h2, .picks, .selection-state, .empty-copy, .final-song-card';
   function entryNodes(root) {
     const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits], [data-motion-ghost]'));

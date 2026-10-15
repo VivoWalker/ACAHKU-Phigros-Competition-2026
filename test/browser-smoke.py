@@ -85,6 +85,8 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             for slot, id_ in enumerate(['p5','p6','p7']):
                 revision = state()['revision']; crew.select_option(f'#active-{slot}', id_); saved_after(revision)
             crew.click('.tabs [data-tab="broadcast"]')
+            # Manual scene cues now live in the console's optional settings.
+            crew.locator('#production-advanced').evaluate('details => details.open = true')
             revision = state()['revision']; crew.click('[data-scene="result"]'); saved_after(revision)
             live.wait_for_selector('.ranking-tables')
             motion_idle(live, 'result')

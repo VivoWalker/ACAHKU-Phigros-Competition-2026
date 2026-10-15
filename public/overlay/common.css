@@ -79,3 +79,26 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
   background: linear-gradient(135deg, #321c35, #24232e 55%, #111820);
   pointer-events: none;
 }
+
+/* Per-song result cards keep all four judgements readable in either layout. */
+.song-result-heading{position:absolute;left:96px;right:96px;top:192px;min-width:0}
+.song-result-heading>p{display:flex;align-items:center;gap:30px;font-size:28px;font-weight:600;line-height:1.3;color:#d6c8e2;white-space:nowrap}
+.song-result-heading>p>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.song-result-heading>p>span:not(:first-child){flex-shrink:0}
+.song-result-heading h1{font-size:62px;line-height:1.14;margin-top:18px;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.song-result-cards{position:absolute;left:96px;right:96px;top:410px;bottom:104px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.song-result-cards[data-count="2"]{grid-template-columns:repeat(2,minmax(0,1fr));gap:48px}
+.song-result-cards[data-count="1"]{grid-template-columns:minmax(0,840px);justify-content:center}
+.song-result-card{min-width:0;min-height:0;padding:30px 32px;background:#16121ddd;border-top:3px solid #cab4de;display:flex;flex-direction:column}
+.song-result-card>h2{font-size:44px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.song-result-total{padding:26px 0 24px;border-bottom:1px solid #a78dbd66;flex-shrink:0}
+.song-result-total>span{display:block;font-size:22px;font-weight:600;line-height:1.3;color:#cdbed9}
+.song-result-score{display:block;font-size:76px;line-height:1.15;font-weight:700;margin-top:24px;white-space:nowrap}
+.song-result-judgements{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px;margin:24px 0 0}
+.song-result-judgements>div{min-width:0}
+.song-result-judgements dt{font-size:22px;font-weight:700;line-height:1.3;color:#cdbed9}
+.song-result-judgements dd{font-size:46px;font-weight:700;line-height:1.2;margin:16px 0 0;white-space:nowrap}
+.song-result-judgements .judgement-perfect dt{color:#a9def1}.song-result-judgements .judgement-good dt{color:#e9d59d}.song-result-judgements .judgement-bad dt{color:#d7b5e7}.song-result-judgements .judgement-miss dt{color:#e6b4c3}
+.song-result-empty{font-size:46px;font-weight:700;grid-column:1/-1;align-self:center;text-align:center;color:#d6c8e2}
+.result-song-scores{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px 28px;font-size:20px;line-height:1.3;color:#c6b7d4}
+.result-song-scores>span{display:flex;align-items:baseline;gap:12px}.result-song-scores b{font-size:26px;font-weight:600;color:#eee8f4}
