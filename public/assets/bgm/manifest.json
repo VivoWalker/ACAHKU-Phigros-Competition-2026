@@ -120,6 +120,7 @@
   "scenes": {
     "start": "chapter-select",
     "qualifier-waiting": "chapter-select",
+    "qualifier-processing": "chapter-select",
     "double-elimination-waiting": "chapter-select",
     "song-result": "result-in",
     "result": "result-at",

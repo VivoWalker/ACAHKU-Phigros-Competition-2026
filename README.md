@@ -104,6 +104,7 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | Qualifier waiting | `/overlay/qualifier-waiting.html` |
 | Double elimination waiting | `/overlay/double-elimination-waiting.html` |
 | Three-player qualifier match | `/overlay/qualifier-match.html` |
+| Qualifier results are being collated, before the operator reveals the scores | `/overlay/qualifier-processing.html` |
 | Two-player double elimination match, including the three-song final | `/overlay/double-elimination-match.html` |
 | Challenge qualifier: all three songs' scores and P/G/B/M plus the official total; other rounds: current-song statistics | `/overlay/song-result.html` |
 | Group A / B qualifier rankings or double elimination result | `/overlay/result.html` |
@@ -111,7 +112,7 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | Additional requested song-selection screen | `/overlay/song-selection.html` |
 | Fixed Grand Final song announcement | `/overlay/grand-final-announcement.html` |
 
-`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are ten scenes, including song statistics, selection and the Grand Final announcement.
+`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are eleven scenes, including qualifier result processing, score statistics, selection and the Grand Final announcement. Descriptive bottom-left notes are omitted from the broadcast; ranking pages continue to rotate automatically.
 
 Capture-card source rectangles in the 1920×1080 canvas, in player order. These positions are identical in single and dual view:
 
@@ -163,7 +164,7 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 
 **Live production / 賽事操作台** is the default main-control page. It keeps the live preview, current entrants/song, the next broadcast action, countdown and phase-specific controls together. The preview stays connected during edits. The existing qualifier, bracket, selection and event tabs remain available for setup, corrections and advanced operations; manual scene switching, camera modes, source checks and referee tools are also available under **其他播出設定**.
 
-- **Challenge qualifier:** preparation → song 1 → song 2 → song 3 → complete three-song results → current ranking. The second and third song buttons update only the current-song indicator: the match scene, capture windows and preview remain live, with no intervening waiting/statistics screen or repeated start cue. Advance the indicator when the game moves to the next song; the broadcast server does not detect gameplay progress automatically. After the final game settlement, record each song's score and P/G/B/M plus its official Challenge total. The complete-results screen displays all three songs together for the current batch. After ranking, advance to the next batch of up to three entrants, or explicitly move to the next group/round. The last batch does not wrap to the first. Plan A still requires verified Round 1 qualification before the revival round. Historical individual-score qualifiers and single-song tiebreaks keep their original waiting/match/statistics controls.
+- **Challenge qualifier:** preparation → song 1 → song 2 → song 3 → results processing → complete three-song results → current ranking. The second and third song buttons update only the current-song indicator: the match scene, capture windows and preview remain live, with no intervening waiting/statistics screen or repeated start cue. Advance the indicator when the game moves to the next song; the broadcast server does not detect gameplay progress automatically. After the final game settlement, show **結果正在統計中** while staff record each song's score and P/G/B/M plus its official Challenge total. The scorekeeper sheet and main-control correction tools remain available; saving scores does not reveal them automatically. When ready, the main operator selects **顯示本輪總成績** to show all three songs together for the current batch. After ranking, advance to the next batch of up to three entrants, or explicitly move to the next group/round. The last batch does not wrap to the first. Plan A still requires verified Round 1 qualification before the revival round. Historical individual-score qualifiers and single-song tiebreaks keep their original waiting/match/statistics controls.
 - **Double elimination:** preselection waiting → six candidates / bans / two picks → song 1 waiting → match → statistics → song 2 waiting → match → statistics → verified round result → bracket → the next ready match. Enter scores and original ACC/judgements on the same page; result confirmation still enforces all score and tiebreak rules. The fixed Grand Final has its own announcement and bypasses bans; historical finals retain their audience/MC controls.
 
 The statistics page shows **本輪總成績** for ordinary Challenge qualifiers: every current entrant has three song scores, each song's four judgement counts, and the game's official three-song total. Other matches and single-song tiebreaks retain **本曲統計**. Unrecorded values appear as `—`, while recorded zero remains `0`. Per-song statistics never supply, average or replace the official `challengeTotal`. Main control groups all three songs' correction tools and the total in the final-results phase; scorekeepers save the complete sheet for their current batch only.
@@ -294,7 +295,7 @@ Four complete Phigros 4.0.1 interface loops are bundled locally, separately from
 
 | Broadcast scene | Background music |
 | --- | --- |
-| Main / both waiting screens | `ChapterSelect0` · chapter selection |
+| Main / both waiting screens / qualifier results processing | `ChapterSelect0` · chapter selection |
 | Score statistics, including the Challenge qualifier's complete three-song results | `LevelOver2` · IN results |
 | Overall results / qualifier ranking | `LevelOver3` · AT results |
 | Bracket / Grand Final announcement | Chapter 9 inner-pack ambience |
@@ -395,6 +396,7 @@ The production-console browser regression uses temporary Plan B and DE/GF fixtur
 ```sh
 python3 test/production-console-browser.py
 python3 test/song-result-browser.py
+python3 test/qualifier-processing-browser.py
 ```
 
 The aperture regression measures actual compositor PNG alpha by pausing and seeking the browser's native animation effects. Separate real-time traces check score updates and interrupted transitions. It checks right-to-left reveal/cover and left-to-right ordering for every capture-card/handcam window, single/dual switching, rapid scene changes, reduced motion, unchanged background identity/pixels and full-screen countdown coverage:

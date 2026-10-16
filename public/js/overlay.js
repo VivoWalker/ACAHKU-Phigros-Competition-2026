@@ -34,7 +34,7 @@
   const bgmVolume = query.has('bgmVolume') && Number.isFinite(Number(query.get('bgmVolume')))
     ? Math.max(0, Math.min(1, Number(query.get('bgmVolume')))) : .25;
   const bgmEnabled = previewEnabled && query.get('bgm') !== '0' && bgmVolume > 0;
-  const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
+  const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'qualifier-processing', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
   let bgmStatus = 'silent', selectionStatus = 'silent', audioSyncPending = false;
   const audioPrompt = document.createElement('button');
   audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
@@ -150,8 +150,8 @@
   function header(s, context = '') {
     return `<header class='topbar'><div class='brand'>${logo()}<span data-motion-key='event-title' class='event-title'>${e(s.event.title)}</span></div><div class='header-right'>${context ? `<div data-motion-block class='topmeta'>${e(context)}</div>` : ''}${clubLogos()}</div></header>`;
   }
-  function footer(label, context = '') {
-    return `<footer data-motion-block class='footer'><span>${e(label)}</span>${context ? `<span>${e(context)}</span>` : ''}</footer>`;
+  function footer(context) {
+    return context ? `<footer data-motion-block class='footer'><span>${e(context)}</span></footer>` : '';
   }
   function title(text, sub = '') {
     return `<div data-motion-block class='scene-head'><h1>${e(text)}</h1>${sub ? `<p>${e(sub)}</p>` : ''}</div>`;
@@ -173,6 +173,9 @@
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs;
     const tie = B.qualifierTiebreak(s);
     return waiting(s, B.challengeQualifier(s) ? '課題模式 · CHALLENGE MODE' : '預選賽 · QUALIFIERS', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
+  }
+  function qualifierProcessing(s) {
+    return backdrop() + header(s, B.qualifierLabel(s)) + `<section data-motion-block class='qualifier-processing-panel'><h1>結果正在統計中</h1><p>RESULTS PROCESSING</p></section>`;
   }
   function doubleWaiting(s) {
     const m = B.currentMatch(s);
@@ -227,7 +230,7 @@
       const page = fixedRankPage ? Math.min(rankPage - 1, pages - 1) : rankingTick % pages;
       const from = page * 8, visible = players.slice(from, from + 8);
       return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
-    }).join('')}</div>` + footer(ranks.some(group => group.length > 8) && !fixedRankPage ? `${s.qualifier.plan === 'A' ? '各輪獨立排名' : '各組分開排名'} · 每 12 秒換頁` : s.qualifier.plan === 'A' ? '各輪獨立排名 · ROUND STANDINGS' : '各組分開排名 · GROUP STANDINGS');
+    }).join('')}</div>`;
   }
   function challengeSetResult(s) {
     const q = s.qualifier, entries = B.qualifierPlayers(s, q.activeGroup);
@@ -244,7 +247,7 @@
       // display evidence or replace an unrecorded result with a zero.
       return `<article data-motion-block class='challenge-set-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='challenge-set-songs'>${rows}</div><div class='challenge-set-total'><span>課題總分 · CHALLENGE TOTAL</span><strong data-stat='challengeTotal'>${B.score(player?.challengeTotal)}</strong></div></article>`;
     };
-    return backdrop() + header(s, '課題模式 · CHALLENGE MODE') + `<section data-motion-block class='challenge-set-heading'><p>${e(B.qualifierLabel(s))} · 3 SONGS</p><h1>課題總成績 <span>CHALLENGE RESULTS</span></h1></section><div class='challenge-set-results' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('三首連續遊玩 · THREE-SONG SET', '遊戲結算總分 · OFFICIAL CHALLENGE TOTAL');
+    return backdrop() + header(s, '課題模式 · CHALLENGE MODE') + `<section data-motion-block class='challenge-set-heading'><p>${e(B.qualifierLabel(s))} · 3 SONGS</p><h1>課題總成績 <span>CHALLENGE RESULTS</span></h1></section><div class='challenge-set-results' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('遊戲結算總分 · OFFICIAL CHALLENGE TOTAL');
   }
   function songResult(s) {
     const qualifier = s.stage === 'qualifier', q = s.qualifier, m = B.currentMatch(s);
@@ -265,7 +268,7 @@
       const score = tie ? qualifier ? tie.scores?.[id] : tie.scores?.[pi] : qualifier ? stored?.score ?? (legacy ? player?.scores?.[index] : null) : m.scores?.[pi]?.[index];
       return `<article data-motion-block class='song-result-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='song-result-total'><span>單曲分數 · SONG SCORE</span><strong class='song-result-score' data-stat='score'>${B.score(score)}</strong></div><dl class='song-result-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(judgements?.[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' style='font-size:${Math.min(46, Math.floor(350 / value.length))}px'>${value}</dd></div>`; }).join('')}</dl></article>`;
     };
-    return backdrop() + header(s, qualifier ? '預選賽 · 單曲統計' : '雙淘汰賽 · 單曲統計') + `<section data-motion-block class='song-result-heading'><p><span>${e(context)}</span><span>${tie ? `TIEBREAK ${tie.index + 1}` : `SONG ${index + 1} / ${count}`}</span>${song ? `<span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span>` : ''}</p><h1>${songText(song)}</h1></section><div class='song-result-cards' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('單曲統計 · SONG STATISTICS', qualifier && B.challengeQualifier(s) ? '晉級排名採用遊戲三首課題結算總分' : 'PERFECT · GOOD · BAD · MISS');
+    return backdrop() + header(s, qualifier ? '預選賽 · 單曲統計' : '雙淘汰賽 · 單曲統計') + `<section data-motion-block class='song-result-heading'><p><span>${e(context)}</span><span>${tie ? `TIEBREAK ${tie.index + 1}` : `SONG ${index + 1} / ${count}`}</span>${song ? `<span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span>` : ''}</p><h1>${songText(song)}</h1></section><div class='song-result-cards' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>`;
   }
   function result(s) {
     if (s.stage === 'qualifier') return qualifierResults(s);
@@ -292,9 +295,9 @@
   function grandFinalAnnouncement(s) {
     const songs = B.fixedFinalSongs(s);
     if (songs.length !== 2) return backdrop() + header(s, 'GRAND FINAL') + title('等待總決賽曲目', 'GRAND FINAL');
-    return backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · TWO SONGS') + `<div class='final-announcement-grid'>${songs.map((song, index) => `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' class='final-song-card'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')}</span><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong></div><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></article>`).join('')}</div>` + footer('兩首曲目 · TWO SONGS', 'ACAHKU PHIGROS COMPETITION');
+    return backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · TWO SONGS') + `<div class='final-announcement-grid'>${songs.map((song, index) => `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' class='final-song-card'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')}</span><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong></div><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></article>`).join('')}</div>` + footer('ACAHKU PHIGROS COMPETITION');
   }
-  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
+  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;

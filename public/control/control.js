@@ -538,7 +538,7 @@
     const completed = state.scene === 'result' && !qualifier ? state.tournament.matches.find(m => m.id === state.result?.matchId) : null;
     const match = completed || B.currentMatch(state), songIndex = tie ? 0 : qualifier ? q.currentSong : match?.currentSong || 0;
     const challengeSet = qualifier && challenge() && !tie;
-    const phase = state.scene === 'song-result' ? challengeSet ? 'set-result' : 'song-result' : state.scene === 'result' ? qualifier ? 'ranking' : 'round-result' : state.scene === 'bracket' ? 'bracket' : ['song-selection', 'grand-final-announcement'].includes(state.scene) ? 'selection' : state.scene.endsWith('-match') ? 'match' : state.scene.endsWith('-waiting') ? 'waiting' : 'standby';
+    const phase = state.scene === 'qualifier-processing' ? 'processing' : state.scene === 'song-result' ? challengeSet ? 'set-result' : 'song-result' : state.scene === 'result' ? qualifier ? 'ranking' : 'round-result' : state.scene === 'bracket' ? 'bracket' : ['song-selection', 'grand-final-announcement'].includes(state.scene) ? 'selection' : state.scene.endsWith('-match') ? 'match' : state.scene.endsWith('-waiting') ? 'waiting' : 'standby';
     const players = qualifierEntries(state).filter(p => !qualifier || !tie || tie.playerIds.includes(p.id)), indices = q.activePlayers.map(id => players.findIndex(p => p.id === id)).filter(i => i >= 0);
     const nextIndex = indices.length ? Math.max(...indices) + 1 : 0;
     const nextBatch = players.slice(nextIndex).filter(p => !qualifier || (tie ? tie.scores[p.id] === null : !QualifierRules.complete(state, p))).slice(0, 3).map(p => p.id);
@@ -568,11 +568,12 @@
     if (i.qualifier) {
       if (challenge() && !proposal()) return { label: '先設定預選方案與名單', disabled: true };
       if (i.challengeSet) {
-        if (['waiting', 'match'].includes(i.phase) && !i.active.length) return { label: '請先選擇本批選手', disabled: true };
+        if (['waiting', 'match', 'processing'].includes(i.phase) && !i.active.length) return { label: '請先選擇本批選手', disabled: true };
         if (i.phase === 'waiting') return { label: '進入第一首', cue: productionCue('qualifier-match', 0) };
         if (i.phase === 'match') return i.songIndex < 2
           ? { label: i.songIndex === 0 ? '銜接第二首' : '銜接第三首', cue: productionCue('qualifier-match', i.songIndex + 1) }
-          : { label: '顯示本輪總成績', cue: productionCue('song-result', 2) };
+          : { label: '結果正在統計中', cue: productionCue('qualifier-processing', 2) };
+        if (i.phase === 'processing') return { label: '顯示本輪總成績', cue: productionCue('song-result', 2) };
         if (i.phase === 'set-result') return { label: '顯示排名', cue: productionCue('result', 2) };
       }
       if (i.phase === 'waiting') return { label: `進入第 ${i.songIndex + 1} 首比賽`, cue: productionCue('qualifier-match') };
@@ -602,13 +603,14 @@
     return { label: `${m.id} · 等待選手準備`, cue: productionCue('double-elimination-waiting', 0) };
   }
   function productionToolbar() {
-    const i = productionInfo(), next = nextProductionAction(), phases = { standby: '尚未開始', waiting: '等待準備', selection: '抽選 / BAN 曲', match: '比賽中', 'song-result': '本曲統計', 'set-result': '三首總成績', ranking: '晉級排名', 'round-result': '整輪賽果', bracket: 'Bracket 現況' };
+    const i = productionInfo(), next = nextProductionAction(), phases = { standby: '尚未開始', waiting: '等待準備', selection: '抽選 / BAN 曲', match: '比賽中', 'song-result': '本曲統計', processing: '結果正在統計中', 'set-result': '三首總成績', ranking: '晉級排名', 'round-result': '整輪賽果', bracket: 'Bracket 現況' };
     const title = i.qualifier ? qualifierLabel(state.qualifier.activeGroup) : i.match ? `${i.match.id} · R${i.match.round}` : '尚未建立賽程';
     const allowed = i.qualifier ? !!i.active.length : !!i.match?.songs.length && !['pending', 'complete'].includes(i.match.status);
-    const heading = i.phase === 'waiting' && !i.qualifier && !i.songs.length ? '選曲前準備' : ['set-result', 'ranking', 'round-result', 'bracket'].includes(i.phase) ? phases[i.phase] : `第 ${i.songIndex + 1} 首 · ${i.songs[i.songIndex]?.title || '待選曲'}`;
+    const heading = i.phase === 'waiting' && !i.qualifier && !i.songs.length ? '選曲前準備' : ['processing', 'set-result', 'ranking', 'round-result', 'bracket'].includes(i.phase) ? phases[i.phase] : `第 ${i.songIndex + 1} 首 · ${i.songs[i.songIndex]?.title || '待選曲'}`;
     const steps = i.challengeSet
       ? productionCueButton('本批準備', 'qualifier-waiting', 0, !allowed)
         + i.songs.map((song, si) => productionCueButton(`第 ${si + 1} 首`, 'qualifier-match', si, !allowed)).join('')
+        + productionCueButton('統計中', 'qualifier-processing', 2, !allowed)
         + productionCueButton('三首總成績', 'song-result', 2, !allowed)
         + productionCueButton('目前晉級排名', 'result')
       : `${!i.qualifier && !i.match?.songs.length ? productionCueButton('抽選 / BAN 曲', 'song-selection', undefined, !i.match || ['pending', 'complete'].includes(i.match.status)) : ''}${productionCueButton('等待準備', i.qualifier ? 'qualifier-waiting' : 'double-elimination-waiting', i.songIndex, !i.active.length || !i.qualifier && (!i.match || ['pending', 'complete'].includes(i.match.status)))}${productionCueButton('比賽畫面', i.qualifier ? 'qualifier-match' : 'double-elimination-match', i.songIndex, !allowed)}${productionCueButton('本曲統計', 'song-result', i.songIndex, !allowed)}${i.qualifier ? productionCueButton('目前晉級排名', 'result') : productionCueButton('Bracket', 'bracket', undefined, !state.tournament.seeded)}`;
@@ -650,9 +652,9 @@
       const players = info.players, songs = info.songs;
       const roster = `<div class="production-roster">${Array.from({ length: 3 }, (_, slot) => `<label for="production-player-${slot}">選手 ${slot + 1}<select id="production-player-${slot}" data-active-slot="${slot}">${options(players.map(p => [p.id, `${p.number ? '#' + p.number + ' · ' : ''}${p.name}`]), q.activePlayers[slot] || '')}</select></label>`).join('')}</div><div class="production-batches" aria-label="上場批次">${Array.from({ length: Math.ceil(players.length / 3) }, (_, index) => { const batch = players.slice(index * 3, index * 3 + 3); return button(`第 ${index + 1} 批`, `data-production-batch="${index}" aria-label="上場第 ${index + 1} 批 ${batch.map(p => e((p.number ? '#' + p.number + ' · ' : '') + p.name)).join(' / ')}"`); }).join('')}</div>`;
       if (info.challengeSet) {
-        const title = info.phase === 'set-result' ? '本輪三首總成績' : info.phase === 'match' ? '課題模式 · 三首連續比賽' : '本批選手與三首課題';
-        const instruction = challenge() && !proposal() ? '先到「預選設定」設定 Plan 與名單，再開始播出。' : info.phase === 'set-result' ? '核對三首各自分數、P / G / B / M 與遊戲總分，再顯示排名。' : '準備 → 第一首 → 第二首 → 第三首 → 總成績；曲間保持比賽畫面，無需等待或單曲統計。';
-        return `<div class="production-context-head"><h2>${title}</h2><p>${instruction}</p></div>${['match', 'set-result'].includes(info.phase) ? `<p class="production-active-players">${info.active.map(id => e(B.name(state, id))).join(' / ')}</p>` : roster}${info.phase === 'set-result' ? productionChallengeResults(info) : productionChallengeProgress(info)}${info.phase === 'match' ? '<p class="secondary">在遊戲銜接下一首時，按上方「銜接」更新曲名與進度；採集卡、手元與比賽畫面持續保留。三首全部結束後才錄入成績。</p>' : info.phase === 'set-result' ? '' : '<p class="secondary">選手準備完成後，按上方「進入第一首」，並在第一首開始前使用左側 3 · 2 · 1 START 倒計時。第二、三首直接銜接。</p>'}`;
+        const title = info.phase === 'processing' ? '結果統計與錄入' : info.phase === 'set-result' ? '本輪三首總成績' : info.phase === 'match' ? '課題模式 · 三首連續比賽' : '本批選手與三首課題';
+        const instruction = challenge() && !proposal() ? '先到「預選設定」設定 Plan 與名單，再開始播出。' : info.phase === 'processing' ? '直播顯示結果正在統計中；在此錄入或核對成績，準備好後手動顯示本輪總成績。' : info.phase === 'set-result' ? '核對三首各自分數、P / G / B / M 與遊戲總分，再顯示排名。' : '準備 → 第一首 → 第二首 → 第三首 → 統計中 → 總成績；曲間保持比賽畫面，無需等待或單曲統計。';
+        return `<div class="production-context-head"><h2>${title}</h2><p>${instruction}</p></div>${['match', 'processing', 'set-result'].includes(info.phase) ? `<p class="production-active-players">${info.active.map(id => e(B.name(state, id))).join(' / ')}</p>` : roster}${['processing', 'set-result'].includes(info.phase) ? productionChallengeResults(info) : productionChallengeProgress(info)}${info.phase === 'match' ? '<p class="secondary">在遊戲銜接下一首時，按上方「銜接」更新曲名與進度；採集卡、手元與比賽畫面持續保留。三首全部結束後才錄入成績。</p>' : ['processing', 'set-result'].includes(info.phase) ? '' : '<p class="secondary">選手準備完成後，按上方「進入第一首」，並在第一首開始前使用左側 3 · 2 · 1 START 倒計時。第二、三首直接銜接。</p>'}`;
       }
       return `<div class="production-context-head"><h2>${info.phase === 'song-result' ? '本曲統計與錄分' : info.phase === 'match' ? '比賽中 · 隨時準備統計' : '上場選手與曲目'}</h2><p>${challenge() && !proposal() ? '先到「預選設定」設定 Plan 與名單，再開始播出。' : '依序完成等待 → 比賽 → 本曲統計，三首後顯示排名。'}</p></div>${roster}<div class="production-song-card"><span class="micro">SONG ${info.songIndex + 1} / 3</span><h3>${e(songs[info.songIndex]?.title || '待設定曲目')}</h3></div>${['match', 'song-result'].includes(info.phase) ? productionStats(info) : '<p class="secondary">選手準備完成後，按上方「進入比賽」，再使用左側 3 · 2 · 1 START 倒計時。</p>'}${info.tie && !['match', 'song-result'].includes(info.phase) ? qualifierTiebreakPanel(q.activeGroup, '') : ''}`;
     }

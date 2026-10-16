@@ -76,11 +76,18 @@ test('continuous Challenge cues keep the same match and scoring batch until the 
     assert.equal(scorekeeperState(state).contextKey, scoringKey, 'The continuous set shares one scoring sheet');
     assert.ok(Q.entries(state, 'A').every(player => !Q.complete(state, player)), 'No intermediate score is required to continue playing');
   }
+  cue(state, { stage: 'qualifier', scene: 'qualifier-processing', group: 'A', players, songIndex: 2 });
+  assert.equal(state.scene, 'qualifier-processing');
+  assert.deepEqual(state.qualifier.activePlayers, players);
+  assert.equal(scorekeeperState(state).contextKey, scoringKey, 'The processing screen must keep the current scorekeeper sheet');
+  unchanged(state, () => cue(state, { stage: 'qualifier', scene: 'qualifier-processing', players: [] }), /Choose the players/);
+  unchanged(state, () => cue(state, { stage: 'double-elimination', scene: 'qualifier-processing' }), /Double Elimination broadcast scene/);
   const songStats = [statistics({ score: 990000 }), statistics({ score: 980000 }), statistics({ score: 970000 })];
   const result = scorekeeperAction(state, { contextKey: scoringKey, action: {
     type: 'set-qualifier-challenge-result', payload: { group: 'A', playerId: 'p3', songStats, total: 2940000 }
   } });
   act(state, result.type, result.payload);
+  assert.equal(state.scene, 'qualifier-processing', 'Saving scores must not automatically reveal results');
   cue(state, { stage: 'qualifier', scene: 'song-result', group: 'A', players, songIndex: 2 });
   const settled = publicState(state).qualifier.rounds.A.results.p3;
   assert.deepEqual(settled.songStats, songStats);

@@ -367,14 +367,14 @@ def exercise_qualifier(browser, base):
     check('three Challenge songs share stable transparent capture apertures, one countdown, no BGM, and one live page',len(trace['frames']))
     live.close()
 
-    next_step(page,'set-result')
-    assert state(page)['scene']=='song-result' and state(page)['qualifier']['currentSong']==2
+    next_step(page,'processing')
+    assert state(page)['scene']=='qualifier-processing' and state(page)['qualifier']['currentSong']==2
     summaries=page.locator('.production-player-set-summary')
     assert summaries.count()==3
     assert page.locator('.production-player-set-summary [data-set-song-index]').count()==9
     assert page.locator('form[data-score-editor="qd"]').count()==9
     assert page.locator('form[data-score-editor="qc"]').count()==3
-    geometry(page,'qualifier-three-song-summary')
+    geometry(page,'qualifier-results-processing')
     page.locator('.production-set-corrections').evaluate_all('details=>details.forEach(detail=>detail.open=true)')
     prefix=f'qstat-A-{players[0]}-0'
     page.locator('#'+prefix).fill('987654')
@@ -384,8 +384,8 @@ def exercise_qualifier(browser, base):
     page.locator('[data-production-next]').click()
     page.wait_for_timeout(250)
     assert state(page)['revision']==revision, 'Next silently discarded an unfinished complete-sheet draft'
-    phase(page,'set-result')
-    check('unfinished three-song statistics survive unrelated updates and prevent an accidental ranking cue')
+    phase(page,'processing')
+    check('unfinished three-song statistics survive unrelated updates and prevent an accidental results reveal')
     for index,player_id in enumerate(players):
         for song in range(3):
             save_q_stats(page,'A',player_id,song,990000-index*1000-song*100)
@@ -396,12 +396,17 @@ def exercise_qualifier(browser, base):
         for song in range(3):
             row=summary.locator(f'[data-set-song-index="{song}"]')
             assert row.locator('td').all_inner_texts()==[f'{990000-index*1000-song*100:,}','980','19','1','0']
-    geometry(page,'qualifier-three-song-corrections')
+    geometry(page,'qualifier-processing-corrections')
+    assert state(page)['scene']=='qualifier-processing', 'Finishing every score sheet revealed results without an operator cue'
+    next_step(page,'set-result')
+    assert state(page)['scene']=='song-result' and state(page)['qualifier']['currentSong']==2
+    assert page.locator('.production-player-set-summary').count()==3
+    geometry(page,'qualifier-three-song-summary')
     next_step(page,'ranking')
     assert page.locator('#production-rankings').count() == 1
     assert state(page)['scene'] == 'result'
     geometry(page, 'qualifier-ranking')
-    check('Challenge progresses preparation → Song 1 → Song 2 → Song 3 → complete three-song statistics → ranking without leaving Broadcast', players)
+    check('Challenge progresses preparation → Song 1 → Song 2 → Song 3 → results processing → operator reveals complete three-song statistics → ranking without leaving Broadcast', players)
     click_saved(page, '[data-production-batch]')
     phase(page, 'waiting')
     following = state(page)['qualifier']['activePlayers']

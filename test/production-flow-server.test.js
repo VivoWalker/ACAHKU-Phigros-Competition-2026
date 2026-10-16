@@ -67,10 +67,22 @@ test('main broadcast cues publish one complete revision; stale, invalid and scor
   assert.deepEqual(statisticsState.qualifier.rounds.A.results.p4.songStats[1], stats);
   assert.equal(statisticsState.qualifier.rankings.A.find(player => player.id === 'p4').total, null);
   assert.equal(statisticsState.qualifier.adjudications, undefined);
+  const scoringContext = scorekeeperState(app.store.state).contextKey;
+  const processingLive = event(overlay, 'state', value => value.scene === 'qualifier-processing');
+  const processingAck = await send(main, { expectedRevision: app.store.state.revision,
+    action: { type: 'set-broadcast-cue', payload: { ...payload, scene: 'qualifier-processing', songIndex: 2 } } });
+  assert.equal(processingAck.ok, true);
+  assert.equal((await processingLive).qualifier.currentSong, 2);
+  assert.equal(scorekeeperState(app.store.state).contextKey, scoringContext);
+  const savedResultLive = event(overlay, 'state', value => value.qualifier.rounds.A.results.p4.challengeTotal === 0);
+  const savedResult = await send(scorer, { expectedRevision: app.store.state.revision, contextKey: scoringContext,
+    action: { type: 'set-qualifier-challenge-result', payload: { group: 'A', playerId: 'p4', total: 0, songStats: [stats, stats, stats] } } });
+  assert.equal(savedResult.ok, true);
+  assert.equal((await savedResultLive).scene, 'qualifier-processing', 'Recording a result must not reveal it on air');
   const expectedRevision = app.store.state.revision;
   for (const socket of sockets) socket.close(); await app.close();
   app = createBroadcastServer(config); await app.listen(address.port, '127.0.0.1');
-  assert.equal(app.store.state.revision, expectedRevision); assert.equal(app.store.state.scene, 'qualifier-match');
+  assert.equal(app.store.state.revision, expectedRevision); assert.equal(app.store.state.scene, 'qualifier-processing');
   assert.deepEqual(app.store.state.qualifier.rounds.A.results.p4.songStats[1], stats);
-  assert.equal(app.store.state.qualifier.rounds.A.results.p4.challengeTotal, null);
+  assert.equal(app.store.state.qualifier.rounds.A.results.p4.challengeTotal, 0);
 });
