@@ -4,6 +4,7 @@ Uses temporary tournaments and fixture-only pairing codes. No live event data
 or credentials are opened. Requires Python Playwright and Chromium; screenshots
 and the report go to BROADCAST_TEST_OUTPUT or test-results/production-console.
 """
+import io
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import shutil
 import subprocess
 import tempfile
 
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -79,6 +81,50 @@ COMMANDS = r"""async () => {
   };
   window.__fixturePreview=document.querySelector('#program-preview');
 }"""
+
+MATCH_PROBE = r"""(() => {
+  const probe=window.__challengeProbe={countdowns:[],media:[],navigations:0};
+  const NativeAudio=window.Audio;
+  window.Audio=function(...args){
+    const audio=new NativeAudio(...args);probe.media.push(audio);
+    const play=audio.play;
+    audio.play=function(...args){
+      if(probe.tracing&&audio.src.includes('/assets/bgm/'))probe.bgmPlays++;
+      return play.apply(audio,args);
+    };
+    return audio;
+  };
+  window.Audio.prototype=NativeAudio.prototype;
+  let factory;
+  Object.defineProperty(window,'createBroadcastSocket',{configurable:true,get(){return factory},set(original){
+    factory=(...args)=>{const socket=original(...args);socket.on('countdown',packet=>{
+      if(packet?.cue)probe.countdowns.push(packet.cue.id);
+    });return socket};
+  }});
+  window.__traceContinuousMatch=()=>{
+    const mount=document.querySelector('#scene'),background=document.querySelector('.broadcast-backdrop');
+    const mask=background.querySelector('#capture-mask'),holes=[...mask.querySelectorAll('[data-aperture-key]')];
+    probe.tracing=true;probe.bgmPlays=0;probe.frames=[];
+    function frame(){
+      if(!probe.tracing)return;
+      const current=[...document.querySelectorAll('[data-aperture-key]')];
+      probe.frames.push({scene:document.querySelector('#canvas').dataset.renderedScene,
+        sameBackground:document.querySelector('.broadcast-backdrop')===background,
+        sameMask:document.querySelector('#capture-mask')===mask,
+        open:current.length===holes.length&&current.every((hole,index)=>{
+          const css=getComputedStyle(hole),matrix=new DOMMatrixReadOnly(css.transform==='none'?undefined:css.transform);
+          return hole===holes[index]&&Number(css.opacity)===1&&matrix.isIdentity&&!hole.dataset.aperturePhase;
+        }),countdown:!document.querySelector('.match-countdown').hidden,
+        bgm:[...document.querySelectorAll('audio[data-scene-bgm],audio[data-scene-bgm-retiring]')].length});
+      probe.frame=requestAnimationFrame(frame);
+    }
+    probe.frame=requestAnimationFrame(frame);
+  };
+  window.__stopContinuousMatch=()=>{
+    probe.tracing=false;cancelAnimationFrame(probe.frame);
+    return {frames:probe.frames,bgmPlays:probe.bgmPlays,countdowns:[...new Set(probe.countdowns)]};
+  };
+})();"""
 
 GEOMETRY = r"""() => {
   const root=document.querySelector('#content');
@@ -237,47 +283,125 @@ def save_q_stats(page, group, player_id, song, score):
     assert form.count() == 1
 
 
+def match_idle(page):
+    page.wait_for_function("""()=>{
+      const canvas=document.querySelector('#canvas'),mount=document.querySelector('#scene');
+      return canvas?.dataset.renderedScene==='qualifier-match'&&mount?.dataset.motionPhase==='idle'
+        &&!document.querySelector('.match-countdown:not([hidden])')
+        &&!mount.getAnimations({subtree:true}).some(animation=>animation.playState==='running'||animation.pending);
+    }""")
+
+
+def assert_open_capture_pixels(page, label):
+    captures=page.locator('[data-capture]').all()
+    assert len(captures)==6, (label, 'Three capture cards and three handcams must remain open')
+    png=page.screenshot(omit_background=True)
+    image=Image.open(io.BytesIO(png)).convert('RGBA')
+    for capture in captures:
+        box=capture.bounding_box()
+        for x_fraction in [.15,.5,.85]:
+            for y_fraction in [.15,.5,.85]:
+                x=int(box['x']+box['width']*x_fraction)
+                y=int(box['y']+box['height']*y_fraction)
+                assert image.getpixel((x,y))[3]==0, (label,'Capture aperture flashed closed',x,y)
+
+
 def exercise_qualifier(browser, base):
     context, page = login(browser, base)
     phase(page, 'waiting')
     current = state(page)
     players = current['qualifier']['activePlayers']
     assert len(players) == 3
+    command(page, 'set-qualifier-display', {'group': 'A', 'players': [], 'currentSong': 0})
+    assert page.locator('[data-production-next]').is_disabled(), 'An empty Challenge batch must not silently select the first three players'
+    command(page, 'set-scene', {'scene': 'song-result'})
+    phase(page, 'set-result')
+    assert page.locator('.production-player-set-summary').count() == 0, 'An empty result must not display another batch’s scores'
+    command(page, 'set-broadcast-cue', {'stage': 'qualifier', 'scene': 'qualifier-waiting', 'group': 'A', 'players': players, 'songIndex': 0})
+    phase(page, 'waiting')
+    check('empty Challenge batches keep their preparation disabled and never display another batch’s results')
     geometry(page, 'qualifier-waiting')
+    command(page,'set-broadcast-display',{'showHandcams':True})
+    next_step(page,'match')
+    assert state(page)['qualifier']['currentSong']==0
+    live=context.new_page()
+    live.set_viewport_size({'width':1920,'height':1080})
+    live.add_init_script(MATCH_PROBE)
+    navigations=[]
+    live.on('framenavigated',lambda frame:navigations.append(frame.url) if frame==live.main_frame else None)
+    live.goto(base+'/overlay/live.html')
+    match_idle(live)
+    # The Challenge set gets one start cue only. Advancing songs must never
+    # insert another full-screen cover, countdown, waiting scene, or BGM.
+    page.locator('[data-start-countdown]').click()
+    live.wait_for_selector('.match-countdown:not([hidden])')
+    live.wait_for_selector('.match-countdown[hidden]',state='attached',timeout=10000)
+    match_idle(live)
+    first_countdowns=live.evaluate('[...new Set(__challengeProbe.countdowns)]')
+    assert len(first_countdowns)==1
+    live.evaluate('__traceContinuousMatch()')
     for song in range(3):
-        assert state(page)['qualifier']['currentSong'] == song
-        next_step(page, 'match')
-        assert state(page)['scene'] == 'qualifier-match'
-        next_step(page, 'song-result')
-        assert state(page)['scene'] == 'song-result'
-        forms = page.locator('form[data-score-editor="qd"]')
-        assert forms.count() == 3
-        assert all(forms.nth(i).get_attribute('data-song-index') == str(song) for i in range(3))
-        if song == 0:
-            prefix = f'qstat-A-{players[0]}-0'
-            page.locator('#' + prefix).fill('987654')
-            command(page, 'set-event', {'venue': 'Unrelated update preserves director drafts'})
-            assert page.input_value('#' + prefix) == '987654'
-            revision = state(page)['revision']
-            page.locator('[data-production-next]').click()
-            page.wait_for_timeout(250)
-            assert state(page)['revision'] == revision, 'Next silently discarded an unfinished statistics draft'
-            phase(page, 'song-result')
-            check('unfinished song statistics survive unrelated updates and prevent an accidental Next')
-        for index, player_id in enumerate(players):
-            save_q_stats(page, 'A', player_id, song, 990000 - index * 1000 - song * 100)
-        if song == 0:
-            geometry(page, 'qualifier-song-statistics')
-        if song == 2:
-            for index, player_id in enumerate(players):
-                page.locator('#qtotal-' + player_id).fill(str(2990000 - index * 1000))
-                click_saved(page, f'form[data-score-editor="qc"][data-entity="{player_id}"] button[type="submit"]')
-            geometry(page, 'qualifier-final-song-statistics')
-        next_step(page, 'ranking' if song == 2 else 'waiting')
+        current=state(page)
+        assert current['scene']=='qualifier-match' and current['qualifier']['currentSong']==song
+        assert page.locator('.production-challenge-progress [aria-current="step"]').get_attribute('data-song-index')==str(song)
+        assert page.locator('form[data-score-editor="qd"],form[data-score-editor="qc"]').count()==0
+        if song:
+            countdown=page.locator('[data-start-countdown]')
+            assert countdown.count()==0 or countdown.is_disabled(), 'A continuous Challenge song offered another countdown'
+        geometry(page,'qualifier-continuous-song-'+str(song+1))
+        assert_open_capture_pixels(live,'song-'+str(song+1)+'-settled')
+        if song<2:
+            next_step(page,'match')
+            revision=state(page)['revision']
+            live.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision',arg=revision)
+            for delay in [0,80,180,350]:
+                live.wait_for_timeout(delay)
+                assert_open_capture_pixels(live,'song-'+str(song+2)+'-after-'+str(delay)+'ms')
+    trace=live.evaluate('__stopContinuousMatch()')
+    REPORT['continuous_match']=trace
+    assert len(trace['frames'])>30
+    assert all(frame['scene']=='qualifier-match' and frame['sameBackground'] and frame['sameMask'] and frame['open']
+               and not frame['countdown'] and frame['bgm']==0 for frame in trace['frames']), trace
+    assert trace['bgmPlays']==0 and trace['countdowns']==first_countdowns
+    assert len(navigations)==1, 'Continuous songs navigated or reloaded the live overlay'
+    check('three Challenge songs share stable transparent capture apertures, one countdown, no BGM, and one live page',len(trace['frames']))
+    live.close()
+
+    next_step(page,'set-result')
+    assert state(page)['scene']=='song-result' and state(page)['qualifier']['currentSong']==2
+    summaries=page.locator('.production-player-set-summary')
+    assert summaries.count()==3
+    assert page.locator('.production-player-set-summary [data-set-song-index]').count()==9
+    assert page.locator('form[data-score-editor="qd"]').count()==9
+    assert page.locator('form[data-score-editor="qc"]').count()==3
+    geometry(page,'qualifier-three-song-summary')
+    page.locator('.production-set-corrections').evaluate_all('details=>details.forEach(detail=>detail.open=true)')
+    prefix=f'qstat-A-{players[0]}-0'
+    page.locator('#'+prefix).fill('987654')
+    command(page,'set-event',{'venue':'Unrelated update preserves director drafts'})
+    assert page.input_value('#'+prefix)=='987654'
+    revision=state(page)['revision']
+    page.locator('[data-production-next]').click()
+    page.wait_for_timeout(250)
+    assert state(page)['revision']==revision, 'Next silently discarded an unfinished complete-sheet draft'
+    phase(page,'set-result')
+    check('unfinished three-song statistics survive unrelated updates and prevent an accidental ranking cue')
+    for index,player_id in enumerate(players):
+        for song in range(3):
+            save_q_stats(page,'A',player_id,song,990000-index*1000-song*100)
+        page.locator('#qtotal-'+player_id).fill(str(2990000-index*1000))
+        click_saved(page,f'form[data-score-editor="qc"][data-entity="{player_id}"] button[type="submit"]')
+        summary=page.locator(f'.production-player-set-summary[data-player-id="{player_id}"]')
+        assert summary.locator('[data-challenge-total]').inner_text()==f'{2990000-index*1000:,}'
+        for song in range(3):
+            row=summary.locator(f'[data-set-song-index="{song}"]')
+            assert row.locator('td').all_inner_texts()==[f'{990000-index*1000-song*100:,}','980','19','1','0']
+    geometry(page,'qualifier-three-song-corrections')
+    next_step(page,'ranking')
     assert page.locator('#production-rankings').count() == 1
     assert state(page)['scene'] == 'result'
     geometry(page, 'qualifier-ranking')
-    check('three qualifier songs progress waiting → match → statistics → ranking without leaving Broadcast', players)
+    check('Challenge progresses preparation → Song 1 → Song 2 → Song 3 → complete three-song statistics → ranking without leaving Broadcast', players)
     click_saved(page, '[data-production-batch]')
     phase(page, 'waiting')
     following = state(page)['qualifier']['activePlayers']
@@ -323,27 +447,30 @@ def exercise_concurrent_draft_and_qualification(browser, base):
     current = state(page)
     group, players = current['qualifier']['activeGroup'], current['qualifier']['activePlayers']
     assert group == 'B'
-    cue = {'stage': 'qualifier', 'scene': 'song-result', 'group': group, 'players': players, 'songIndex': 0}
+    cue = {'stage': 'qualifier', 'scene': 'song-result', 'group': group, 'players': players, 'songIndex': 2}
     command(page, 'set-broadcast-cue', cue)
+    phase(page,'set-result')
     player = players[0]
     prefix = f'qstat-{group}-{player}-0'
+    page.locator(f'#production-set-corrections-{player}').evaluate('details=>details.open=true')
     page.locator('#' + prefix).fill('998765')
     for key, value in [('perfect', 998), ('good', 2), ('bad', 0), ('miss', 0)]:
         page.locator('#' + prefix + '-' + key).fill(str(value))
-    command(page, 'set-broadcast-cue', {**cue, 'songIndex': 1})
+    next_players=current['qualifier']['rounds'][group]['playerIds'][3:6]
+    assert set(next_players).isdisjoint(players)
+    command(page, 'set-broadcast-cue', {**cue, 'players':next_players})
     drawer = page.locator('.production-draft-editors')
     assert drawer.count() == 1 and drawer.get_attribute('open') is not None
     assert drawer.locator('#' + prefix).input_value() == '998765'
     click_saved(page, f'.production-draft-editors form[data-score-editor="qd"][data-entity="{player}"] button[type="submit"]')
     current = state(page)
-    assert current['qualifier']['currentSong'] == 1 and current['scene'] == 'song-result'
+    assert current['qualifier']['activePlayers']==next_players and current['qualifier']['currentSong']==2 and current['scene']=='song-result'
     assert current['qualifier']['rounds'][group]['results'][player]['songStats'][0]['score'] == 998765
     assert page.locator('.production-draft-editors').count() == 0
-    next_step(page, 'waiting')
-    assert state(page)['qualifier']['currentSong'] == 2
-    check('a concurrent song change retains an editable past-song draft without changing the live cue')
+    check('a concurrent batch change retains an editable prior complete-sheet draft without changing the live cue')
 
-    command(page, 'set-broadcast-cue', {**cue, 'songIndex': 2})
+    player=next_players[0]
+    page.locator(f'#production-set-corrections-{player}').evaluate('details=>details.open=true')
     discard_prefix = f'qstat-{group}-{player}-2'
     page.locator('#' + discard_prefix).fill('123456')
     revision = state(page)['revision']

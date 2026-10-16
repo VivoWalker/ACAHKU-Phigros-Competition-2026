@@ -44,7 +44,7 @@ function finish(state) {
   act(state, 'record-result', { verified: true });
 }
 
-test('qualifier cues follow three songs, preserve players and show provisional rankings in one state', () => {
+test('manual qualifier cues preserve players and show provisional rankings in one state', () => {
   const state = configured(), players = Q.entries(state, 'A').slice(0, 3).map(player => player.id);
   for (const songIndex of [0, 1, 2]) for (const scene of ['qualifier-waiting', 'qualifier-match', 'song-result']) {
     cue(state, { stage: 'qualifier', scene, group: 'A', players, songIndex });
@@ -60,6 +60,37 @@ test('qualifier cues follow three songs, preserve players and show provisional r
   unchanged(state, () => cue(state, { stage: 'qualifier', scene: 'qualifier-match', players: ['p1', 'p1'] }), /different players/);
   unchanged(state, () => cue(state, { stage: 'qualifier', scene: 'qualifier-match', players: ['unknown'] }), /eligible/);
   for (const songIndex of [-1, 3, '1', 0.5]) unchanged(state, () => cue(state, { stage: 'qualifier', scene: 'qualifier-waiting', songIndex }), /song number/);
+});
+
+test('continuous Challenge cues keep the same match and scoring batch until the complete three-song result', () => {
+  const state = configured(), players = ['p3', 'p1', 'p2'];
+  state.broadcast.showHandcams = true;
+  cue(state, { stage: 'qualifier', scene: 'qualifier-waiting', group: 'A', players, songIndex: 0 });
+  const scoringKey = scorekeeperState(state).contextKey, sources = structuredClone(state.broadcast);
+  for (const songIndex of [0, 1, 2]) {
+    cue(state, { stage: 'qualifier', scene: 'qualifier-match', group: 'A', players, songIndex });
+    assert.equal(state.scene, 'qualifier-match');
+    assert.equal(state.qualifier.currentSong, songIndex);
+    assert.deepEqual(state.qualifier.activePlayers, players);
+    assert.deepEqual(state.broadcast, sources, 'Advancing a song must not replace camera or handcam configuration');
+    assert.equal(scorekeeperState(state).contextKey, scoringKey, 'The continuous set shares one scoring sheet');
+    assert.ok(Q.entries(state, 'A').every(player => !Q.complete(state, player)), 'No intermediate score is required to continue playing');
+  }
+  const songStats = [statistics({ score: 990000 }), statistics({ score: 980000 }), statistics({ score: 970000 })];
+  const result = scorekeeperAction(state, { contextKey: scoringKey, action: {
+    type: 'set-qualifier-challenge-result', payload: { group: 'A', playerId: 'p3', songStats, total: 2940000 }
+  } });
+  act(state, result.type, result.payload);
+  cue(state, { stage: 'qualifier', scene: 'song-result', group: 'A', players, songIndex: 2 });
+  const settled = publicState(state).qualifier.rounds.A.results.p3;
+  assert.deepEqual(settled.songStats, songStats);
+  assert.equal(settled.challengeTotal, 2940000);
+  assert.equal(scorekeeperState(state).contextKey, scoringKey);
+  cue(state, { stage: 'qualifier', scene: 'result', group: 'A', players });
+  assert.equal(rankings(state, 'A')[0].id, 'p3');
+  cue(state, { stage: 'qualifier', scene: 'qualifier-waiting', group: 'A', players: ['p4', 'p5', 'p6'], songIndex: 0 });
+  assert.equal(state.qualifier.currentSong, 0);
+  assert.notEqual(scorekeeperState(state).contextKey, scoringKey, 'The next batch receives a separate scoring sheet');
 });
 
 test('Plan B and legacy cues switch groups without carrying another group’s camera players', () => {

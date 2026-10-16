@@ -208,7 +208,7 @@ def geometry(page, name, width, height, role='control'):
         }return true;
       };
       const rect=element=>{const b=element.getBoundingClientRect();return {x:b.x,y:b.y,w:b.width,h:b.height}};
-      const selectors=role==='overlay'?'.scene-head,.event-title,.topmeta,.qualifier-player,.qualifier-song,.ranking-tables>section,.phigros-logo,.club-logo':
+      const selectors=role==='overlay'?'.scene-head,.event-title,.topmeta,.qualifier-player,.qualifier-song,.ranking-tables>section,.challenge-set-heading,.challenge-set-card,.challenge-set-song,.challenge-set-total,.phigros-logo,.club-logo':
         role==='scorekeeper'?'#context-title,#context-description,#draft-notice,form[data-player-key],input[data-score-key],input[data-judgement-key],button[data-save-player],.field-status':
         '#content .page-heading,#content form[data-score-editor="qc"],#content input[id^="qtotal-"],#content form[data-score-editor="qc"] button[type="submit"],#content .draft-notice';
       const all=[...document.querySelectorAll(selectors)].filter(visible);
@@ -389,19 +389,27 @@ def exercise_new(browser, base, data_dir):
     assert not response['ok'] and state(main)['revision'] == before
     check('server rejects incomplete sheets and off-batch players without partially saving a result')
 
-    # Each per-song overlay reads the same persisted evidence entered by scorer.
+    # Challenge Mode has one set result, independent of the live song cursor.
     overlay = main_context.new_page()
     overlay.goto(base + '/overlay/song-result.html?audio=0')
     for index in range(3):
-        command(main, 'set-qualifier-display', {'currentSong': index})
-        overlay.wait_for_function('''index=>document.querySelector('.song-result-heading')?.textContent.includes(`SONG ${index+1} / 3`)''', arg=index)
+        response = command(main, 'set-qualifier-display', {'currentSong': index})
+        overlay.wait_for_selector('.challenge-set-card[data-player-id="p1"]')
+        overlay.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision', arg=response['revision'])
         idle(overlay, 'song-result')
         card = overlay.locator('[data-player-id="p1"]')
-        for key, value in stats[index].items():
-            assert card.locator(f'[data-stat="{key}"]').inner_text() == f'{value:,}'
-        assert overlay.locator('[data-player-id="p2"] [data-stat]').all_inner_texts() == ['0'] * 5
-    geometry(overlay, 'challenge-song-result-1920x1080', 1920, 1080, 'overlay')
-    check('all three OBS song-result pages display the saved song score and Perfect/Good/Bad/Miss, including zero')
+        assert card.locator('.challenge-set-song').count() == 3
+        for song_index, song in enumerate(stats):
+            row = card.locator(f'.challenge-set-song[data-song-index="{song_index}"]')
+            for key, value in song.items():
+                assert row.locator(f'[data-stat="{key}"]').inner_text() == f'{value:,}'
+        assert card.locator('[data-stat="challengeTotal"]').inner_text() == f'{total:,}'
+        assert overlay.locator('[data-player-id="p2"] [data-stat]').all_inner_texts() == ['0'] * 16
+        assert overlay.locator('[data-player-id="p3"] [data-stat]').all_inner_texts() == ['—'] * 16
+        assert overlay.locator('[data-player-id="p4"]').count() == 0
+    for width, height in [(1920, 1080), (1194, 834), (834, 1194)]:
+        geometry(overlay, f'challenge-set-result-{width}x{height}', width, height, 'overlay')
+    check('one OBS set-result screen displays every song score and P/G/B/M plus the official total for only the active batch, independently of the song cursor')
 
     # Connection loss never sends an incomplete or stale sheet.
     p3_stats = [{**row, 'score': score} for row, score in zip(stats, [970000, 960000, 950000])]
@@ -414,6 +422,8 @@ def exercise_new(browser, base, data_dir):
     assert song_field(scorer, 'p3', 2).input_value() == '950000'
     form.locator('[data-save-player]').click()
     saved_challenge(scorer, 'p3', p3_stats, 2880000)
+    overlay.wait_for_function('document.querySelector(\'[data-player-id="p3"] [data-stat="challengeTotal"]\')?.textContent==="2,880,000"')
+    assert overlay.locator('[data-player-id="p3"] [data-stat="score"]').all_inner_texts() == ['970,000', '960,000', '950,000']
     scorer.reload()
     scorer.wait_for_selector('form[data-player-key="p3"] [data-score-key]')
     scorer.evaluate(COMMANDS, 'scorekeeper')
@@ -426,6 +436,8 @@ def exercise_new(browser, base, data_dir):
     song_field(scorer, 'p1', 3).fill('2950002')
     changed = [{**stats[0], 'score': 998764}, *stats[1:]]
     command(main, 'set-qualifier-challenge-result', {'group': 'A', 'playerId': 'p1', 'total': 2950000, 'songStats': changed})
+    overlay.wait_for_function('document.querySelector(\'[data-player-id="p1"] [data-stat="challengeTotal"]\')?.textContent==="2,950,000"')
+    assert overlay.locator('[data-player-id="p1"] .challenge-set-song[data-song-index="0"] [data-stat="score"]').inner_text() == '998,764'
     scorer.wait_for_selector('form[data-player-key="p1"] .conflict-actions:not([hidden])')
     form = score_form(scorer, 'p1')
     assert form.locator('[data-save-player]').is_disabled()
@@ -440,6 +452,10 @@ def exercise_new(browser, base, data_dir):
     assert state(main)['revision'] == before + 1
     assert scorer.evaluate('window.__fixtureCommands.length') == commands_before + 1
     check('concurrent host edits require an explicit conflict decision and the resolved sheet is still one atomic save')
+    overlay.reload()
+    overlay.wait_for_function('document.querySelector(\'[data-player-id="p1"] [data-stat="challengeTotal"]\')?.textContent==="2,950,002"')
+    assert overlay.locator('[data-player-id="p1"] [data-stat="score"]').all_inner_texts() == ['998,766', '987,654', '976,543']
+    check('scorer saves, host corrections and an OBS browser reload update every set-result value without changing scenes')
 
     # A full-sheet save must also protect fields the scorer never touched.
     song_field(scorer, 'p1', 3).fill('2950003')
@@ -622,6 +638,26 @@ def exercise_plan_b(browser, base):
     main_context.close()
 
 
+def exercise_restart(browser, base):
+    context, main = login(browser, base)
+    command(main, 'set-stage', {'stage': 'qualifier'})
+    command(main, 'set-qualifier-display', {'group': 'A', 'players': ['p1', 'p2', 'p3'], 'currentSong': 2})
+    command(main, 'set-scene', {'scene': 'song-result'})
+    overlay = context.new_page()
+    overlay.goto(base + '/overlay/live.html?audio=0')
+    overlay.wait_for_selector('.challenge-set-card[data-player-id="p1"]')
+    idle(overlay, 'song-result')
+    assert overlay.locator('[data-player-id="p1"] [data-stat="challengeTotal"]').inner_text() == '2,950,003'
+    assert overlay.locator('[data-player-id="p1"] [data-stat="score"]').all_inner_texts() == ['998,766', '987,654', '976,543']
+    assert overlay.locator('[data-player-id="p1"] [data-stat="good"]').all_inner_texts() == ['12', '6', '0']
+    assert overlay.locator('[data-player-id="p2"] [data-stat]').all_inner_texts() == ['0'] * 16
+    assert overlay.locator('[data-player-id="p3"] [data-stat="score"]').all_inner_texts() == ['970,123', '960,000', '950,222']
+    assert overlay.locator('[data-player-id="p3"] [data-stat="challengeTotal"]').inner_text() == '2,880,222'
+    geometry(overlay, 'challenge-set-result-after-server-restart-1920x1080', 1920, 1080, 'overlay')
+    check('restarting the temporary server restores all three song judgements, zero values and the original official Challenge totals on the full set-result screen')
+    context.close()
+
+
 def exercise_legacy(browser, base, scored=False):
     context, main = login(browser, base)
     tab(main, 'qualifiers')
@@ -666,6 +702,12 @@ def main():
                             exercise_legacy(browser, base, fixture == 'legacy-scored')
                     finally:
                         stop_server(process)
+                    if fixture == 'new':
+                        process, base = start_server(data_dir)
+                        try:
+                            exercise_restart(browser, base)
+                        finally:
+                            stop_server(process)
             assert not REPORT['browser_errors'], REPORT['browser_errors']
             REPORT['result'] = 'PASS'
             check('all independent browser sessions completed without JavaScript errors')

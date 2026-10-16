@@ -229,10 +229,28 @@
       return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
     }).join('')}</div>` + footer(ranks.some(group => group.length > 8) && !fixedRankPage ? `${s.qualifier.plan === 'A' ? '各輪獨立排名' : '各組分開排名'} · 每 12 秒換頁` : s.qualifier.plan === 'A' ? '各輪獨立排名 · ROUND STANDINGS' : '各組分開排名 · GROUP STANDINGS');
   }
+  function challengeSetResult(s) {
+    const q = s.qualifier, entries = B.qualifierPlayers(s, q.activeGroup);
+    const songs = q.groups[q.activeGroup].songs.map(id => B.song(s, id));
+    const players = q.activePlayers.slice(0, 3).filter(Boolean);
+    const card = id => {
+      const player = entries.find(entry => entry.id === id);
+      const rows = songs.map((song, index) => {
+        const stats = player?.songStats?.[index];
+        const score = B.score(stats?.score);
+        return `<section class='challenge-set-song' data-song-index='${index}' data-song-id='${e(song?.id || '')}'><div class='challenge-set-song-heading'><span>SONG ${index + 1}</span><h3 title='${e(song?.title || '選曲中')}'>${e(song?.title || '選曲中')}</h3><span>${song ? `${e(song.difficulty)} ${e(Math.trunc(song.level))}` : '—'}</span></div><dl class='challenge-set-judgements'><div class='challenge-set-song-score'><dt>SCORE</dt><dd data-stat='score' style='font-size:${Math.min(34, Math.floor(255 / score.length))}px'>${score}</dd></div>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(stats?.[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' title='${e(value)}' style='font-size:${Math.max(16, Math.min(30, Math.floor(135 / value.length)))}px'>${value}</dd></div>`; }).join('')}</dl></section>`;
+      }).join('');
+      // The game's three-song total is authoritative. Do not infer it from
+      // display evidence or replace an unrecorded result with a zero.
+      return `<article data-motion-block class='challenge-set-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='challenge-set-songs'>${rows}</div><div class='challenge-set-total'><span>課題總分 · CHALLENGE TOTAL</span><strong data-stat='challengeTotal'>${B.score(player?.challengeTotal)}</strong></div></article>`;
+    };
+    return backdrop() + header(s, '課題模式 · CHALLENGE MODE') + `<section data-motion-block class='challenge-set-heading'><p>${e(B.qualifierLabel(s))} · 3 SONGS</p><h1>課題總成績 <span>CHALLENGE RESULTS</span></h1></section><div class='challenge-set-results' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('三首連續遊玩 · THREE-SONG SET', '遊戲結算總分 · OFFICIAL CHALLENGE TOTAL');
+  }
   function songResult(s) {
     const qualifier = s.stage === 'qualifier', q = s.qualifier, m = B.currentMatch(s);
     if (!qualifier && !m) return backdrop() + header(s, '單曲統計') + title('等待比賽成績', 'SONG STATISTICS');
     const tie = qualifier ? B.qualifierTiebreak(s) : B.matchTiebreak(s);
+    if (qualifier && B.challengeQualifier(s) && !tie) return challengeSetResult(s);
     const index = qualifier ? q.currentSong : m.currentSong, count = qualifier ? 3 : B.matchSongCount(m);
     const song = tie?.song || (qualifier ? B.song(s, q.groups[q.activeGroup].songs[index]) : m.songs[index]);
     const context = qualifier ? B.qualifierLabel(s) : `R${m.round} · ${m.id} · ${m.label}`;
