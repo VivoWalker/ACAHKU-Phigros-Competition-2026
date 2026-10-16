@@ -12,11 +12,13 @@ OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results' / 'scor
 SERVER = r"""
 const app=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'tie-lock-main-fixture',scorekeeperPin:'tie-lock-scorer-fixture'});
 const command=(type,payload={})=>app.store.commit({type,payload},app.store.state.revision);
+command('set-qualifier-scoring-mode',{mode:'legacy-score'});
 command('set-qualifier-plan',{plan:'A'});
 [990000,980000,970000,900000,900000,800000,700000,600000].forEach((score,index)=>{
   for(let songIndex=0;songIndex<3;songIndex++)command('set-qualifier-score',{group:'A',playerId:'p'+(index+1),songIndex,score,judgements:{accuracy:98}});
 });
 command('draw-qualifier-tiebreak',{group:'A',playerIds:['p4','p5']});
+command('set-qualifier-display',{players:['p4']});
 app.listen(0,'127.0.0.1').then(address=>console.log(address.port));
 process.on('SIGTERM',()=>app.close().then(()=>process.exit()));
 """
@@ -40,6 +42,14 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
             page.wait_for_selector('#workspace:not([hidden])')
             page.wait_for_function('document.querySelectorAll("input[data-score-key]:not(:disabled)").length===2')
             assert page.locator('#context-title').inner_text().endswith('加賽 1')
+            assert page.locator('form[data-player-key]').evaluate_all('(forms)=>forms.map(form=>form.dataset.playerKey)') == ['p4','p5']
+            assert page.evaluate('''async()=>{
+              const response=await fetch('/api/scorekeeper-state',{headers:{Authorization:'Bearer '+sessionStorage.getItem('scorekeeper-token')}});
+              const {qualifier}=await response.json();
+              return JSON.stringify(qualifier.activePlayers)==='["p4"]'&&
+                JSON.stringify(qualifier.players.map(player=>player.id))==='["p4"]'&&
+                JSON.stringify(qualifier.tiebreak.players.map(player=>player.id))==='["p4","p5"]';
+            }'''), 'Every tiebreak participant must remain scoreable outside the regular live batch'
             for player_id in ['p4', 'p5']:
                 form = page.locator('form[data-player-key="' + player_id + '"]')
                 form.locator('input[data-score-key]').fill('900000')
@@ -57,7 +67,8 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
               };
             }''')
             page.evaluate("window.__masterCommand('confirm-qualifier-tiebreak',{group:'A',index:0,verified:true})")
-            page.wait_for_function('document.querySelectorAll("input[data-score-key]").length===24 && document.querySelectorAll("input[data-score-key]:not(:disabled)").length===0')
+            page.wait_for_function('document.querySelectorAll("input[data-score-key]").length===3 && document.querySelectorAll("input[data-score-key]:not(:disabled)").length===0')
+            assert page.locator('form[data-player-key]').evaluate_all('(forms)=>forms.map(form=>form.dataset.playerKey)') == ['p4']
             assert '加賽已確認' in page.locator('#match-notice').inner_text()
             assert '主控' in page.locator('#match-notice').inner_text()
             assert page.locator('input[data-judgement-key]:not(:disabled)').count() == 0
@@ -80,6 +91,7 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
             assert page.locator('#match-notice').is_hidden()
             assert not errors, errors
             report = {'result': 'PASS', 'pending_tiebreak_editable': True, 'confirmed_tiebreak_base_read_only': True,
+                      'tiebreak_participants_outside_live_batch_editable': True, 'confirmed_batch_player_ids': ['p4'],
                       'master_correction_guidance': True, 'repeat_tiebreak_editable': True,
                       'layout_widths': [1194, 390], 'overlap': False, 'page_errors': errors}
             (OUT / 'report.json').write_text(json.dumps(report, indent=2))

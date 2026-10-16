@@ -61,6 +61,7 @@ async function assertBaseRejected(f, payload) {
 test('paired scorer can enter ordinary qualifier scores, but cannot retain master correction flags', async t => {
   const f = await fixture(t), payload = { playerId: 'p4', songIndex: 0, score: 900000, judgements: { accuracy: 98 },
     confirmClearTiebreaks: true, verified: true, reason: 'Pretend scorer approval' };
+  f.command('set-qualifier-display', { players: ['p4'] });
   const view = scorekeeperState(f.app.store.state);
   assert.equal(view.qualifier.baseLocked, false); assert.equal(view.qualifier.baseLockedReason, '');
   assert.deepEqual(scorekeeperAction(f.app.store.state, { contextKey: view.contextKey, action: { type: 'set-qualifier-score', payload } }).payload,

@@ -204,8 +204,8 @@ def main():
                 for page in [a, b]:
                     assert page.locator('.tabs,iframe,[data-scene],[data-command],[data-start-countdown],[data-tab],select,textarea').count() == 0
                     assert page.evaluate('sessionStorage.getItem("scorekeeper-token")!==null && sessionStorage.getItem("broadcast-token")===null')
-                    assert page.locator('form[data-player-key]').count() == 4
-                    assert page.locator('input[data-score-key]').count() == 12
+                    assert page.locator('form[data-player-key]').evaluate_all('(forms)=>forms.map(form=>form.dataset.playerKey)') == ['p1','p2','p3']
+                    assert page.locator('input[data-score-key]').count() == 9
                 assert crew.evaluate('sessionStorage.getItem("broadcast-token")!==null && sessionStorage.getItem("scorekeeper-token")===null')
                 roles = crew.evaluate('''async()=>{
                   const headers={Authorization:'Bearer '+sessionStorage.getItem('broadcast-token')};
@@ -353,7 +353,9 @@ def main():
                 a.evaluate('window.__oldScoreForm=document.querySelector("form[data-player-key]")')
                 command('set-qualifier-display', {'group':'B','players':['p5','p6','p7']})
                 a.wait_for_function('document.querySelector("#context-title")?.textContent.includes("B")')
-                assert not any(field(a, index, 2).input_value() == '971234' for index in range(4))
+                assert a.locator('form[data-player-key]').evaluate_all('(forms)=>forms.map(form=>form.dataset.playerKey)') == ['p5','p6','p7']
+                assert a.locator('input[data-score-key]').count() == 9
+                assert not any(field(a, index, 2).input_value() == '971234' for index in range(3))
                 assert a.evaluate('document.activeElement?.dataset.scoreKey') is None
                 before = [player['scores'] for player in state()['qualifier']['players']]
                 a.evaluate('window.__oldScoreForm.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))')

@@ -29,7 +29,7 @@ function matchFixture(final = false) {
 }
 
 test('scorekeeper permissions add only score entry for qualifier and match tiebreaks', () => {
-  assert.deepEqual([...SCORE_ACTIONS].sort(), ['set-match-score', 'set-match-tiebreak-score', 'set-qualifier-score', 'set-qualifier-tiebreak-score', 'set-qualifier-total']);
+  assert.deepEqual([...SCORE_ACTIONS].sort(), ['set-match-score', 'set-match-tiebreak-score', 'set-qualifier-challenge-result', 'set-qualifier-score', 'set-qualifier-tiebreak-score', 'set-qualifier-total']);
   const state = qualifierFixture(), before = JSON.stringify(state);
   for (const type of ['set-qualifier-plan', 'finalize-qualifier-round', 'draw-qualifier-tiebreak', 'confirm-qualifier-tiebreak',
     'draw-match-tiebreak', 'confirm-match-tiebreak', 'record-result', 'disqualify-player', 'authorize-song-rematch', 'set-player-readiness']) {
@@ -43,12 +43,12 @@ test('configured qualifier sheets project each round results and keep drafts bou
   q.players[0].scores = [100, 200, 300];
   q.rounds.A.results.p1 = { scores: [987654, null, null], judgements: [judgements(99.8765), null, null] };
   const view = scorekeeperState(state);
-  assert.equal(view.qualifier.plan, 'A'); assert.equal(view.qualifier.players.length, 8);
+  assert.equal(view.qualifier.plan, 'A'); assert.deepEqual(view.qualifier.players.map(player => player.id), ['p1', 'p2', 'p3']);
   assert.deepEqual(view.qualifier.players[0].scores, [987654, null, null]);
   assert.equal(view.qualifier.players[0].judgements[0].accuracy, 99.8765);
   const action = scorekeeperAction(state, request(state, 'set-qualifier-score', { playerId: 'p1', songIndex: 1, score: 999000, judgements: judgements(99.9), verified: true, group: 'B' }));
   assert.deepEqual(action.payload, { playerId: 'p1', songIndex: 1, score: 999000, judgements: judgements(99.9) });
-  q.rounds.A.results.p1.scores[0] = 980000; q.rounds.A.results.p1.judgements[0] = judgements(99.7); q.currentSong = 2; q.activePlayers = ['p8'];
+  q.rounds.A.results.p1.scores[0] = 980000; q.rounds.A.results.p1.judgements[0] = judgements(99.7); q.currentSong = 2;
   assert.equal(scorekeeperState(state).contextKey, view.contextKey, 'Score revisions and host display cursor do not move the scoring sheet');
   q.players[0].number = 20;
   assert.notEqual(scorekeeperState(state).contextKey, view.contextKey);
@@ -66,10 +66,10 @@ test('Plan A revival sheets expose only second-round entrants and no first-round
   q.rounds.B.playerIds = ['p5', 'p6', 'p7', 'p8'];
   q.rounds.B.results = Object.fromEntries(q.rounds.B.playerIds.map(id => [id, { scores: [null, null, null], judgements: [null, null, null] }]));
   const firstKey = scorekeeperState(state).contextKey;
-  q.activeGroup = 'B';
+  q.activeGroup = 'B'; q.activePlayers = ['p5', 'p6', 'p7'];
   const view = scorekeeperState(state);
   assert.notEqual(view.contextKey, firstKey); assert.equal(view.qualifier.locked, false);
-  assert.deepEqual(view.qualifier.players.map(player => player.id), ['p5', 'p6', 'p7', 'p8']);
+  assert.deepEqual(view.qualifier.players.map(player => player.id), ['p5', 'p6', 'p7']);
   assert.deepEqual(view.qualifier.players[0].scores, [null, null, null]);
   forbidden(() => scorekeeperAction(state, request(state, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 1 })));
   q.rounds.B.locked = true;

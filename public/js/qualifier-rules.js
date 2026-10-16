@@ -43,6 +43,18 @@
     }
     return stats;
   }
+  function normaliseChallengeResult(rawTotal, rawStats) {
+    const value = challengeTotal(rawTotal);
+    requireValue(value !== null, 'Enter the total shown by Challenge Mode.');
+    requireValue(Array.isArray(rawStats) && rawStats.length === 3, 'Enter statistics for all three Challenge Mode songs.');
+    const songStats = Array.from(rawStats, raw => {
+      requireValue(raw !== null, 'Enter statistics for all three Challenge Mode songs.');
+      return normaliseSongStats(raw);
+    });
+    // The official game total remains authoritative; per-song statistics are
+    // result-screen evidence, rather than a replacement ranking calculation.
+    return { total: value, songStats };
+  }
   const roundStarted = (state, group) => Boolean(state.qualifier.rounds?.[group]?.scoringStarted ||
     (configured(state) ? Object.values(state.qualifier.rounds[group].results) : roster(state).filter(player => player.group === group)).some(recorded));
   function canChangeScoringMode(state) {
@@ -50,7 +62,7 @@
     return !t.seeded && !hasScores(state) && !state.result && !t.matches.length && !t.seeds.length && !t.drawLog.length &&
       !Object.keys(t.songHistory || {}).length && !state.correctionLog?.length && !q.scoringStarted &&
       !roster(state).some(player => player.tiePriority !== null) && !q.adjudications?.some(entry => entry.type !== 'set-player-readiness') &&
-      !state.auditLog?.some(entry => ['set-qualifier-total', 'set-qualifier-score', 'set-qualifier-song-stats', 'set-qualifier-tiebreak-score', 'qualify', 'finalize-qualifier-round', 'seed-bracket', 'restore-backup'].includes(entry.type));
+      !state.auditLog?.some(entry => ['set-qualifier-total', 'set-qualifier-challenge-result', 'set-qualifier-score', 'set-qualifier-song-stats', 'set-qualifier-tiebreak-score', 'qualify', 'finalize-qualifier-round', 'seed-bracket', 'restore-backup'].includes(entry.type));
   }
   function setScoringMode(state, mode) {
     requireValue([CHALLENGE_MODE, 'legacy-score'].includes(mode), 'Choose Challenge Mode total or legacy individual scores.');
@@ -198,6 +210,26 @@
     };
     switch (action.type) {
       case 'set-qualifier-scoring-mode': setScoringMode(state, p.mode); return true;
+      case 'set-qualifier-challenge-result': {
+        assert(isChallenge(state), 'Use Challenge Mode total scoring for this command.');
+        roundEditable();
+        assert(group === q.activeGroup, 'Only the active qualifier group may be scored.');
+        assert(!q.rounds[group].tiebreaks.length, 'Base Challenge Mode results are locked after a qualifier tiebreak starts.');
+        assert(q.groups[group]?.songs.length === 3 && q.groups[group].songs.every(Boolean), 'Choose all three qualifier songs first.');
+        const player = entries(state, group).find(value => value.id === p.playerId);
+        assert(player, 'Player is not eligible in this qualifier round.');
+        const completeResult = normaliseChallengeResult(p.total, p.songStats), row = result(state, group, player.id);
+        row.songStats = completeResult.songStats.map((stats, index) => {
+          // Count-only scorer forms do not edit accuracy recorded by the main
+          // control; retain it unless this payload explicitly supplies a value.
+          const previousAccuracy = row.songStats?.[index]?.accuracy;
+          return !Object.hasOwn(stats, 'accuracy') && previousAccuracy !== undefined ? { ...stats, accuracy: previousAccuracy } : stats;
+        });
+        row.songStatsRecorded = true;
+        row.challengeTotal = completeResult.total;
+        q.scoringStarted = true; q.rounds[group].scoringStarted = true;
+        return true;
+      }
       case 'set-qualifier-song-stats': {
         assert(groups.includes(p.group) && p.group === q.activeGroup, 'Only the active qualifier group may have song statistics entered.');
         assert(!state.tournament.seeded && !q.rounds?.[group]?.locked, 'Qualifier statistics are locked after round qualification or seeding.');
@@ -411,6 +443,6 @@
       default: return false;
     }
   }
-  return { CHALLENGE_MODE, MAX_CHALLENGE_TOTAL, isChallenge, challengeTotal, normaliseSongStats, total, complete, recorded, roundStarted, canChangeScoringMode, setScoringMode,
+  return { CHALLENGE_MODE, MAX_CHALLENGE_TOTAL, isChallenge, challengeTotal, normaliseSongStats, normaliseChallengeResult, total, complete, recorded, roundStarted, canChangeScoringMode, setScoringMode,
     configured, entries, rankings, seeds, result, tiedSets, activeTiebreak, hasScores, applyAction };
 });

@@ -1,4 +1,4 @@
-"""Optional real-browser regression for direct Challenge Mode qualifier totals.
+"""Real-browser regression for current-batch Challenge Mode score sheets.
 
 Requires Python Playwright, Pillow and Chromium. Every server uses an isolated
 temporary data directory and fixture-only pairing codes. Live event data and
@@ -186,22 +186,6 @@ def wait_total(page, player, total, group='A'):
     }''', arg={'player': player, 'total': total, 'group': group})
 
 
-def fill_total(page, player, value, role='control', group='A'):
-    if role == 'control':
-        field = page.locator('#qtotal-' + player)
-        field.fill(str(value))
-        field.locator('xpath=ancestor::form').locator('button[type=submit]').click()
-    else:
-        form = page.locator(f'form[data-player-key="{player}"]')
-        form.locator('[data-score-key]').fill(str(value))
-        form.locator('[data-save-player]').click()
-    wait_total(page, player, value, group)
-    page.wait_for_function('window.__fixtureCommands.every(item=>item.done)')
-    if role == 'scorekeeper':
-        revision = state(page, 'scorekeeper')['revision']
-        page.wait_for_function('revision=>document.querySelector("#sync-status").textContent.endsWith("#"+revision)', arg=revision)
-
-
 def snapshot(page, name, overlay=False):
     path = OUT / name
     page.screenshot(path=str(path), full_page=not overlay, omit_background=overlay, animations='disabled')
@@ -225,7 +209,7 @@ def geometry(page, name, width, height, role='control'):
       };
       const rect=element=>{const b=element.getBoundingClientRect();return {x:b.x,y:b.y,w:b.width,h:b.height}};
       const selectors=role==='overlay'?'.scene-head,.event-title,.topmeta,.qualifier-player,.qualifier-song,.ranking-tables>section,.phigros-logo,.club-logo':
-        role==='scorekeeper'?'#context-title,#context-description,#draft-notice,form[data-player-key],input[data-score-key],button[data-save-player],.field-status':
+        role==='scorekeeper'?'#context-title,#context-description,#draft-notice,form[data-player-key],input[data-score-key],input[data-judgement-key],button[data-save-player],.field-status':
         '#content .page-heading,#content form[data-score-editor="qc"],#content input[id^="qtotal-"],#content form[data-score-editor="qc"] button[type="submit"],#content .draft-notice';
       const all=[...document.querySelectorAll(selectors)].filter(visible);
       return {width:innerWidth,height:innerHeight,scrollWidth:Math.max(document.body.scrollWidth,document.documentElement.scrollWidth),
@@ -265,189 +249,322 @@ def idle(page, scene):
     }''', arg=scene, timeout=20000)
 
 
-def exercise_new(browser, base):
+def score_form(page, player):
+    return page.locator(f'form[data-player-key="{player}"]')
+
+
+def song_field(page, player, index):
+    return score_form(page, player).locator(f'input[data-score-key][data-song-index="{index}"]')
+
+
+def fill_challenge(page, player, stats, total):
+    form = score_form(page, player)
+    for index, row in enumerate(stats):
+        field = song_field(page, player, index)
+        field.fill(str(row['score']))
+        wrapper = field.locator('xpath=ancestor::div[@data-field-key]')
+        for name in ['perfect', 'good', 'bad', 'miss']:
+            wrapper.locator(f'[data-judgement-name="{name}"]').fill(str(row[name]))
+    song_field(page, player, 3).fill(str(total))
+    return form
+
+
+def saved_challenge(page, player, stats, total, group='A'):
+    wait_total(page, player, total, group)
+    page.wait_for_function('''data=>{
+      const form=document.querySelector(`form[data-player-key="${data.player}"]`);
+      return form&&form.querySelector('[data-save-player]').disabled&&!form.querySelector('.is-dirty');
+    }''', arg={'player': player})
+    page.wait_for_function('window.__fixtureCommands.every(item=>item.done)')
+    current = page.context.request.get(page.url.split('/scorekeeper/')[0] + '/api/state').json()
+    row = current['qualifier']['rounds'][group]['results'][player]
+    assert row['challengeTotal'] == total and row['songStats'] == stats, row
+
+
+def hold_score_ack(page):
+    page.evaluate('''() => {
+      if(!window.__challengeAckHook) {
+        window.__challengeAckHook=true;
+        const original=io.Socket.prototype.emit;
+        io.Socket.prototype.emit=function(event,...args) {
+          if(event==='command'&&window.__holdChallengeAck) {
+            window.__holdChallengeAck=false;
+            const callback=args.pop();
+            args.push((...response)=>{window.__releaseChallengeAck=()=>callback(...response)});
+          }
+          return original.call(this,event,...args);
+        };
+      }
+      window.__releaseChallengeAck=null;
+      window.__holdChallengeAck=true;
+    }''')
+
+
+def release_score_ack(page):
+    page.wait_for_function('typeof window.__releaseChallengeAck==="function"')
+    page.evaluate('window.__releaseChallengeAck()')
+
+
+def wait_batch(page, players):
+    page.wait_for_function('''ids=>JSON.stringify([...document.querySelectorAll('form[data-player-key]')]
+      .map(form=>form.dataset.playerKey))===JSON.stringify(ids)''', arg=players)
+
+
+def exercise_new(browser, base, data_dir):
     main_context, main = login(browser, base)
     score_context, scorer = login(browser, base, 'scorekeeper')
-    overlay = main_context.new_page()
-    overlay.goto(base + '/overlay/qualifier-match.html')
-    idle(overlay, 'qualifier-match')
     current = state(main)
     assert current['qualifier']['scoringMode'] == 'challenge-total'
-    assert scorer.locator('form[data-player-key]').count() == 4
-    assert scorer.locator('input[data-score-key]').count() == 4
-    assert scorer.locator('input[data-judgement-key]').count() == 0
+    wait_batch(scorer, ['p1', 'p2', 'p3'])
+    assert scorer.locator('input[data-score-key]').count() == 12
+    assert scorer.locator('input[data-judgement-key]').count() == 36
+    assert scorer.locator('[data-judgement-name="accuracy"]').count() == 0
+    assert scorer.locator('input:not(:disabled)[data-score-key]').count() == 0
     assert scorer.locator('.tabs,iframe,[data-scene],[data-command],[data-start-countdown]').count() == 0
-    tab(main, 'qualifiers')
-    assert scorer.locator('input[data-score-key]:not(:disabled)').count() == 0
-    assert main.locator('input[id^="qtotal-"]:not(:disabled)').count() == 0
-    before = state(main)['revision']
-    response = raw_command(main, 'set-qualifier-total', {'group': 'A', 'playerId': 'p1', 'total': 1})
-    assert not response['ok'] and state(main)['revision'] == before
-    main.select_option('#qualifier-plan', 'auto')
-    main.locator('#plan-form button[type=submit]').click()
-    main.wait_for_function('''async()=>{
-      const current=await fetch('/api/state').then(response=>response.json());return current.qualifier.plan==='A';
-    }''')
-    main.wait_for_selector('#qtotal-p1')
-    scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===8')
-    assert main.locator('form[data-score-editor="qc"]').count() == 8
-    assert main.locator('input[id^="qs-"],input[data-judgement-name]').count() == 0
-    check('new qualifiers give each player one direct three-song total and no Accuracy calculation')
+    command(main, 'set-qualifier-plan', {'plan': 'A'})
+    wait_batch(scorer, ['p1', 'p2', 'p3'])
+    scorer.wait_for_function('document.querySelectorAll("input[data-score-key]:not(:disabled)").length===12')
+    assert [row['id'] for row in state(scorer, 'scorekeeper')['qualifier']['players']] == ['p1', 'p2', 'p3']
+    assert scorer.locator('form[data-player-key="p4"]').count() == 0
+    check('scorekeeper shows only the three current players, with three song scores, twelve P/G/B/M counts and one official total each')
 
-    fill_total(main, 'p1', 0)
-    fill_total(scorer, 'p2', 3000000, 'scorekeeper')
-    main.fill('#qtotal-p3', '2987654')
-    command(main, 'set-event', {'venue': 'Challenge draft fixture'})
-    assert main.input_value('#qtotal-p3') == '2987654'
-    assert state(main)['qualifier']['rounds']['A']['results']['p3']['challengeTotal'] is None
-    main.locator('form[data-score-editor="qc"][data-entity="p3"] button[type=submit]').click()
-    wait_total(main, 'p3', 2987654)
-    for player, value in [('p4', 2900000), ('p5', 2900000), ('p6', 2800000), ('p7', 2700000), ('p8', 2600000)]:
-        command(main, 'set-qualifier-total', {'group': 'A', 'playerId': player, 'total': value})
-    public = main_context.request.get(base + '/api/state').json()
-    ranks = public['qualifier']['rankings']['A']
-    assert [row['id'] for row in ranks] == ['p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p1']
-    assert ranks[-1]['total'] == 0 and ranks[-1]['complete'] is True
-    assert all(row['accuracy'] is None for row in ranks)
-    idle(overlay, 'qualifier-match')
-    assert '3,000,000' in overlay.locator('#scene').inner_text()
-    assert '2,987,654' in overlay.locator('#scene').inner_text()
-    check('0, 3,000,000 and an intermediate integer synchronize across main, scorer and OBS', ranks)
+    stats = [
+        {'score': 998765, 'perfect': 700, 'good': 12, 'bad': 1, 'miss': 0},
+        {'score': 987654, 'perfect': 800, 'good': 5, 'bad': 2, 'miss': 1},
+        {'score': 976543, 'perfect': 900, 'good': 0, 'bad': 0, 'miss': 3},
+    ]
+    # The game total is recorded directly, independently of the three entries.
+    total = 2950001
+    assert total != sum(row['score'] for row in stats)
+    form = fill_challenge(scorer, 'p1', stats, total)
+    assert not form.locator('[data-save-player]').is_disabled()
+    command(main, 'set-event', {'venue': 'Challenge result draft fixture'})
+    assert song_field(scorer, 'p1', 0).input_value() == '998765'
+    assert state(main)['qualifier']['rounds']['A']['results']['p1']['challengeTotal'] is None
+    before, commands_before = state(main)['revision'], scorer.evaluate('window.__fixtureCommands.length')
+    form.locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p1', stats, total)
+    after = state(main)
+    assert after['revision'] == before + 1
+    commands = scorer.evaluate('window.__fixtureCommands')
+    assert len(commands) == commands_before + 1
+    assert commands[-1]['action'] == {'type': 'set-qualifier-challenge-result', 'payload': {
+        'group': 'A', 'playerId': 'p1', 'total': total, 'songStats': stats}}
+    persisted = json.loads((Path(data_dir) / 'match-state.json').read_text())
+    assert persisted['qualifier']['rounds']['A']['results']['p1']['songStats'] == stats
+    assert persisted['qualifier']['rounds']['A']['results']['p1']['challengeTotal'] == total
+    check('one explicit player save atomically persists all three song statistics and the manually entered official total')
 
-    # Browser validation and the actual server both reject malformed totals;
-    # none of these rejected requests advances the persisted revision.
-    form = scorer.locator('form[data-player-key="p1"]')
+    form = score_form(scorer, 'p2')
+    song_field(scorer, 'p2', 0).fill('0')
     before = state(main)['revision']
-    for text in ['1.5', '-1', '3000001']:
-        form.locator('[data-score-key]').fill(text)
-        assert form.locator('[data-save-player]').is_disabled(), text
+    assert form.locator('[data-save-player]').is_disabled()
+    song_field(scorer, 'p2', 0).press('Enter')
+    assert state(main)['revision'] == before
+    zeros = [dict.fromkeys(['score', 'perfect', 'good', 'bad', 'miss'], 0) for _ in range(3)]
+    fill_challenge(scorer, 'p2', zeros, 0)
+    for field, invalid in [(song_field(scorer, 'p2', 0), '1.5'),
+                           (song_field(scorer, 'p2', 1), '1000001'),
+                           (song_field(scorer, 'p2', 3), '3000001'),
+                           (form.locator('[data-judgement-name="good"]').nth(1), '-1'),
+                           (form.locator('[data-judgement-name="miss"]').nth(2), '')]:
+        original = field.input_value()
+        field.fill(invalid)
+        assert form.locator('[data-save-player]').is_disabled(), invalid
         assert state(main)['revision'] == before
-        response = raw_command(main, 'set-qualifier-total', {'group': 'A', 'playerId': 'p1', 'total': float(text)})
-        assert not response['ok'] and state(main)['revision'] == before, response
-    response = raw_command(main, 'set-qualifier-score', {'group': 'A', 'playerId': 'p1', 'songIndex': 0, 'score': 1})
-    assert not response['ok'] and state(main)['revision'] == before
-    form.locator('[data-score-key]').fill('0')
-    assert form.locator('[data-save-player]').is_disabled(), 'Returning to the saved value should clear its draft'
-    scorer.wait_for_function('document.querySelectorAll(".conflict-actions:not([hidden])").length===0')
-    check('decimal, negative, out-of-range and individual-song qualifier submissions are rejected without writes')
+        field.fill(original)
+    form.locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p2', zeros, 0)
+    assert score_form(scorer, 'p2').locator('[data-player-total]').inner_text() == '0'
+    check('all sixteen values are required; zero is valid, while decimals, negative counts, missing counts and out-of-range scores cannot save')
 
-    # An offline scorekeeper retains its own text and cannot save until the
-    # synchronized connection is back. Context changes cannot retarget it.
-    form = scorer.locator('form[data-player-key="p6"]')
-    form.locator('[data-score-key]').fill('2800123')
+    # Incomplete commands must also be rejected by the authenticated server.
+    for broken in [stats[:2], [{**stats[0], 'miss': None}, *stats[1:]]]:
+        before = state(main)['revision']
+        response = raw_command(scorer, 'set-qualifier-challenge-result', {
+            'group': 'A', 'playerId': 'p3', 'total': total, 'songStats': broken})
+        assert not response['ok'] and state(main)['revision'] == before, response
+    response = raw_command(scorer, 'set-qualifier-challenge-result', {
+        'group': 'A', 'playerId': 'p4', 'total': total, 'songStats': stats})
+    assert not response['ok'] and state(main)['revision'] == before
+    check('server rejects incomplete sheets and off-batch players without partially saving a result')
+
+    # Each per-song overlay reads the same persisted evidence entered by scorer.
+    overlay = main_context.new_page()
+    overlay.goto(base + '/overlay/song-result.html?audio=0')
+    for index in range(3):
+        command(main, 'set-qualifier-display', {'currentSong': index})
+        overlay.wait_for_function('''index=>document.querySelector('.song-result-heading')?.textContent.includes(`SONG ${index+1} / 3`)''', arg=index)
+        idle(overlay, 'song-result')
+        card = overlay.locator('[data-player-id="p1"]')
+        for key, value in stats[index].items():
+            assert card.locator(f'[data-stat="{key}"]').inner_text() == f'{value:,}'
+        assert overlay.locator('[data-player-id="p2"] [data-stat]').all_inner_texts() == ['0'] * 5
+    geometry(overlay, 'challenge-song-result-1920x1080', 1920, 1080, 'overlay')
+    check('all three OBS song-result pages display the saved song score and Perfect/Good/Bad/Miss, including zero')
+
+    # Connection loss never sends an incomplete or stale sheet.
+    p3_stats = [{**row, 'score': score} for row, score in zip(stats, [970000, 960000, 950000])]
+    form = fill_challenge(scorer, 'p3', p3_stats, 2880000)
     score_context.set_offline(True)
     scorer.wait_for_function('document.querySelector("#connection").classList.contains("offline")')
     assert form.locator('[data-save-player]').is_disabled()
     score_context.set_offline(False)
     scorer.wait_for_function('!document.querySelector("#connection").classList.contains("offline")', timeout=15000)
-    assert form.locator('[data-score-key]').input_value() == '2800123'
+    assert song_field(scorer, 'p3', 2).input_value() == '950000'
     form.locator('[data-save-player]').click()
-    wait_total(scorer, 'p6', 2800123)
-    scorer.wait_for_function('''()=>document.querySelector('form[data-player-key="p6"] [data-player-total]')?.textContent==='2,800,123'
-      &&document.querySelector('form[data-player-key="p6"] [data-save-player]')?.disabled''')
-    old_context = state(scorer, 'scorekeeper')['contextKey']
-    command(main, 'set-stage', {'stage': 'double-elimination'})
-    scorer.wait_for_function('document.querySelectorAll("form[data-player-key]").length===0')
+    saved_challenge(scorer, 'p3', p3_stats, 2880000)
+    scorer.reload()
+    scorer.wait_for_selector('form[data-player-key="p3"] [data-score-key]')
+    scorer.evaluate(COMMANDS, 'scorekeeper')
+    assert [song_field(scorer, 'p3', index).input_value() for index in range(4)] == ['970000', '960000', '950000', '2880000']
+    assert score_form(scorer, 'p3').locator('[data-judgement-name="perfect"]').evaluate_all('inputs=>inputs.map(input=>input.value)') == ['700', '800', '900']
+    check('offline drafts survive reconnect and complete saved sheets rehydrate after reloading the browser')
+
+    # A host edit cannot silently overwrite a scorer's different local draft.
+    song_field(scorer, 'p1', 0).fill('998766')
+    song_field(scorer, 'p1', 3).fill('2950002')
+    changed = [{**stats[0], 'score': 998764}, *stats[1:]]
+    command(main, 'set-qualifier-challenge-result', {'group': 'A', 'playerId': 'p1', 'total': 2950000, 'songStats': changed})
+    scorer.wait_for_selector('form[data-player-key="p1"] .conflict-actions:not([hidden])')
+    form = score_form(scorer, 'p1')
+    assert form.locator('[data-save-player]').is_disabled()
+    assert song_field(scorer, 'p1', 0).input_value() == '998766'
+    assert song_field(scorer, 'p1', 3).input_value() == '2950002'
+    while form.locator('.conflict-actions:not([hidden]) [data-keep-draft]').count():
+        form.locator('.conflict-actions:not([hidden]) [data-keep-draft]').first.click()
+    resolved = [{**stats[0], 'score': 998766}, *stats[1:]]
+    before, commands_before = state(main)['revision'], scorer.evaluate('window.__fixtureCommands.length')
+    form.locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p1', resolved, 2950002)
+    assert state(main)['revision'] == before + 1
+    assert scorer.evaluate('window.__fixtureCommands.length') == commands_before + 1
+    check('concurrent host edits require an explicit conflict decision and the resolved sheet is still one atomic save')
+
+    # A full-sheet save must also protect fields the scorer never touched.
+    song_field(scorer, 'p1', 3).fill('2950003')
+    host_stats = [{**row} for row in resolved]
+    host_stats[1]['good'] = 6
+    command(main, 'set-qualifier-challenge-result', {
+        'group': 'A', 'playerId': 'p1', 'total': 2950002, 'songStats': host_stats})
+    scorer.wait_for_selector('form[data-player-key="p1"] .conflict-actions:not([hidden])')
+    form = score_form(scorer, 'p1')
+    assert form.locator('[data-save-player]').is_disabled()
+    assert form.locator('[data-judgement-name="good"]').nth(1).input_value() == '5'
+    form.locator('.conflict-actions:not([hidden]) [data-use-server]').click()
+    assert form.locator('[data-judgement-name="good"]').nth(1).input_value() == '6'
+    assert song_field(scorer, 'p1', 3).input_value() == '2950003'
+    form.locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p1', host_stats, 2950003)
+    check('editing only the official total still detects concurrent changes to an untouched song judgement and preserves the chosen server value')
+
+    # The server can commit before its acknowledgement arrives. A fresh edit
+    # during that wait remains an unsaved sheet until an explicit second save.
+    song_field(scorer, 'p3', 2).fill('950111')
+    song_field(scorer, 'p3', 3).fill('2880111')
+    commands_before = scorer.evaluate('window.__fixtureCommands.length')
+    hold_score_ack(scorer)
+    score_form(scorer, 'p3').locator('[data-save-player]').click()
+    wait_total(scorer, 'p3', 2880111)
+    song_field(scorer, 'p3', 2).fill('950222')
+    release_score_ack(scorer)
+    scorer.wait_for_function('''()=>!document.querySelector('form[data-player-key="p3"] [data-save-player]').disabled''')
+    assert song_field(scorer, 'p3', 2).input_value() == '950222'
+    assert state(main)['qualifier']['rounds']['A']['results']['p3']['songStats'][2]['score'] == 950111
+    assert scorer.evaluate('window.__fixtureCommands.length') == commands_before + 1
+    p3_stats[2]['score'] = 950222
+    score_form(scorer, 'p3').locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p3', p3_stats, 2880111)
+    check('a late save acknowledgement cannot discard a newer field edit or automatically submit it')
+
+    # If the host advances the batch before acknowledgement, the committed
+    # sheet stays with the original player and no request targets the next one.
+    song_field(scorer, 'p3', 0).fill('970456')
+    song_field(scorer, 'p3', 3).fill('2880222')
+    commands_before = scorer.evaluate('window.__fixtureCommands.length')
+    hold_score_ack(scorer)
+    score_form(scorer, 'p3').locator('[data-save-player]').click()
+    wait_total(scorer, 'p3', 2880222)
+    command(main, 'set-qualifier-display', {'players': ['p4', 'p5', 'p6']})
+    wait_batch(scorer, ['p4', 'p5', 'p6'])
+    release_score_ack(scorer)
+    scorer.wait_for_function('window.__fixtureCommands.every(item=>item.done)')
+    assert scorer.evaluate('window.__fixtureCommands.length') == commands_before + 1
+    assert song_field(scorer, 'p4', 0).input_value() == ''
+    assert state(main)['qualifier']['rounds']['A']['results']['p4']['challengeTotal'] is None
+    command(main, 'set-qualifier-display', {'players': ['p1', 'p2', 'p3']})
+    wait_batch(scorer, ['p1', 'p2', 'p3'])
+    p3_stats[0]['score'] = 970456
+    assert song_field(scorer, 'p3', 0).input_value() == '970456'
+    if not score_form(scorer, 'p3').locator('[data-save-player]').is_disabled():
+        score_form(scorer, 'p3').locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p3', p3_stats, 2880222)
+    check('switching the host batch while a save acknowledgement is pending never sends the sheet to a new player')
+
+    # activePlayers is part of the context even when group and songs stay fixed.
+    song_field(scorer, 'p3', 0).fill('970123')
+    original_context = state(scorer, 'scorekeeper')['contextKey']
+    scorer.evaluate('window.__detachedScoreForm=document.querySelector(\'form[data-player-key="p3"]\')')
+    command(main, 'set-qualifier-display', {'players': ['p4', 'p5', 'p6']})
+    wait_batch(scorer, ['p4', 'p5', 'p6'])
+    assert '970123' in scorer.locator('#draft-notice').inner_text()
+    assert scorer.locator('.stale-context').count() == 1
+    assert song_field(scorer, 'p4', 0).input_value() == ''
     before = state(main)['revision']
-    response = raw_command(scorer, 'set-qualifier-total', {'group': 'A', 'playerId': 'p6', 'total': 1}, old_context)
-    assert not response['ok'] and state(main)['revision'] == before
-    command(main, 'set-stage', {'stage': 'qualifier'})
-    scorer.wait_for_selector('form[data-player-key="p6"] input[data-score-key]')
-    check('scorekeeper reconnect preserves a draft and stale contexts cannot submit to a different stage')
+    response = raw_command(scorer, 'set-qualifier-challenge-result', {
+        'group': 'A', 'playerId': 'p3', 'total': 2880222, 'songStats': p3_stats}, original_context)
+    assert not response['ok'] and response['code'] == 'CONTEXT_CHANGED'
+    scorer.evaluate('window.__detachedScoreForm.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true}))')
+    assert state(main)['revision'] == before
+    command(main, 'set-qualifier-display', {'players': []})
+    wait_batch(scorer, [])
+    assert scorer.locator('.empty-state').is_visible()
+    assert scorer.locator('input[data-score-key]').count() == 0
+    command(main, 'set-qualifier-display', {'players': ['p3']})
+    wait_batch(scorer, ['p3'])
+    # This is a different exact batch, so the original draft must stay parked.
+    assert song_field(scorer, 'p3', 0).input_value() == '970456'
+    assert '970123' in scorer.locator('#draft-notice').inner_text()
+    command(main, 'set-qualifier-display', {'players': ['p1', 'p2', 'p3']})
+    wait_batch(scorer, ['p1', 'p2', 'p3'])
+    assert song_field(scorer, 'p3', 0).input_value() == '970123'
+    p3_stats[0]['score'] = 970123
+    score_form(scorer, 'p3').locator('[data-save-player]').click()
+    saved_challenge(scorer, 'p3', p3_stats, 2880222)
+    check('same-group batch changes, empty batches and smaller batches cannot retarget drafts or detached forms')
 
-    for role, page in [('main', main), ('scorekeeper', scorer)]:
-        for width, height in [(1194, 834), (834, 1194)]:
-            geometry(page, f'{role}-{width}x{height}', width, height, 'control' if role == 'main' else 'scorekeeper')
-    for width, height in [(1920, 1080), (1280, 720)]:
-        geometry(overlay, f'qualifier-match-{width}x{height}', width, height, 'overlay')
-    ranking = main_context.new_page()
-    ranking.goto(base + '/overlay/result.html')
-    idle(ranking, 'result')
-    assert 'CHALLENGE' in ranking.locator('#scene').inner_text().upper()
-    assert '課題總分' in ranking.locator('.ranking-tables thead').first.inner_text()
-    assert '3,000,000' in ranking.locator('.ranking-tables').inner_text()
-    assert 'ACC' not in ranking.locator('.ranking-tables').inner_text().upper()
-    for width, height in [(1920, 1080), (1280, 720)]:
-        geometry(ranking, f'qualifier-ranking-{width}x{height}', width, height, 'overlay')
-    check('main/scorer tablet layouts and OBS match/ranking totals have no overlapping controls, text or logos')
+    for width, height in [(1600, 1000), (1194, 834), (834, 1194), (390, 844)]:
+        geometry(scorer, f'challenge-scorekeeper-{width}x{height}', width, height, 'scorekeeper')
+    check('desktop, landscape tablet, portrait tablet and phone sheets have no overlapping controls or text and retain 48px touch targets')
 
+    # The existing Challenge tiebreak is intentionally a separate score-only sheet.
+    for player, value in [('p4', 2800000), ('p5', 2800000), ('p6', 2700000), ('p7', 2600000), ('p8', 2500000)]:
+        command(main, 'set-qualifier-total', {'group': 'A', 'playerId': player, 'total': value})
     command(main, 'draw-qualifier-tiebreak', {'group': 'A', 'playerIds': ['p4', 'p5']})
-    scorer.wait_for_function('document.querySelectorAll("form[data-player-key]").length===2')
+    wait_batch(scorer, ['p4', 'p5'])
     assert scorer.locator('input[data-score-key]').count() == 2
     assert scorer.locator('input[data-judgement-key]').count() == 0
-    for player, score in [('p4', 900000), ('p5', 800000)]:
-        form = scorer.locator(f'form[data-player-key="{player}"]')
-        form.locator('[data-score-key]').fill(str(score))
+    for player, value in [('p4', 900000), ('p5', 800000)]:
+        form = score_form(scorer, player)
+        form.locator('[data-score-key]').fill(str(value))
         form.locator('[data-save-player]').click()
         main.wait_for_function('''async data=>{
           const current=await fetch('/api/state').then(response=>response.json());
           return current.qualifier.rounds.A.tiebreaks[0].scores[data.player]===data.score;
-        }''', arg={'player': player, 'score': score})
+        }''', arg={'player': player, 'score': value})
     command(main, 'confirm-qualifier-tiebreak', {'group': 'A', 'index': 0, 'verified': True})
-    ranks = main_context.request.get(base + '/api/state').json()['qualifier']['rankings']['A']
-    assert not next(row for row in ranks if row['id'] == 'p4')['tied']
-    assert next(row for row in ranks if row['id'] == 'p4')['total'] == 2900000
-    assert next(row for row in ranks if row['id'] == 'p5')['total'] == 2900000
-    check('equal game totals use a confirmed additional-song score without changing their base totals')
-
-    # Correcting a base total must explicitly explain and archive the extra
-    # song. Cancelled and too-short explanations preserve the pending draft.
-    main.set_viewport_size({'width': 1194, 'height': 834})
-    main.remove_listener('dialog', main._fixture_dialog_handler)
-    dialog_mode = ['cancel']
-    dialogs = []
-    reason = 'Referee checked the original Challenge Mode results and corrected the total.'
-
-    def handle_dialog(dialog):
-        dialogs.append({'type': dialog.type, 'message': dialog.message})
-        if dialog.type == 'prompt':
-            if dialog_mode[0] == 'cancel':
-                dialog.dismiss()
-            else:
-                dialog.accept('short' if dialog_mode[0] == 'short' else reason)
-        else:
-            dialog.accept()
-
-    main.on('dialog', handle_dialog)
-    main.fill('#qtotal-p4', '2900123')
-    before = state(main)['revision']
-    main.locator('form[data-score-editor="qc"][data-entity="p4"] button[type=submit]').click()
-    main.wait_for_timeout(150)
-    assert state(main)['revision'] == before and main.input_value('#qtotal-p4') == '2900123'
-    dialog_mode[0] = 'short'
-    main.locator('form[data-score-editor="qc"][data-entity="p4"] button[type=submit]').click()
-    main.wait_for_timeout(150)
-    assert state(main)['revision'] == before
-    dialog_mode[0] = 'accept'
-    main.locator('form[data-score-editor="qc"][data-entity="p4"] button[type=submit]').click()
-    wait_total(main, 'p4', 2900123)
-    current = state(main)
-    assert not current['qualifier']['rounds']['A']['tiebreaks']
-    adjudication = current['qualifier']['adjudications'][-1]
-    assert adjudication['previousChallengeTotal'] == 2900000
-    assert adjudication['note'] == reason and adjudication['invalidatedTiebreaks'][0]['confirmed'] is True
-    check('main-control base correction requires a reason and preserves the invalidated tiebreak in its audit record', dialogs)
-
+    assert state(main)['qualifier']['rounds']['A']['results']['p4']['challengeTotal'] == 2800000
     command(main, 'finalize-qualifier-round', {'group': 'A', 'verified': True})
     current = state(main)
-    assert current['qualifier']['rounds']['A']['qualifiedIds'] == ['p2', 'p3', 'p4', 'p5']
     assert current['qualifier']['activeGroup'] == 'B'
-    assert set(current['qualifier']['rounds']['B']['playerIds']) == {'p1', 'p6', 'p7', 'p8'}
-    assert all(row['challengeTotal'] is None for row in current['qualifier']['rounds']['B']['results'].values())
-    for player, total in [('p1', 2400000), ('p6', 2300000), ('p7', 2200000), ('p8', 2100000)]:
-        command(main, 'set-qualifier-total', {'group': 'B', 'playerId': player, 'total': total})
-    assert state(main)['qualifier']['rounds']['A']['results']['p1']['challengeTotal'] == 0
+    for index, player in enumerate(current['qualifier']['rounds']['B']['playerIds']):
+        command(main, 'set-qualifier-total', {'group': 'B', 'playerId': player, 'total': 2400000-index*100000})
     command(main, 'finalize-qualifier-round', {'group': 'B', 'verified': True})
     current = state(main)
-    seed_ids = current['qualifier']['rounds']['A']['qualifiedIds'] + current['qualifier']['rounds']['B']['qualifiedIds']
-    command(main, 'seed-bracket', {'ids': seed_ids, 'verified': True})
+    command(main, 'seed-bracket', {'ids': current['qualifier']['rounds']['A']['qualifiedIds'] + current['qualifier']['rounds']['B']['qualifiedIds'], 'verified': True})
     command(main, 'set-stage', {'stage': 'qualifier'})
-    scorer.wait_for_selector('form[data-player-key="p1"] input[data-score-key]')
-    assert scorer.locator('input[data-score-key]:not(:disabled)').count() == 0
-    before = state(main)['revision']
-    response = raw_command(main, 'set-qualifier-total', {'group': 'B', 'playerId': 'p1', 'total': 1})
-    assert not response['ok'] and state(main)['revision'] == before
-    check('Plan A advances the first four, records independent revival totals, then locks scores after qualification/seeding')
+    scorer.wait_for_function('document.querySelectorAll("input[data-score-key]:not(:disabled)").length===0')
+    check('qualifier tiebreak scoring remains score-only and completed qualification locks the result sheets')
 
     command(main, 'select-match', {'matchId': 'W1'})
     command(main, 'draw-candidates', {'matchId': 'W1'})
@@ -458,32 +575,16 @@ def exercise_new(browser, base):
     command(main, 'set-stage', {'stage': 'double-elimination'})
     scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===4')
     assert scorer.locator('input[data-judgement-name="accuracy"]').count() == 4
-    form = scorer.locator('form[data-player-key="0"]')
+    form = score_form(scorer, '0')
     form.locator('input[data-score-key]').first.fill('999999')
     form.locator('input[data-judgement-name="accuracy"]').first.fill('98.7654')
     form.locator('[data-save-player]').click()
     main.wait_for_function('''async()=>{
-      const state=await fetch('/api/state').then(response=>response.json());
-      const match=state.tournament.matches.find(item=>item.id==='W1');
+      const current=await fetch('/api/state').then(response=>response.json());
+      const match=current.tournament.matches.find(item=>item.id==='W1');
       return match.scores[0][0]===999999&&match.judgements[0][0].accuracy===98.7654;
     }''')
-    # The final cannot be selected until its feeder matches have finished.
-    # Verify its scorekeeper projection once without replaying 13 matches or
-    # altering the server's bracket dependencies just to reach its UI.
-    projection = subprocess.run(['node', '-e', r"""
-      let data='';process.stdin.on('data',chunk=>data+=chunk);
-      process.stdin.on('end',()=>{
-        const state=JSON.parse(data);state.stage='double-elimination';state.tournament.currentMatchId='GF';
-        const view=require('./lib/scorekeeper').scorekeeperState(state).match;
-        console.log(JSON.stringify({mode:view.finalMode,songs:view.songs,
-          rows:view.players.map(player=>({scores:player.scores,judgements:player.judgements,
-            hasChallengeTotal:Object.hasOwn(player,'challengeTotal')}))}));
-      });
-    """], cwd=ROOT, input=json.dumps(state(main)), capture_output=True, text=True, check=True, timeout=8)
-    final = json.loads(projection.stdout)
-    assert final['mode'] == 'fixed-two' and len(final['songs']) == 2
-    assert all(len(row['scores']) == 2 and len(row['judgements']) == 2 and not row['hasChallengeTotal'] for row in final['rows'])
-    check('DE UI and the fixed two-song Grand Final projection retain ordinary per-song scores and Accuracy', final)
+    check('Double Elimination retains its existing per-song score and Accuracy entry')
     score_context.close()
     main_context.close()
 
@@ -491,33 +592,32 @@ def exercise_new(browser, base):
 def exercise_plan_b(browser, base):
     main_context, main = login(browser, base)
     score_context, scorer = login(browser, base, 'scorekeeper')
-    tab(main, 'qualifiers')
     current = state(main)
     q = current['qualifier']
     assert q['plan'] == 'B'
     a, b = q['rounds']['A']['playerIds'], q['rounds']['B']['playerIds']
     assert len(a) == 11 and len(b) == 10
-    fill_total(main, a[0], 2999999)
-    form = scorer.locator(f'form[data-player-key="{a[1]}"]')
-    form.locator('[data-score-key]').fill('2999123')
+    wait_batch(scorer, a[:3])
+    stats = [dict.fromkeys(['score', 'perfect', 'good', 'bad', 'miss'], 0) for _ in range(3)]
+    fill_challenge(scorer, a[1], stats, 2999123)
     old_context = state(scorer, 'scorekeeper')['contextKey']
-    command(main, 'set-qualifier-display', {'group': 'B'})
-    scorer.wait_for_function('document.querySelectorAll("form[data-player-key]").length===10')
+    command(main, 'set-qualifier-display', {'group': 'B', 'players': b[:3]})
+    wait_batch(scorer, b[:3])
     assert '2999123' in scorer.locator('#draft-notice').inner_text()
-    assert scorer.locator(f'form[data-player-key="{b[0]}"] [data-score-key]').input_value() == ''
+    assert song_field(scorer, b[0], 3).input_value() == ''
     before = state(main)['revision']
-    response = raw_command(scorer, 'set-qualifier-total', {'group': 'A', 'playerId': a[1], 'total': 2999123}, old_context)
+    response = raw_command(scorer, 'set-qualifier-challenge-result', {
+        'group': 'A', 'playerId': a[1], 'total': 2999123, 'songStats': stats}, old_context)
     assert not response['ok'] and state(main)['revision'] == before
-    fill_total(scorer, b[0], 2800001, 'scorekeeper', 'B')
-    current = state(main)
-    assert current['qualifier']['rounds']['A']['results'][a[0]]['challengeTotal'] == 2999999
-    assert current['qualifier']['rounds']['A']['results'][a[1]]['challengeTotal'] is None
-    assert current['qualifier']['rounds']['B']['results'][b[0]]['challengeTotal'] == 2800001
-    command(main, 'set-qualifier-display', {'group': 'A'})
-    scorer.wait_for_function('document.querySelectorAll("form[data-player-key]").length===11')
-    assert scorer.locator(f'form[data-player-key="{a[1]}"] [data-score-key]').input_value() == '2999123'
+    form = fill_challenge(scorer, b[0], stats, 2800001)
+    form.locator('[data-save-player]').click()
+    saved_challenge(scorer, b[0], stats, 2800001, 'B')
+    assert state(main)['qualifier']['rounds']['A']['results'][a[1]]['challengeTotal'] is None
+    command(main, 'set-qualifier-display', {'group': 'A', 'players': a[:3]})
+    wait_batch(scorer, a[:3])
+    assert song_field(scorer, a[1], 3).input_value() == '2999123'
     geometry(scorer, 'plan-b-stale-draft-834x1194', 834, 1194, 'scorekeeper')
-    check('Plan B odd/even groups retain independent totals and scorekeeper drafts stay with the original group')
+    check('Plan B groups show only their active batch, retain independent official totals and restore drafts only to their original context')
     score_context.close()
     main_context.close()
 
@@ -559,7 +659,7 @@ def main():
                     process, base = start_server(data_dir, fixture)
                     try:
                         if fixture == 'new':
-                            exercise_new(browser, base)
+                            exercise_new(browser, base, data_dir)
                         elif fixture == 'plan-b':
                             exercise_plan_b(browser, base)
                         else:

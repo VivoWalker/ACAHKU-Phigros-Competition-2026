@@ -18,7 +18,7 @@ function send(socket, request) {
   return new Promise((resolve, reject) => socket.timeout(6000).emit('command', request, (error, result) => error ? reject(error) : resolve(result)));
 }
 
-test('paired scorekeepers record one Challenge total, publish it live and retain it through export and process restart', async t => {
+test('paired scorekeepers publish Challenge totals and complete three-song statistics, retaining both through export and process restart', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-challenge-live-'));
   const config = { dataDir: dir, pin: 'challenge-main-fixture', scorekeeperPin: 'challenge-score-fixture' };
   let app = createBroadcastServer(config), sockets = [];
@@ -53,12 +53,32 @@ test('paired scorekeepers record one Challenge total, publish it live and retain
   assert.equal(fs.readFileSync(app.store.file, 'utf8'), disk); assert.equal(app.store.listBackups().length, snapshots);
   const lastRevision = app.store.state.revision + 1;
   const last = event(overlay, 'state', value => value.revision === lastRevision); assert.equal((await score(3000000)).ok, true); assert.equal((await last).qualifier.rankings.A[0].total, 3000000);
+  const songStats = [
+    { score: 1000000, perfect: 987, good: 0, bad: 0, miss: 0 },
+    { score: 1000000, perfect: 1240, good: 0, bad: 0, miss: 0 },
+    { score: 1000000, perfect: 1567, good: 0, bad: 0, miss: 0 }
+  ];
+  const result = (extra = {}) => send(scorer, { expectedRevision: app.store.state.revision,
+    contextKey: scorekeeperState(app.store.state).contextKey, action: { type: 'set-qualifier-challenge-result',
+      payload: { group: 'A', playerId: 'p1', total: 3000000, songStats, ...extra } } });
+  const statsRevision = app.store.state.revision + 1, publicStats = event(overlay, 'state', value => value.revision === statsRevision);
+  assert.equal((await result()).ok, true);
+  assert.deepEqual((await publicStats).qualifier.rounds.A.results.p1.songStats, songStats);
+  const protectedDisk = fs.readFileSync(app.store.file, 'utf8'), protectedBackups = app.store.listBackups().length, protectedRevision = app.store.state.revision;
+  assert.equal((await result({ total: 2800000, songStats: [songStats[0], songStats[1], { ...songStats[2], miss: -1 }] })).ok, false);
+  assert.equal((await result({ playerId: 'p4' })).code, 'FORBIDDEN', 'The scorer cannot fill another player in the same group outside the live batch');
+  assert.equal(app.store.state.revision, protectedRevision); assert.equal(fs.readFileSync(app.store.file, 'utf8'), protectedDisk);
+  assert.equal(app.store.listBackups().length, protectedBackups);
+  const scorerView = await (await fetch(url + '/api/scorekeeper-state', { headers: { Authorization: 'Bearer ' + scorerToken } })).json();
+  assert.deepEqual(scorerView.qualifier.players.map(player => player.id), ['p1', 'p2', 'p3']);
+  assert.deepEqual(scorerView.qualifier.players[0].songStats, songStats);
   const forbidden = await send(scorer, { expectedRevision: app.store.state.revision, contextKey: scorekeeperState(app.store.state).contextKey,
     action: { type: 'set-qualifier-scoring-mode', payload: { mode: 'legacy-score' } } });
   assert.equal(forbidden.code, 'FORBIDDEN');
   const exported = await (await fetch(url + '/api/export', { headers: { Authorization: 'Bearer ' + mainToken } })).json();
   assert.equal(exported.qualifier.scoringMode, 'challenge-total'); assert.equal(exported.qualifier.rounds.A.results.p1.challengeTotal, 3000000);
   assert.deepEqual(exported.qualifier.rounds.A.results.p1.scores, [null, null, null]);
+  assert.deepEqual(exported.qualifier.rounds.A.results.p1.songStats, songStats);
   assert.equal((await fetch(url + '/api/export', { headers: { Authorization: 'Bearer ' + scorerToken } })).status, 403);
   const expectedRevision = app.store.state.revision;
   for (const socket of sockets) socket.close(); sockets = []; await app.close(); app = createBroadcastServer(config); await app.listen(port, '127.0.0.1');
@@ -66,6 +86,7 @@ test('paired scorekeepers record one Challenge total, publish it live and retain
   const reconnected = await connect('/scorekeeper', scorerToken); scorer = reconnected.socket;
   assert.equal(reconnected.state.revision, expectedRevision); assert.equal(reconnected.state.qualifier.players[0].challengeTotal, 3000000);
   assert.equal(reconnected.state.qualifier.players[0].total, 3000000); assert.equal(reconnected.state.qualifier.players[0].accuracy, null);
+  assert.deepEqual(reconnected.state.qualifier.players[0].songStats, songStats);
   assert.equal((await command('set-qualifier-scoring-mode', { mode: 'legacy-score' })).ok, false);
   assert.equal((await score(2987654)).ok, true); assert.equal(app.store.state.qualifier.rounds.A.results.p1.challengeTotal, 2987654);
 });
