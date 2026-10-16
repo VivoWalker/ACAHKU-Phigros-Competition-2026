@@ -1,5 +1,6 @@
 @import url('../assets/ui/fonts.css');
 @import url('../assets/ui/phi-ui.css');
+@import url('../assets/ui/judgements.css');
 :root{color-scheme:dark}
 body.phi-app{margin:0;--phi-font:var(--broadcast-font);background:#101319;min-height:100vh;font-size:18px;overflow-x:hidden}
 [hidden]{display:none!important}
@@ -47,3 +48,4 @@ button:hover:enabled{border-color:#89bdd9;background:#1e3448}.primary-button{bac
 @media(max-width:900px){.challenge-result-card .score-fields{grid-template-columns:minmax(0,1fr);gap:26px}.challenge-result-card .song-title{min-height:0}.challenge-result-card .judgement-counts{grid-template-columns:repeat(4,minmax(0,1fr))}.challenge-result-card .score-field:not(.challenge-total-field)>label{display:block}.challenge-result-card .score-field:not(.challenge-total-field)>label>input{max-width:400px}.challenge-result-card .field-status{min-height:0}}
 @media(max-width:520px){.challenge-result-card{padding:22px}.challenge-result-card .player-header h2{font-size:28px}.challenge-result-card .challenge-total-field{padding:18px}.challenge-result-card .challenge-total-field .song-title{font-size:22px}.challenge-result-card .challenge-total-field input{font-size:30px}.challenge-result-card .judgement-counts{gap:8px}.challenge-result-card .judgement-counts label>span{font-size:13px}.challenge-result-card .judgement-counts input{font-size:19px;padding-inline:8px}.challenge-crosscheck{padding:14px 16px;font-size:15px}}
 @media(max-width:350px){.challenge-result-card .judgement-counts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.phi-app .judgement-counts label[data-judgement],.phi-app .judgement-counts label[data-judgement]>:is(span,input){color:var(--judgement-color)}

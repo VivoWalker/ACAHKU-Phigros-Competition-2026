@@ -1,5 +1,6 @@
 @import url('../assets/ui/fonts.css');
 @import url('../assets/ui/phi-ui.css');
+@import url('../assets/ui/judgements.css');
 :root{color-scheme:dark}body.phi-app{margin:0;--phi-font:var(--broadcast-font);background:#101319;min-height:100vh;font-size:16px;font-weight:400;overflow-x:hidden}
 [hidden]{display:none!important}button,input,select,textarea{font-family:inherit}a{text-decoration:none}button{touch-action:manipulation}button:disabled{opacity:.42}button,a,input,select,textarea{outline-offset:3px}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #83def4!important}
 .ambient{position:fixed;inset:0;z-index:-1;background:linear-gradient(110deg,rgba(11,16,23,.98),rgba(19,26,38,.96)),url('../assets/song/cover-2.svg') center/cover;pointer-events:none}.ambient:after{content:'';position:absolute;inset:0;background:url('../assets/ui/triangle-mesh.svg') center/cover;opacity:.22}
@@ -76,3 +77,4 @@ summary{font-size:18px;font-weight:700;flex-wrap:wrap}.secondary,summary .second
 
 .qualifier-scoring-panel{margin-bottom:26px}.challenge-total-editor{min-width:200px}.score-table .challenge-total-editor{width:230px;max-width:none}.challenge-total-editor .secondary{font-size:12px;line-height:1.5;white-space:normal}.challenge-total-editor input{min-height:48px}.challenge-total-editor .phi-button.score-save{--phi-h:48px;min-height:48px;white-space:normal}
 @media(max-width:680px){.score-table .challenge-total-editor{width:210px}.qualifier-scoring-panel .section-heading{flex-wrap:wrap;gap:16px}}
+.phi-app :is(th,td,label)[data-judgement],.phi-app label[data-judgement] input{color:var(--judgement-color)}

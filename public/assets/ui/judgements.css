@@ -1,0 +1,10 @@
+:root {
+  --judgement-perfect: #FFD700;
+  --judgement-good: #87CEEB;
+  --judgement-bad: #FF0000;
+  --judgement-miss: #808080;
+}
+.judgement-perfect, [data-judgement="perfect"] { --judgement-color: var(--judgement-perfect); }
+.judgement-good, [data-judgement="good"] { --judgement-color: var(--judgement-good); }
+.judgement-bad, [data-judgement="bad"] { --judgement-color: var(--judgement-bad); }
+.judgement-miss, [data-judgement="miss"] { --judgement-color: var(--judgement-miss); }
