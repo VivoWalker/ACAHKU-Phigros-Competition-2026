@@ -27,8 +27,7 @@ TRACKS = {track['id']: track for track in MANIFEST['tracks']}
 SERVER = r"""
 const fs=require('node:fs'),path=require('node:path');
 const state=require('./lib/default-state').createDefaultState(),T=require('./lib/tournament');
-const regular=state.library.filter(song=>song.eligible).slice(0,6).map(song=>song.id);
-for(const song of state.library){song.eligible=regular.includes(song.id);song.previewAudio='assets/song-preview/fixture-'+song.id+'.mp3'}
+for(const song of state.library){song.previewAudio='assets/song-preview/fixture-'+song.id+'.mp3'}
 const act=(type,payload={})=>T.applyAction(state,{type,payload:{matchId:state.tournament.currentMatchId,...payload}});
 act('seed-bracket',{ids:state.qualifier.players.map(player=>player.id),ruleset:'proposal-2026',verified:true});
 act('set-scene',{scene:'start'});
@@ -228,14 +227,14 @@ def main():
                     assert same['index'] == first['index'] and same['stats']['playCalls'] == 1 and same['time'] >= time_before, (first, same)
                 check('main and both waiting scenes loop the packaged chapter menu without restarting across revisions or matching scenes')
 
-                for name in ['song-result', 'result', 'bracket', 'grand-final-announcement']:
+                for name in ['song-result', 'result', 'bracket']:
                     command(live, 'set-scene', {'scene': name})
-                    live.wait_for_function("document.querySelectorAll('audio[data-scene-bgm],audio[data-scene-bgm-retiring]').length===2", timeout=3000) if name != 'grand-final-announcement' else None
+                    live.wait_for_function("document.querySelectorAll('audio[data-scene-bgm],audio[data-scene-bgm-retiring]').length===2", timeout=3000)
                     idle(live, name)
                     value = bgm_playing(live, MANIFEST['scenes'][name])
                     assert value['loop'], value
                 assert media(live)['maxBgm'] == 2, media(live)
-                check('single-song results, rankings, bracket and final announcement map to their packaged looping BGM with at most two crossfading media')
+                check('single-song results, rankings and bracket map to their packaged looping BGM with at most two crossfading media')
 
                 # Native loop changes playback position without replacing the
                 # source or requiring JavaScript polling/repeated play calls.
@@ -243,7 +242,7 @@ def main():
                 current_index = next(item['index'] for item in loop_before['items'] if item['src'])
                 live.evaluate("()=>{const a=document.querySelector('audio[data-scene-bgm]');a.currentTime=a.duration-.18}")
                 live.wait_for_function("document.querySelector('audio[data-scene-bgm]')?.currentTime<1", timeout=4000)
-                loop_after = bgm_playing(live, MANIFEST['scenes']['grand-final-announcement'])
+                loop_after = bgm_playing(live, MANIFEST['scenes']['bracket'])
                 assert loop_after['index'] == current_index and loop_after['stats']['playCalls'] == 1, loop_after
                 check('a real OGG reaches its end and loops on the same media element')
 

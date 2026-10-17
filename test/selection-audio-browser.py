@@ -35,6 +35,9 @@ for(const song of state.library){
   else song.previewAudio='assets/song-preview/fixture-'+song.id+'.mp3';
 }
 if(fixture==='manifest'){
+  // This six-song metadata fallback fixture tests legacy saves independently
+  // of the official full-tournament difficulty inventory.
+  delete state.event.competitionVersion;
   for(const song of state.library)song.eligible=/^competition-2026-de-0[1-6]$/.test(song.id);
   state.library.find(song=>song.id==='competition-2026-de-06').previewAudio='';
 }
@@ -438,11 +441,12 @@ def main():
             final = final_context.new_page()
             final.goto(base + '/overlay/live.html')
             helper.idle(final, 'song-selection')
-            assert final.locator('[data-final-song]').count() == 2
+            assert final.locator('[data-final-song]').count() == 0
+            assert final.locator('.final-announcement-pending').count() == 1
             final.wait_for_timeout(1000)
             no_media(final)
             assert not [request for request in REPORT['audio_requests'] if request['context'] == 'final']
-            check('the actual fixed Grand Final remains silent and retains both original announcement cards')
+            check('the fixed Grand Final selection alias remains silent and hides both songs until the dedicated announcement cue')
         finally:
             helper.stop_server(process)
             for context in contexts:

@@ -1088,10 +1088,11 @@
         "reviewMethod": "spectral-structure-and-waveform",
         "auditioned": false,
         "externallyVerified": false,
-        "note": "Later entrance after a reduced-energy passage, with a 6.01 dB entry rise. Analysis only: prepare metadata without activating Grand Final playback. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "note": "Later entrance after a reduced-energy passage, with a 6.01 dB entry rise. Chosen by signal and visual waveform review; not externally verified or auditioned.",
         "sourceUrl": ""
       },
-      "artist": "technoplanet"
+      "artist": "technoplanet",
+      "notes": "Fixed Grand Final announcement preview: played once in Desultory Signals / Petrichor order."
     },
     {
       "title": "Petrichor",
@@ -1110,10 +1111,11 @@
         "reviewMethod": "spectral-structure-and-waveform",
         "auditioned": false,
         "externallyVerified": false,
-        "note": "Prefer the final sustained high-energy passage, which remains clear of the ending fade. No uniquely large late breakdown arrival is evident. Analysis only: prepare metadata without activating Grand Final playback. Chosen by signal and visual waveform review; not externally verified or auditioned.",
+        "note": "Prefer the final sustained high-energy passage, which remains clear of the ending fade. No uniquely large late breakdown arrival is evident. Chosen by signal and visual waveform review; not externally verified or auditioned.",
         "sourceUrl": ""
       },
-      "artist": "void (Mournfinale)"
+      "artist": "void (Mournfinale)",
+      "notes": "Fixed Grand Final announcement preview: played once in Desultory Signals / Petrichor order."
     }
   ],
   "songs": {
@@ -1334,6 +1336,6 @@
       "signalAndWaveform": 20,
       "auditioned": false
     },
-    "grandFinalPlaybackEnabled": false
+    "grandFinalPlaybackEnabled": true
   }
 }

@@ -92,6 +92,9 @@ MOTION_PROBE = r"""() => {
       z:Number(getComputedStyle(element).zIndex),box:box(element)}));
     frames.push({same_plane:branding.isConnected&&mount.querySelector('[data-motion-branding]')===branding,logos});
     for(const animation of mount.getAnimations({subtree:true}))if(!animations.has(animation)){
+      // The infection's ::after accent animates background-position. It is
+      // independent of the Web Animations scene entry/exit tracks below.
+      if(animation.animationName==='finale-accent-drift')continue;
       animations.add(animation);
       const target=animation.effect.target,timing=animation.effect.getTiming();
       if(target.dataset.motionEntry||target.dataset.motionExit)records.push({
@@ -209,7 +212,7 @@ def idle(page, scene):
       const mount=document.querySelector('#scene'),canvas=document.querySelector('#canvas');
       return mount?.dataset.motionPhase==='idle'&&canvas?.dataset.renderedScene===scene
         &&!mount.querySelector('[data-motion-ghost],[data-motion-live],[data-motion-placeholder],[data-motion-exits]')
-        &&!mount.getAnimations({subtree:true}).some(animation=>animation.playState==='running'||animation.pending);
+        &&!mount.getAnimations({subtree:true}).some(animation=>(animation.playState==='running'||animation.pending)&&animation.effect.getTiming().iterations!==Infinity);
     }''', arg=scene, timeout=20000)
 
 
@@ -259,20 +262,17 @@ def validate_motion(trace, label, require_final_entry=False, require_final_exit=
         assert record['keyframes'][0]['transform'] in (['translateX(0px)', 'none'] if record['exit'] else ['translateX(36px)']), (label, record)
     final_entries = [record for record in trace['records'] if record['entry'] and record['song'] in FINAL_IDS]
     if require_final_entry:
-        assert len(final_entries) == 2, (label, 'Both complete final cards must animate', trace['records'])
-        left, right = sorted(final_entries, key=lambda entry: entry['rect']['left'])
-        assert left['order'] < right['order'] and left['start'] < right['start'], (label, 'The left card must enter first', final_entries)
-        assert abs((right['start']-left['start']) - (right['order']-left['order'])*65) < 1, final_entries
+        assert len(final_entries) == 1, (label, 'The current final hero must animate alone', trace['records'])
     final_exits = [record for record in trace['records'] if record['exit'] and record['song'] in FINAL_IDS]
     if require_final_exit:
-        assert len(final_exits) == 2, (label, 'Both final cards must leave smoothly', trace['records'])
+        assert len(final_exits) == 1, (label, 'The current final hero must leave smoothly', trace['records'])
     groups = {}
     for record in trace['records']:
         groups.setdefault((record['scene'], record['exit'], round(record['start']-record['order']*65, 2)), []).append(record)
     for records in groups.values():
         ordered = sorted(records, key=lambda record: record['order'])
         for left, right in zip(ordered, ordered[1:]):
-            assert left['rect']['left'] <= right['rect']['left']+.5 and left['start'] <= right['start'], (label, 'Elements must animate from the left-hand slot first', left, right)
+            assert left['rect']['left'] <= right['rect']['left']+.5 and left['start'] <= right['start']+.5, (label, 'Elements must animate from the left-hand slot first', left, right)
     REPORT['motion'].append({'label': label, 'frames': len(trace['frames']), 'records': trace['records']})
 
 
@@ -296,7 +296,7 @@ def overlay_geometry(page, width, height):
     stage = result['canvas']
     assert abs(stage['w']/stage['h'] - 16/9) < .001
     assert stage['x'] >= -.5 and stage['y'] >= -.5 and stage['x']+stage['w'] <= width+.5 and stage['y']+stage['h'] <= height+.5
-    assert [card['id'] for card in result['cards']] == FINAL_IDS
+    assert len(result['cards']) == 1 and result['cards'][0]['id'] in FINAL_IDS
     elements = [(card['id'], card['box']) for card in result['cards']]
     elements += [(logo['key'], logo['box']) for logo in result['logos']]
     elements += [(element['text'], element['box']) for element in result['head']]
@@ -308,8 +308,9 @@ def overlay_geometry(page, width, height):
             overlap_h = min(a['y']+a['h'], b['y']+b['h'])-max(a['y'], b['y'])
             assert overlap_w <= .5 or overlap_h <= .5, (width, height, name, other_name, 'Overlap', a, b)
     for card in result['cards']:
-        assert card['image_width'] == 2048 and card['image_height'] == 1080
-        assert card['image']['y']+card['image']['h'] <= card['title']['y']+.5, (card, 'Artwork overlaps song title')
+        assert (card['image_width'],card['image_height']) in [(1280,675),(2048,1080)]
+        a,b=card['image'],card['title']
+        assert min(a['x']+a['w'],b['x']+b['w'])-max(a['x'],b['x'])<=.5 or min(a['y']+a['h'],b['y']+b['h'])-max(a['y'],b['y'])<=.5, (card, 'Artwork overlaps song title')
     text = page.evaluate(TEXT_AUDIT)
     assert not text['overlaps'], (width, height, 'Rendered text overlap', text)
     result['text_fragments'] = text['text_fragments']
@@ -344,7 +345,8 @@ def main():
                 crew.click('[data-apply-competition-config]')
                 crew.wait_for_function('revision=>window.__fixtureState.revision>revision', arg=revision)
                 after = state(crew)
-                assert after['qualifier']['players'] == before['qualifier']['players']
+                assert [{k:v for k,v in player.items() if k!='challengeTotal'} for player in after['qualifier']['players']] == before['qualifier']['players']
+                assert all(player['challengeTotal'] is None for player in after['qualifier']['players'])
                 catalog_check(crew)
                 revision = after['revision']
                 crew.fill('#event-message', 'Browser fixture: official songs retained after event edit.')
@@ -404,21 +406,21 @@ def main():
                 live.on('framenavigated', lambda frame: navigations.append(frame.url) if frame == live.main_frame else None)
                 live.evaluate(MOTION_PROBE)
                 revision = state(crew)['revision']
-                crew.click('[data-scene="grand-final-announcement"]')
+                crew.locator('[data-final-announcement-index="0"]').first.click()
                 crew.wait_for_function('revision=>window.__fixtureState.revision>revision', arg=revision)
                 idle(live, 'grand-final-announcement')
                 trace = live.evaluate('window.__motionTrace.stop()')
                 validate_motion(trace, 'fixed final announcement entrance', require_final_entry=True)
-                live.wait_for_function('''()=>[...document.querySelectorAll('[data-final-song] img')].length===2&&
-                  [...document.querySelectorAll('[data-final-song] img')].every(image=>image.complete&&image.naturalWidth===2048)''')
+                live.wait_for_function('''()=>[...document.querySelectorAll('[data-final-song] img')].length===1&&
+                  [...document.querySelectorAll('[data-final-song] img')].every(image=>image.complete&&[1280,2048].includes(image.naturalWidth))''')
                 text = live.locator('#scene').inner_text()
-                assert all(title in text for title in FINAL_TITLES)
-                assert [''.join(value.split()) for value in live.locator('.final-song-difficulty').all_inner_texts()] == ['IN17', 'AT17']
+                assert FINAL_TITLES[0] in text and FINAL_TITLES[1] not in text
+                assert [''.join(value.split()) for value in live.locator('.final-song-difficulty').all_inner_texts()] == ['IN17']
                 assert not any(word in text.upper() for word in ['SEALED', 'AUDIENCE', 'BAN', 'MC PICK'])
                 for width, height in [(1920, 1080), (1280, 720), (1194, 834), (834, 1194)]:
                     overlay_geometry(live, width, height)
                     snapshot(live, f'grand-final-announcement-{width}x{height}.png', overlay=True)
-                check('the separate final announcement decodes both original jackets and keeps cards, headings and logos clear at all four viewports')
+                check('the separate final announcement initially reveals only Desultory Signals IN17 with decoded artwork and clear headings and logos at all four viewports')
 
                 live.set_viewport_size({'width': 1920, 'height': 1080})
                 live.evaluate(MOTION_PROBE)
@@ -496,9 +498,9 @@ def main():
                 assert live.locator('.selection-art img').count() == 1
                 live.wait_for_function('''art=>{
                   const image=document.querySelector('.selection-art img');
-                  return image?.complete&&image.naturalWidth===2048&&image.naturalHeight===1080&&
+                  return image?.complete&&[1280,2048].includes(image.naturalWidth)&&
                     new URL(image.src).pathname==='/'+art;
-                }''', arg=extra['art'])
+                }''', arg=json.loads((ROOT/'public/assets/display/manifest.json').read_text())['images'].get(extra['art'],{'path':extra['art']})['path'])
                 assert live.locator('.selection-art img').get_attribute('alt') == extra['title']
                 assert live.locator('.picks span').count() == 2
                 labels = live.locator('.selection-state').inner_text().upper()

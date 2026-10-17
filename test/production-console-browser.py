@@ -605,7 +605,7 @@ def exercise_final(browser, base):
     assert match['finalMode'] == 'fixed-two' and len(match['songs']) == 2
     assert page.locator('[data-ban-song],[data-ban-pass],[data-command="draw-candidates"]').count() == 0
     revision = state(page)['revision']
-    page.locator('[data-production-cue]').filter(has_text='公布總決賽曲目').click()
+    page.locator('[data-final-announcement-index="0"]').first.click()
     page.wait_for_function('revision=>window.__fixtureState.revision>revision', arg=revision)
     settled(page, state(page)['revision'])
     phase(page, 'selection')
@@ -614,6 +614,10 @@ def exercise_final(browser, base):
     assert 'Desultory Signals' in page.locator('#production-context').inner_text()
     assert 'Petrichor' in page.locator('#production-context').inner_text()
     geometry(page, 'fixed-final-announcement')
+    assert page.locator('[data-production-next]').inner_text() == '立即公布 Petrichor'
+    next_step(page, 'selection')
+    assert next(item for item in state(page)['tournament']['matches'] if item['id'] == 'GF')['currentSong'] == 0
+    assert page.locator('[data-production-next]').inner_text() == '第一首比賽準備'
     next_step(page, 'waiting')
     assert next(item for item in state(page)['tournament']['matches'] if item['id'] == 'GF')['currentSong'] == 0
     check('fixed Grand Final announces its two songs directly and never exposes a ban step')

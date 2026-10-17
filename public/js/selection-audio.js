@@ -9,14 +9,18 @@
   const ease = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
   const duration = song => Number.isFinite(song?.previewDuration) && song.previewDuration > 0 && song.previewDuration <= 600 ? song.previewDuration : DEFAULT_DURATION;
   const safePath = path => typeof path === 'string' && path.length <= 180 && /^assets\/song-preview\/[A-Za-z0-9_./-]+\.(mp3|ogg|wav|m4a)$/i.test(path) && !/[\r\n]/.test(path) && !path.includes('..');
-  const validCue = cue => cue && typeof cue.id === 'string' && cue.id.length > 0 && ['ban', 'picks'].includes(cue.kind) && Number.isFinite(cue.startedAt) && Array.isArray(cue.songIds) && cue.songIds.length === (cue.kind === 'ban' ? 1 : 2) && cue.songIds.every(id => typeof id === 'string' && id.length > 0);
+  const validCue = cue => cue && typeof cue.id === 'string' && cue.id.length > 0 && ['ban', 'picks'].includes(cue.kind) && Number.isFinite(cue.startedAt) && Array.isArray(cue.songIds) && cue.songIds.length === (cue.kind === 'ban' ? 1 : 2) && cue.songIds.every(id => typeof id === 'string' && id.length > 0)
+    && (cue.durations === undefined || Array.isArray(cue.durations) && cue.durations.length === cue.songIds.length
+      && Array.from(cue.durations).every(seconds => Number.isFinite(seconds) && seconds > 0 && seconds <= 600));
 
   // The half-second lead-in lets an old preview fade before the new one starts.
   // A shared clock also keeps a reloaded OBS source from replaying finished picks.
   function phase(cue, songs, now, fadeMs = FADE_MS) {
     if (!validCue(cue)) return null;
     const catalog = new Map((songs || []).map(song => [song.id, song]));
-    const lengths = cue.songIds.map(id => duration(catalog.get(id)) * 1000);
+    // A staged reveal can own fixed clip windows independently of a custom
+    // audio file's decoded length. Regular selection cues retain file timing.
+    const lengths = cue.songIds.map((id, index) => (cue.durations?.[index] ?? duration(catalog.get(id))) * 1000);
     let elapsed = now - cue.startedAt - fadeMs;
     if (elapsed < 0) return { pending: true, songId: cue.songIds[0], index: 0, offset: 0, duration: lengths[0] / 1000, cycle: 0 };
     if (cue.kind === 'ban') {
@@ -230,7 +234,7 @@
       for (const path of durationCache.keys()) if (!paths.has(path)) durationCache.delete(path);
       for (const path of failedSources) if (!paths.has(path)) failedSources.delete(path);
       const next = active && validCue(cue) ? { cue, rawSongs: songs, songs: catalog(songs) } : null;
-      const nextKey = next ? JSON.stringify([cue.id, cue.kind, cue.songIds, cue.startedAt]) : null;
+      const nextKey = next ? JSON.stringify([cue.id, cue.kind, cue.songIds, cue.startedAt, cue.durations || null]) : null;
       if (nextKey !== key) {
         retire(); blocked = false; failedSources = new Set(); key = nextKey;
         // Delivery latency shortens the outgoing fade, keeping the two sources

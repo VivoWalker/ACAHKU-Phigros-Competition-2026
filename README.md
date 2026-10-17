@@ -49,7 +49,7 @@ Every OBS overlay prepares its own shared images and Saira font weights before i
 
 The checked-in display bundle contains 53 WebP images: 135 MB of original image files becomes about 8.2 MB of display files, plus a 136 KB pre-blurred background layer. Jackets use 1280×675 variants, and logos retain transparency. Original files and the song library's editable artwork paths remain available. `GET /api/display-assets` checks both original and derivative hashes before publishing a mapping; replacing an original or losing a derived file causes the next page load to use the original. The prepared background keeps the existing crop, opacity and animated capture mask, with the blur computed ahead of broadcast.
 
-Candidate draws still make no audio requests. After a ban or final pick cue, its next clip can load during the fade; while pick one plays, pick two loads silently and its prepared media element is reused at the switch. Ban loops also reuse their buffered media element. Leaving the scene or replacing the cue cancels the queued audio; staff previews and Grand Final song previews remain silent. Public images, fonts and audio support HTTP cache revalidation, while event APIs and frontend documents keep `no-store`.
+Candidate draws still make no audio requests. After a ban or final pick cue, its next clip can load during the fade; while pick one plays, pick two loads silently and its prepared media element is reused at the switch. Ban loops also reuse their buffered media element. Leaving the scene or replacing the cue cancels the queued audio; staff previews remain silent. The fixed Grand Final has a separate sequential announcement with its own two preview clips. Public images, fonts and audio support HTTP cache revalidation, while event APIs and frontend documents keep `no-store`.
 
 The ready-to-use derivatives require no new runtime packages. After changing original artwork, rebuild with Python, Pillow and NumPy if a new optimized version is wanted, then refresh the OBS source:
 
@@ -224,9 +224,10 @@ Identity is song-level: the same ID, or the same normalised title and artist, is
 
 1. Select **GF** after both bracket champions are known.
 2. The official configuration automatically fills **Desultory Signals — IN 17** as Song 1 and **Petrichor — AT 17** as Song 2. Both artworks and titles are already public. There is no ban, candidate draw, audience pick or MC reveal step.
-3. Press **宣布决赛曲目** in Song selection, or choose **總決賽曲目公佈** in Broadcast. The separate screen presents both full jackets, titles and difficulties; it follows the same scene transitions and persistent branding as the other screens. Its fixed URL is `/overlay/grand-final-announcement.html`.
-4. Switch to the match screen, select Song 1 / 2 or Song 2 / 2 and use the existing 3–2–1 start cue when the players are ready. Both main control and scorekeepers have two base score entries per finalist.
-5. Record both scores and original screen ACC for each player, then confirm the result. Two-song totals compare first, followed by mean ACC and the existing recorded tiebreak flow. Results identify **Champion** and **First Runner-up**. A reset or reviewed correction keeps the two fixed base songs.
+3. Show the **bracket**, then use **公布決賽第一首** to enter the announcement. It shows only **Desultory Signals — IN17**, plays its prepared preview once, then automatically shows **Petrichor — AT17** and plays its preview once. Each window is 12.042449 seconds after the initial 500 ms fade lead. The main operator can announce the second song immediately or replay either step; these commands leave the gameplay song cursor and scores unchanged. The fixed URL is `/overlay/grand-final-announcement.html`; before an actual cue, it shows **等待公布**. Menu BGM stays silent throughout the announcement. Refresh/reconnect resumes the persisted timeline and does not restart a finished sequence.
+4. The pixelated red error front morphs and rises from the bottom to roughly one-third of the background during the first reveal and two-thirds during the second. It remains as a subdued flowing red treatment in subsequent GF waiting, gameplay, statistics and results. It is inside the persistent OBS capture mask, so capture-card and handcam windows remain transparent and logos stay above it. Hidden/off-air/disconnected sources pause the effect; reduced-motion mode uses a static state. Resetting or reopening GF clears its presentation cue. See [Grand Final presentation](docs/grand-final-presentation.md).
+5. Use **第一首比賽準備**, switch to the match screen, select Song 1 / 2 or Song 2 / 2 and use the existing 3–2–1 start cue when the players are ready. Both main control and scorekeepers have two base score entries per finalist.
+6. Record both scores and original screen ACC for each player, then confirm the result. Two-song totals compare first, followed by mean ACC and the existing recorded tiebreak flow. Results identify **Champion** and **First Runner-up**. A reset or reviewed correction keeps the two fixed base songs.
 
 Saved events without the official configuration retain their previous three-song final: six candidates in proposal mode or eight in legacy mode, two audience picks and a private third MC pick. They keep their reveal and scoring restrictions during restart, export and restore. Apply the new preset before play or start a fresh event to use the fixed two-song final.
 
@@ -285,9 +286,9 @@ Artwork: assets/song/song-01.webp
 Preview: assets/song-preview/song-01.mp3
 ```
 
-Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. Grand Final playback is unchanged.
+Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. The fixed Grand Final uses its sequential announcement described above.
 
-The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable broadcast audio / 啟用直播音訊** button; use OBS **Interact** if needed. The organiser's audio is bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. The two Grand Final assets are prepared without enabling song-preview playback on that page. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
+The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable broadcast audio / 啟用直播音訊** button; use OBS **Interact** if needed. The organiser's audio is bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. Both Grand Final previews now play during the dedicated announcement. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
 
 Save manually entered media paths **before drawing candidates or selecting match songs**. Existing candidates and match picks retain their saved metadata; editing the library affects future draws. The bundled preview manifest also supplies audio for saved selections whose snapshots have no `previewAudio` field. An explicitly empty field disables that song's preview. Old event files remain compatible, and older clients that omit the field preserve an existing value. After upgrading the server files or importing a manifest, restart the local server and refresh the control panel and OBS Browser Source, preserving the existing `data/` directory.
 
@@ -300,7 +301,8 @@ Four complete Phigros 4.0.1 interface loops are bundled locally, separately from
 | Main / both waiting screens / qualifier results processing | `ChapterSelect0` · chapter selection |
 | Score statistics, including the Challenge qualifier's complete three-song results | `LevelOver2` · IN results |
 | Overall results / qualifier ranking | `LevelOver3` · AT results |
-| Bracket / Grand Final announcement | Chapter 9 inner-pack ambience |
+| Bracket | Chapter 9 inner-pack ambience |
+| Grand Final announcement | No menu BGM; the two song previews play sequentially |
 | Qualifier / double-elimination gameplay and countdown | Silent |
 | Song selection, including the initial six-song draw | No BGM; existing ban/pick previews only |
 
@@ -400,6 +402,7 @@ python3 test/production-console-browser.py
 python3 test/song-result-browser.py
 python3 test/qualifier-processing-browser.py
 python3 test/difficulty-draw-browser.py
+python3 test/final-announcement-browser.py
 ```
 
 The aperture regression measures actual compositor PNG alpha by pausing and seeking the browser's native animation effects. Separate real-time traces check score updates and interrupted transitions. It checks right-to-left reveal/cover and left-to-right ordering for every capture-card/handcam window, single/dual switching, rapid scene changes, reduced motion, unchanged background identity/pixels and full-screen countdown coverage:

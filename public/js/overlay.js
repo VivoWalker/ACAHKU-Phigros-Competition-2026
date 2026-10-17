@@ -40,7 +40,14 @@
   audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
   audioPrompt.textContent = 'Enable broadcast audio · 啟用直播音訊'; audioPrompt.hidden = true;
   document.body.append(audioPrompt);
-  const previewNow = () => countdownClient?.connected && countdownClient.now() > 0 ? countdownClient.now() : Date.now();
+  let previewClockAnchor;
+  const previewNow = () => {
+    const synced = countdownClient?.now() || 0, localNow = performance.now();
+    if (synced > 0) previewClockAnchor = { serverNow: synced, localNow };
+    // Reconnection briefly resets the countdown client's anchor. Keep our last
+    // synchronized clock until the new sample arrives, never the wall clock.
+    return previewClockAnchor ? previewClockAnchor.serverNow + localNow - previewClockAnchor.localNow : 0;
+  };
   const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, now: previewNow,
     onFocus(songId) {
       if (pageDisposed) return;
@@ -74,23 +81,34 @@
   });
   listen(audioPrompt, 'click', () => { selectionAudio.retry(); sceneBgm.retry(); });
   const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
+  const finalAudioScene = (scene, current = state && B.currentMatch(state)) => BroadcastFinalAnnouncement.isFixed(current)
+    && !B.matchTiebreak(state) && (scene === 'grand-final-announcement'
+      || scene === 'song-selection' && !!BroadcastFinalAnnouncement.audioCue(current));
   function refreshAudioPrompt() {
     if (pageDisposed) return;
-    const scene = shownScene(), onAir = previewEnabled && obsActive && obsVisible && countdownClient?.connected && scene === state?.scene;
-    audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) || selectionStatus === 'blocked' && scene === 'song-selection');
+    const scene = shownScene(), finale = finalAudioScene(scene);
+    const onAir = previewEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected && scene === state?.scene;
+    audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement' && !finale
+      || selectionStatus === 'blocked' && (scene === 'song-selection' || finale));
   }
   function syncBgm() {
     if (pageDisposed) return;
     const scene = shownScene();
     const active = bootReady && bgmEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected
-      && scene === state?.scene && bgmAllowedScenes.has(scene) && !selectionAudio.hasMedia;
+      && scene === state?.scene && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement'
+      && !finalAudioScene(scene) && !selectionAudio.hasMedia;
     sceneBgm.update({ track: bgmTracks.get(bgmScenes.get(scene)) || null, active: !!active });
     refreshAudioPrompt();
   }
-  listen(document, 'visibilitychange', syncBgm);
+  listen(document, 'visibilitychange', () => { render(); syncBgm(); });
   const refreshCountdown = () => countdownLayer.update(countdownClient, state, shownScene());
   const requestedRound = Number(query.get('round'));
   const bracketMotion = BroadcastBracket.createController(mount, () => render(), Number.isInteger(requestedRound) && requestedRound >= 1 && requestedRound <= 6 ? requestedRound : null);
+  const finaleEffects = BroadcastFinaleEffects.createController({ canvas, now: previewNow, onPhaseChange: () => render() });
+  function syncFinaleEffects() {
+    finaleEffects.update({ match: state?.stage === 'double-elimination' ? B.currentMatch(state) : null,
+      scene: shownScene(), active: bootReady && obsActive && obsVisible && !document.hidden && countdownClient?.connected === true });
+  }
   const url = path => '/' + encodeURI(path);
   const displayPath = path => displayMedia.resolve(path);
   const art = song => url(displayPath(song?.art || 'assets/song/cover-1.svg'));
@@ -100,12 +118,15 @@
   }
   function sceneImages(s, scene) {
     const match = B.currentMatch(s);
-    if (scene === 'grand-final-announcement' || scene === 'song-selection' && match?.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return B.fixedFinalSongs(s).filter(song => !song.hidden).map(art);
+    if (scene === 'grand-final-announcement' || scene === 'song-selection' && match?.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return B.fixedFinalSongs(s).filter(song => !song.hidden).map(art).concat('/assets/finale/error-texture.png');
     if (scene === 'song-selection') { const focus = selectionFocus(s); return focus && !focus.hidden ? [art(focus)] : []; }
     return [];
   }
   function warmImages(s, scene) {
     const shared = sharedImages(), visible = sceneImages(s, scene), match = B.currentMatch(s);
+    const final = s.tournament.matches.find(entry => entry.id === 'GF');
+    if (BroadcastFinalAnnouncement.isFixed(final) && ['ready', 'live', 'complete'].includes(final.status))
+      shared.push('/assets/finale/error-texture.png');
     const candidates = match?.id !== 'GF' ? (match?.candidates || []).filter(song => !song.hidden).map(art) : [];
     const finals = B.fixedFinalSongs(s).filter(song => !song.hidden).map(art);
     mediaWarmup.setImages([...shared, ...visible, ...candidates, ...finals], { priority: visible, pinned: shared });
@@ -120,7 +141,9 @@
     return [...(m?.songs || []), ...(m?.candidates || [])].filter(song => !song.hidden).map(song => {
       const bundled = previewCatalog.get(song.id);
       const previewAudio = Object.hasOwn(song, 'previewAudio') ? song.previewAudio : bundled?.output || '';
-      return { ...song, previewAudio, previewDuration: previewAudio === bundled?.output ? bundled.duration : undefined };
+      const finalDuration = m?.id === 'GF' && m.finalMode === 'fixed-two'
+        ? BroadcastFinalAnnouncement.PREVIEW_DURATION : undefined;
+      return { ...song, previewAudio, previewDuration: previewAudio === bundled?.output ? bundled.duration : finalDuration };
     });
   }
   function fit() {
@@ -295,7 +318,11 @@
   function grandFinalAnnouncement(s) {
     const songs = B.fixedFinalSongs(s);
     if (songs.length !== 2) return backdrop() + header(s, 'GRAND FINAL') + title('等待總決賽曲目', 'GRAND FINAL');
-    return backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · TWO SONGS') + `<div class='final-announcement-grid'>${songs.map((song, index) => `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' class='final-song-card'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')}</span><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong></div><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></article>`).join('')}</div>` + footer('ACAHKU PHIGROS COMPETITION');
+    const phase = BroadcastFinalAnnouncement.phase(B.currentMatch(s), previewNow());
+    const heading = backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · SONG REVEAL');
+    if (!phase.started || phase.pending) return heading + `<section data-motion-block class='final-song-card final-announcement-pending'><h2>等待公布</h2><p>AWAITING REVEAL</p></section>`;
+    const index = phase.index, song = songs[index];
+    return heading + `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' data-final-index='${index}' class='final-song-card final-announcement-hero'><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><section class='final-song-info'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')} / 02</span></div><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></section></article>`;
   }
   const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
   function render() {
@@ -303,10 +330,15 @@
     const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
     warmImages(state, scene);
     const current = B.currentMatch(state);
-    selectionAudio.update({ cue: current?.selectionPreviewCue, songs: previewSongs(current),
-      active: obsActive && obsVisible && countdownClient?.connected && countdownClient.now() > 0 && scene === 'song-selection' && state.scene === 'song-selection' && state.stage === 'double-elimination' && current?.id !== 'GF' && current?.status !== 'complete' && !B.matchTiebreak(state) });
+    const finaleAudio = finalAudioScene(scene, current);
+    const selectionScene = scene === 'song-selection' && current?.id !== 'GF';
+    selectionAudio.update({ cue: finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue, songs: previewSongs(current),
+      active: obsActive && obsVisible && !document.hidden && countdownClient?.connected && countdownClient.now() > 0
+        && scene === state.scene && state.stage === 'double-elimination' && current?.status !== 'complete'
+        && !B.matchTiebreak(state) && (selectionScene || finaleAudio) });
     syncBgm();
     refreshCountdown();
+    syncFinaleEffects();
     bracketMotion.prepare(state, scene === 'bracket' && state.tournament.seeded);
     const next = (renderers[scene] || start)(state);
     const mode = showHandcams(state) ? 'dual' : 'single', hasVisual = !!branding.visual, revision = state.revision;
@@ -324,6 +356,7 @@
       }
       committedCover = src;
       bracketMotion.afterCommit();
+      syncFinaleEffects();
     } });
   }
   const rankingTimer = setInterval(() => {
@@ -369,7 +402,7 @@
     lifecycle.abort(); brandingRequest.abort(); clearTimeout(brandingTimer);
     clearInterval(rankingTimer); resolveInitialState();
     countdownClient?.dispose(); countdownLayer.dispose();
-    selectionAudio.dispose(); sceneBgm.dispose(); bracketMotion.dispose(); motion.dispose();
+    selectionAudio.dispose(); sceneBgm.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
     mediaWarmup.dispose(); displayMedia.dispose();
     socket.removeAllListeners(); socket.disconnect();
     previewCatalog.clear(); bgmTracks.clear(); bgmScenes.clear(); state = null; audioPrompt.remove();
@@ -381,6 +414,6 @@
   countdownClient = BroadcastCountdown.createClient(socket, () => { refreshCountdown(); render(); });
   socket.on('state', next => { state = next; resolveInitialState(); render(); });
   socket.on('connect', () => canvas.classList.remove('is-offline'));
-  socket.on('disconnect', () => canvas.classList.add('is-offline'));
-  socket.on('connect_error', () => canvas.classList.add('is-offline'));
+  socket.on('disconnect', () => { canvas.classList.add('is-offline'); syncFinaleEffects(); });
+  socket.on('connect_error', () => { canvas.classList.add('is-offline'); syncFinaleEffects(); });
 })();

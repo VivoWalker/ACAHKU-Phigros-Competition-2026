@@ -169,7 +169,7 @@
       // Outgoing windows remain here until their cover has closed. Replacing
       // the mask's children at commit would instantly expose/hide OBS sources.
       apertures = targets;
-      const image = backdrop.querySelector('image'), nextImage = next.querySelector('image');
+      const image = backdrop.querySelector('image:not([data-finale-texture])'), nextImage = next.querySelector('image:not([data-finale-texture])');
       if (image?.getAttribute('href') !== nextImage?.getAttribute('href')) {
         if (image) image.remove();
         if (nextImage) backdrop.querySelector('g').insertBefore(nextImage, backdrop.querySelector('g path'));
