@@ -195,7 +195,7 @@ In legacy roster setup, removing an unscored player also removes that player's r
 ### Regular double elimination, R1–R5
 
 1. Select a ready match in **Bracket**. Pending matches cannot start until both incoming paths resolve.
-2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws and not formally selected by another DE match. Candidates, bans and songs not selected for play may reappear in another match.
+2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws and not formally selected by another DE match. Official events use the R1–R5 difficulty gradient below; candidates, bans and songs not selected for play may reappear in another match.
 3. In proposal mode, P1 and P2 each record a ban or explicit **Pass**. A ban can be changed before the final draw. Legacy events retain their required two-ban flow.
 4. **Draw 2 match songs** randomly chooses two of the remaining candidates after both decisions. These songs automatically populate the match overlay and scoring fields. Picks lock further bans.
 5. Enter both players' two scores and select Song 1 / 2 or Song 2 / 2. The winner is determined by the two-song total.
@@ -212,9 +212,11 @@ The organiser confirmed that the restriction applies to **actual base-match and 
 
 There are **13 regular matches × 2 played songs = 26 distinct played songs**. A 26-song list is insufficient: after the first twelve matches use 24 songs, the final regular match still needs six available candidates. Therefore prepare **at least 30 distinct songs** for the ordinary DE pool: `12 × 2 + 6 = 30`. This minimum assumes no extra consumption through tiebreaks or replaced selections. The supplied **42-song DE list** provides 12 extra choices; repeated ties and reviewed redraws have no fixed limit, so no finite list guarantees every possible event. **Desultory Signals and Petrichor are reserved separately for the fixed Grand Final**, with their regular-draw flag off. These counts exclude the qualifier list.
 
-The control panel shows the deduplicated eligible total, songs formally reserved by DE matches and the globally unused remainder. It also reports the minimum remaining requirement: `2 × unselected regular matches + 4` (zero once all regular matches have selections). A shortage warning asks staff to add songs; a draw with fewer than six available candidates is disabled/rejected, and an exhausted tiebreak pool never silently reuses another match's song.
+The control panel shows the deduplicated eligible total, songs formally reserved by DE matches and the globally unused remainder. It also reports the minimum remaining requirement: `2 × unselected regular matches + 4` (zero once all regular matches have selections). A shortage warning asks staff to add songs; a draw with fewer than six available candidates is disabled/rejected, and an exhausted tiebreak pool never silently reuses another match's song. These total-count estimates do not replace the difficulty-specific stock check.
 
-With at most one fresh tiebreak song per regular match and no replaced selections, the 42-song recommendation covers `12 × (2 + 1) + 6`: the last match has six candidates and can use an unselected candidate for its extra song. More repeated ties or replaced selections can require a larger list.
+Official 2026 events bias the six candidates toward progressively harder charts: preferred low/middle/high quotas are **R1 4/1/1, R2 2/3/1, R3 1/3/2, R4 0/3/3, R5 0/0/6**, using the organiser's original decimal constants. Low is at most 16.5, middle is 16.6–16.8, and high is at least 16.9. R1 permits at most one high chart; R2 at most two; R3 at most one low; R4 has no low and at least three high; **R5 has six charts at 16.9 or above**. The planner checks every possible final pair against the remaining schedule before offering a candidate set. The main panel shows the current target and actual candidate mix/mean. Enter an **Original chart constant** for custom eligible charts in the song library; on-air levels remain integers. Existing official charts without the field resolve their known constants without resetting the event. Full policy, reserve handling and compatibility details: [difficulty gradient](docs/difficulty-gradient.md).
+
+By total count alone, with at most one fresh tiebreak song per regular match and no replaced selections, the 42-song recommendation covers `12 × (2 + 1) + 6`: the last match has six candidates and can use an unselected candidate for its extra song. The round gradient also requires enough songs in each difficulty tier; additional ties or replaced selections can require suitable extra songs even when the overall count is sufficient.
 
 Identity is song-level: the same ID, or the same normalised title and artist, is treated as one song even when chart difficulty differs. Renaming or deleting a library entry does not erase a recorded selection. Upgrade existing events without replacing `data/`: previous repeated songs remain in historical results, while future draws exclude songs used by other matches. Backups and private correction records preserve prior selections.
 
@@ -397,6 +399,7 @@ The production-console browser regression uses temporary Plan B and DE/GF fixtur
 python3 test/production-console-browser.py
 python3 test/song-result-browser.py
 python3 test/qualifier-processing-browser.py
+python3 test/difficulty-draw-browser.py
 ```
 
 The aperture regression measures actual compositor PNG alpha by pausing and seeking the browser's native animation effects. Separate real-time traces check score updates and interrupted transitions. It checks right-to-left reveal/cover and left-to-right ordering for every capture-card/handcam window, single/dual switching, rapid scene changes, reduced motion, unchanged background identity/pixels and full-screen countdown coverage:

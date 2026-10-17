@@ -1,5 +1,6 @@
 /* Official ACAHKU Phigros Competition 2026 chart list.
  * Levels are truncated integers from the organiser's published list.
+ * Decimal constants remain internal metadata for round-based DE draws.
  * Jackets and composers are documented in the adjacent asset manifests.
  * Qualifier/GF charts stay outside the Double Elimination random pool.
  */
@@ -77,6 +78,7 @@
     "artist": "USAO",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.1,
     "art": "assets/song/song-list-2026/23-cthugha.png",
     "previewAudio": "assets/song-preview/competition-2026-de-01.mp3",
     "eligible": true
@@ -87,6 +89,7 @@
     "artist": "Team Grimoire",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.1,
     "art": "assets/song/song-list-2026/26-rrhar-il.png",
     "previewAudio": "assets/song-preview/competition-2026-de-02.mp3",
     "eligible": true
@@ -97,6 +100,7 @@
     "artist": "Ardolf vs. Daily天利",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.2,
     "art": "assets/song/song-list-2026/28-retribution-cycle-of-redemption.png",
     "previewAudio": "assets/song-preview/competition-2026-de-03.mp3",
     "eligible": true
@@ -107,6 +111,7 @@
     "artist": "nm-y & Kry.exe",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.2,
     "art": "assets/song/song-list-2026/29-retribution.png",
     "previewAudio": "assets/song-preview/competition-2026-de-04.mp3",
     "eligible": true
@@ -117,6 +122,7 @@
     "artist": "SunsetRay",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.3,
     "art": "assets/song/song-list-2026/30-chronos-collapse-la-campanella.png",
     "previewAudio": "assets/song-preview/competition-2026-de-05.mp3",
     "eligible": true
@@ -127,6 +133,7 @@
     "artist": "t+pazolite",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.3,
     "art": "assets/song/song-list-2026/33-qzkago-requiem.png",
     "previewAudio": "assets/song-preview/competition-2026-de-06.mp3",
     "eligible": true
@@ -137,6 +144,7 @@
     "artist": "DJ Raisei",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.3,
     "art": "assets/song/song-list-2026/34-fractured-angel.png",
     "previewAudio": "assets/song-preview/competition-2026-de-07.mp3",
     "eligible": true
@@ -147,6 +155,7 @@
     "artist": "Rabbit House",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.3,
     "art": "assets/song/song-list-2026/37-ad-astra-per-aspera.png",
     "previewAudio": "assets/song-preview/competition-2026-de-08.mp3",
     "eligible": true
@@ -157,6 +166,7 @@
     "artist": "kanoryo",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.4,
     "art": "assets/song/song-list-2026/10-ark.png",
     "previewAudio": "assets/song-preview/competition-2026-de-09.mp3",
     "eligible": true
@@ -167,6 +177,7 @@
     "artist": "MisoilePunch♪",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.4,
     "art": "assets/song/song-list-2026/38-song.png",
     "previewAudio": "assets/song-preview/competition-2026-de-10.mp3",
     "eligible": true
@@ -177,6 +188,7 @@
     "artist": "TAG",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.4,
     "art": "assets/song/song-list-2026/39-kizuna-resolution.png",
     "previewAudio": "assets/song-preview/competition-2026-de-11.mp3",
     "eligible": true
@@ -187,6 +199,7 @@
     "artist": "HyuN feat. Syepias",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.4,
     "art": "assets/song/song-list-2026/41-crosssoul.png",
     "previewAudio": "assets/song-preview/competition-2026-de-12.mp3",
     "eligible": true
@@ -197,6 +210,7 @@
     "artist": "Noah",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.5,
     "art": "assets/song/song-list-2026/12-indelible-scar.png",
     "previewAudio": "assets/song-preview/competition-2026-de-13.mp3",
     "eligible": true
@@ -207,6 +221,7 @@
     "artist": "ユメミド",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.5,
     "art": "assets/song/song-list-2026/27-lyrith.png",
     "previewAudio": "assets/song-preview/competition-2026-de-14.mp3",
     "eligible": true
@@ -217,6 +232,7 @@
     "artist": "Raimukun",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.5,
     "art": "assets/song/song-list-2026/42-verruckt.png",
     "previewAudio": "assets/song-preview/competition-2026-de-15.mp3",
     "eligible": true
@@ -227,6 +243,7 @@
     "artist": "kanone vs. BlackY",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.5,
     "art": "assets/song/song-list-2026/43-stardust-ray.png",
     "previewAudio": "assets/song-preview/competition-2026-de-16.mp3",
     "eligible": true
@@ -237,6 +254,7 @@
     "artist": "Scarlette a.k.a CrYmson",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/07-avataar-reincarnation-of-kalpa.png",
     "previewAudio": "assets/song-preview/competition-2026-de-17.mp3",
     "eligible": true
@@ -247,6 +265,7 @@
     "artist": "DETRO a.k.a. ルゼ",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/09-volcanic.png",
     "previewAudio": "assets/song-preview/competition-2026-de-18.mp3",
     "eligible": true
@@ -257,6 +276,7 @@
     "artist": "LeaF",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/18-athaza.png",
     "previewAudio": "assets/song-preview/competition-2026-de-19.mp3",
     "eligible": true
@@ -267,6 +287,7 @@
     "artist": "Laur",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/20-pragmatism-resurrection.png",
     "previewAudio": "assets/song-preview/competition-2026-de-20.mp3",
     "eligible": true
@@ -277,6 +298,7 @@
     "artist": "seatrus",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/44-song.png",
     "previewAudio": "assets/song-preview/competition-2026-de-21.mp3",
     "eligible": true
@@ -287,6 +309,7 @@
     "artist": "Kry.exe",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.6,
     "art": "assets/song/song-list-2026/45-gungnir-fracture.png",
     "previewAudio": "assets/song-preview/competition-2026-de-22.mp3",
     "eligible": true
@@ -297,6 +320,7 @@
     "artist": "Fl00t vs Halv",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.7,
     "art": "assets/song/song-list-2026/08-cuvism3.png",
     "previewAudio": "assets/song-preview/competition-2026-de-23.mp3",
     "eligible": true
@@ -307,6 +331,7 @@
     "artist": "Masahiro “Godspeed” Aoki",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.7,
     "art": "assets/song/song-list-2026/11-diamond-dust.png",
     "previewAudio": "assets/song-preview/competition-2026-de-24.mp3",
     "eligible": true
@@ -317,6 +342,7 @@
     "artist": "姜米條☆颶風 ~ ♫元力上人♫",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.7,
     "art": "assets/song/song-list-2026/14-spasmodic.png",
     "previewAudio": "assets/song-preview/competition-2026-de-25.mp3",
     "eligible": true
@@ -327,6 +353,7 @@
     "artist": "Dew Pleiades",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.8,
     "art": "assets/song/song-list-2026/19-banging-strike.png",
     "previewAudio": "assets/song-preview/competition-2026-de-26.mp3",
     "eligible": true
@@ -337,6 +364,7 @@
     "artist": "rintaro soma",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.8,
     "art": "assets/song/song-list-2026/21-solips.png",
     "previewAudio": "assets/song-preview/competition-2026-de-27.mp3",
     "eligible": true
@@ -347,6 +375,7 @@
     "artist": "打打だいず vs. siromaru",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.8,
     "art": "assets/song/song-list-2026/46-entrance-to-the-chaos.png",
     "previewAudio": "assets/song-preview/competition-2026-de-28.mp3",
     "eligible": true
@@ -357,6 +386,7 @@
     "artist": "Camellia",
     "difficulty": "IN",
     "level": 16,
+    "constant": 16.8,
     "art": "assets/song/song-list-2026/47-exoplanetary-mirage.png",
     "previewAudio": "assets/song-preview/competition-2026-de-29.mp3",
     "eligible": true
@@ -367,6 +397,7 @@
     "artist": "Reku Mochizuki",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.9,
     "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
     "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
     "eligible": true
@@ -377,6 +408,7 @@
     "artist": "Ωμεγα",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.9,
     "art": "assets/song/song-list-2026/15-der-richter.png",
     "previewAudio": "assets/song-preview/competition-2026-de-31.mp3",
     "eligible": true
@@ -387,6 +419,7 @@
     "artist": "Se_IRA",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.9,
     "art": "assets/song/song-list-2026/16-archidoxen.png",
     "previewAudio": "assets/song-preview/competition-2026-de-32.mp3",
     "eligible": true
@@ -397,6 +430,7 @@
     "artist": "uma vs. モリモリあつし",
     "difficulty": "AT",
     "level": 16,
+    "constant": 16.9,
     "art": "assets/song/song-list-2026/06-re-end-of-a-dream.png",
     "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
     "eligible": true
@@ -407,6 +441,7 @@
     "artist": "きくお",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.0,
     "art": "assets/song/song-list-2026/22-song.png",
     "previewAudio": "assets/song-preview/competition-2026-de-34.mp3",
     "eligible": true
@@ -417,6 +452,7 @@
     "artist": "James Landino X Akira Complex",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.1,
     "art": "assets/song/song-list-2026/13-hydra.png",
     "previewAudio": "assets/song-preview/competition-2026-de-35.mp3",
     "eligible": true
@@ -427,6 +463,7 @@
     "artist": "Acute Disarray",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.2,
     "art": "assets/song/song-list-2026/35-absolute-disorder.png",
     "previewAudio": "assets/song-preview/competition-2026-de-36.mp3",
     "eligible": true
@@ -437,6 +474,7 @@
     "artist": "Normal1zer vs. Broken Nerdz",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.3,
     "art": "assets/song/song-list-2026/31-destruction-3-2-1.png",
     "previewAudio": "assets/song-preview/competition-2026-de-37.mp3",
     "eligible": true
@@ -447,6 +485,7 @@
     "artist": "かめりあ",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.3,
     "art": "assets/song/song-list-2026/36-eraby-e-connec-10n.png",
     "previewAudio": "assets/song-preview/competition-2026-de-38.mp3",
     "eligible": true
@@ -457,6 +496,7 @@
     "artist": "光吉猛修 VS 穴山大輔 VS Kai VS 水野健治 VS 大国奏音",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.3,
     "art": "assets/song/song-list-2026/40-song.png",
     "previewAudio": "assets/song-preview/competition-2026-de-39.mp3",
     "eligible": true
@@ -467,6 +507,7 @@
     "artist": "Se-U-Ra",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.4,
     "art": "assets/song/song-list-2026/25-igallta.png",
     "previewAudio": "assets/song-preview/competition-2026-de-40.mp3",
     "eligible": true
@@ -477,6 +518,7 @@
     "artist": "Sakuzyo",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.4,
     "art": "assets/song/song-list-2026/32-distorted-fate.png",
     "previewAudio": "assets/song-preview/competition-2026-de-41.mp3",
     "eligible": true
@@ -487,6 +529,7 @@
     "artist": "Ωμεγα",
     "difficulty": "AT",
     "level": 17,
+    "constant": 17.5,
     "art": "assets/song/song-list-2026/24-der-schneid.png",
     "previewAudio": "assets/song-preview/competition-2026-de-42.mp3",
     "eligible": true
@@ -519,6 +562,26 @@
   });
   const DOUBLE_ELIMINATION_SONG_IDS = Object.freeze(["competition-2026-de-01", "competition-2026-de-02", "competition-2026-de-03", "competition-2026-de-04", "competition-2026-de-05", "competition-2026-de-06", "competition-2026-de-07", "competition-2026-de-08", "competition-2026-de-09", "competition-2026-de-10", "competition-2026-de-11", "competition-2026-de-12", "competition-2026-de-13", "competition-2026-de-14", "competition-2026-de-15", "competition-2026-de-16", "competition-2026-de-17", "competition-2026-de-18", "competition-2026-de-19", "competition-2026-de-20", "competition-2026-de-21", "competition-2026-de-22", "competition-2026-de-23", "competition-2026-de-24", "competition-2026-de-25", "competition-2026-de-26", "competition-2026-de-27", "competition-2026-de-28", "competition-2026-de-29", "competition-2026-de-30", "competition-2026-de-31", "competition-2026-de-32", "competition-2026-de-33", "competition-2026-de-34", "competition-2026-de-35", "competition-2026-de-36", "competition-2026-de-37", "competition-2026-de-38", "competition-2026-de-39", "competition-2026-de-40", "competition-2026-de-41", "competition-2026-de-42"]);
   const FINAL_SONG_IDS = Object.freeze(["competition-2026-gf-01", "competition-2026-gf-02"]);
+  const DRAW_RULES = Object.freeze(Object.fromEntries([
+    [1, [4, 1, 1], 16.45], [2, [2, 3, 1], 16.65],
+    [3, [1, 3, 2], 16.85], [4, [0, 3, 3], 17.05], [5, [0, 0, 6], 17.20]
+  ].map(([round, target, mean]) => [round, Object.freeze({ target: Object.freeze(target), mean })])));
+  const byId = new Map(LIBRARY.map(song => [song.id, song]));
+  function validConstant(value, level) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= 20 &&
+      Math.abs(value * 10 - Math.round(value * 10)) < 1e-8 && Math.trunc(value) === Math.trunc(level);
+  }
+  function chartConstant(song) {
+    if (!song) return null;
+    if (song.constant !== undefined && song.constant !== null)
+      return validConstant(song.constant, song.level) ? song.constant : null;
+    // Exact chart metadata lets existing official event files adopt the internal
+    // constants without rewriting their library or changing historical results.
+    const canonical = byId.get(song.id);
+    return canonical && ['title', 'artist', 'difficulty', 'level'].every(key => song[key] === canonical[key]) &&
+      validConstant(canonical.constant, song.level) ? canonical.constant : null;
+  }
   function library() { return LIBRARY.map(song => ({ ...song })); }
-  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS });
+  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS,
+    DRAW_RULES, validConstant, chartConstant });
 });

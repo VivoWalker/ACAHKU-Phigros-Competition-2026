@@ -88,18 +88,20 @@ The proposal occasionally refers to GF as R5 or the LB Final as R4 in outgoing-r
 
 ### Regular match song selection: R1–R5
 
-1. Randomly draw six distinct songs from the announced double-elimination pool, excluding songs already formally selected for play or a tiebreak in another DE match.
+1. Draw six distinct songs from the announced double-elimination pool, excluding songs already formally selected for play or a tiebreak in another DE match. For the official event, use the organiser-confirmed round-based difficulty preference below.
 2. Each competitor may ban one candidate. A competitor may instead explicitly pass. A song already banned by the opponent cannot receive a second ban.
 3. Once both ban/pass decisions are recorded, randomly draw two distinct songs from the remaining candidates.
 4. Both competitors play both songs. The higher two-song game-score total wins, subject to the tie procedure below.
 
 The candidate draw, ban/pass decisions and selected songs are recorded by the main operator. Final song selections lock the ban decisions.
 
+The organiser confirmed progressively harder candidate draws from R1 to R5. Using original decimal constants, low charts are 16.1–16.5, middle charts 16.6–16.8, and high charts 16.9–17.5. Preferred low/middle/high quotas are R1 4/1/1, R2 2/3/1, R3 1/3/2, R4 0/3/3 and R5 0/0/6. R1 permits at most one high candidate and requires at least three low; R2 permits at most two high and requires at least one low; R3 permits at most one low; R4 has no low and at least three high; R5 has six candidates at 16.9 or above. Quotas and target means are preferences subject to stock; the required limits remain enforced. Both ban/pass decisions and the final random pair are unchanged. The planner protects the remaining rounds against every possible selected pair; an infeasible pool requires an organiser review and appropriate additional songs. See [difficulty gradient](difficulty-gradient.md) for the algorithm and historical-event handling.
+
 The organiser additionally confirmed **no cross-match reuse of actual DE songs**. Candidate-only, banned and unselected songs may appear again. A formally selected base-match or tiebreak song is reserved to that match, including GF; resetting, redrawing, restoring a backup or correcting a result does not release it to another match. Different chart difficulties of the same title/artist count as the same song. The existing same-match redraw and repeated-tiebreak behaviour is retained.
 
 The thirteen non-GF matches play **26 distinct songs** in total. Prepare **at least 30 ordinary-pool songs**: after twelve matches select 24 songs, the last match still needs six candidates (`12 × 2 + 6 = 30`). This assumes no extra consumption by tiebreaks or replaced selections. **42 songs is recommended**, leaving 12 extra choices; repeated ties/redraws have no fixed upper limit. Reserve six separate GF candidates if a dedicated final list is required, and keep qualifier songs separate from this count.
 
-Forty-two also covers one fresh tiebreak song per ordinary match, with no replaced selections: `12 × (2 + 1) + 6`. The final ordinary match can use one of its four unselected candidates for its extra song.
+By total count alone, forty-two also covers one fresh tiebreak song per ordinary match, with no replaced selections: `12 × (2 + 1) + 6`. The final ordinary match can use one of its four unselected candidates for its extra song. This count does not guarantee enough songs in the required difficulty tiers; the gradient stock check may require additional suitable charts.
 
 ### Grand Final: R6
 
@@ -111,7 +113,7 @@ The software records the audience/MC selections; it does not operate a public vo
 
 For a tied regular-match or Grand-Final total, compare the displayed ACC first, using the equally weighted mean of the match's two or three songs under the confirmed event interpretation above. Missing ACC is missing evidence, not zero and not a resolved tie.
 
-If the total and ACC remain equal, randomly select a tiebreaker from the announced double-elimination song pool, excluding songs formally used by other DE matches. If no eligible song remains, add appropriate metadata to the announced pool before requesting another draw. Record both competitors' valid results and have the arbiter confirm them. Repeat if the tiebreaker still does not determine a winner. Tiebreaker scores are recorded separately and do not replace or inflate the original match total.
+If the total and ACC remain equal, randomly select a tiebreaker from the announced double-elimination song pool, excluding songs formally used by other DE matches. Official gradient events also exclude selections that would make the remaining rounds infeasible; R5 tiebreaks keep the minimum constant of 16.9. If no eligible safe song remains, add appropriate metadata to the announced pool before requesting another draw. Record both competitors' valid results and have the arbiter confirm them. Repeat if the tiebreaker still does not determine a winner. Tiebreaker scores are recorded separately and do not replace or inflate the original match total.
 
 The main operator must confirm that the arbiter has double-checked the scores before recording a result. Do not choose an arbitrary winner to bypass an unresolved tie. An exceptional ACA decision must have a recorded reason.
 
