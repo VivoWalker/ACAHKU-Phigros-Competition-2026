@@ -48,17 +48,95 @@ function fixture() {
     mediaListeners, reduce, tick, poll, phaseChanges: () => phaseChanges };
 }
 
-test('finale front morphs with bounded pixel geometry and a two-thirds terminal extent', () => {
+function descendants(element) {
+  return [element, ...element.children.flatMap(descendants)];
+}
+
+function geometry(element) {
+  return descendants(element).map(node => [node.name, [...node.attributes.entries()]]);
+}
+
+function depthLayers(group) {
+  return descendants(group).filter(node => node.attributes.has('data-finale-depth'));
+}
+
+test('finale front has bounded irregular geometry and a two-thirds terminal extent', () => {
   assert.ok(Math.abs(Effects.contour(1 / 3, 0).baseline - 720) < 1e-9);
   assert.ok(Math.abs(Effects.contour(2 / 3, 0).baseline - 360) < 1e-9);
   assert.equal(Effects.contour(100, 0).baseline, Effects.contour(2 / 3, 0).baseline);
-  assert.notEqual(Effects.contour(2 / 3, 0).edge, Effects.contour(2 / 3, 3).edge);
-  for (const seconds of [0, 1, 120, 86400]) {
-    const path = Effects.contour(2 / 3, seconds);
-    assert.ok(path.area.length < 1600);
-    assert.equal((path.edge.match(/H/g) || []).length, 80);
-    assert.doesNotMatch(path.area, /NaN|Infinity/);
-    assert.equal((Effects.pixelPath(seconds).match(/M/g) || []).length, Effects.PIXELS);
+  for (const coverage of [0, 1 / 3, 2 / 3, 100]) {
+    for (const seconds of [0, .05, 1, 120, 86400]) {
+      for (const depth of [-1, 0, 1]) {
+        const path = Effects.contour(coverage, seconds, depth, 42);
+        assert.ok(path.area.length < 12000);
+        assert.doesNotMatch(path.area, /NaN|Infinity/);
+        assert.ok(path.points.length >= 100 && path.points.length <= 240);
+        assert.equal(path.points[0][0], 0);
+        assert.equal(path.points.at(-1)[0], Effects.WIDTH);
+        const widths = new Set();
+        for (let i = 0; i < path.points.length; i++) {
+          const [x, y] = path.points[i];
+          assert.ok(Number.isFinite(x) && Number.isFinite(y));
+          assert.ok(x >= 0 && x <= Effects.WIDTH);
+          assert.ok(Math.abs(y - path.baseline) <= 180);
+          if (i) {
+            const width = x - path.points[i - 1][0];
+            assert.ok(width > 0 && width <= 64);
+            widths.add(width);
+          }
+        }
+        assert.ok(widths.size >= 3, 'the front must not repeat a fixed staircase width');
+      }
+    }
+  }
+});
+
+test('short-time jitter and depth layers are seeded, independently changing geometry', () => {
+  const at = (seconds, depth = 0, seed = 42) => Effects.contour(2 / 3, seconds, depth, seed).edge;
+  assert.equal(at(20), at(20), 'a stable clock and seed must produce stable geometry');
+  assert.notEqual(at(20), at(20.15), 'the edge should visibly evolve within a fraction of a second');
+  assert.notEqual(at(20, -1), at(20, 0));
+  assert.notEqual(at(20, 0), at(20, 1));
+  assert.notEqual(at(20, 0, 42), at(20, 0, 43));
+  const depthChanges = [-1, 0, 1].map(depth => {
+    const before = Effects.contour(2 / 3, 20, depth, 42).points;
+    const after = Effects.contour(2 / 3, 20.15, depth, 42).points;
+    return after.map((point, index) => point[1] - before[index][1]);
+  });
+  assert.notDeepEqual(depthChanges[0], depthChanges[1], 'depth layers must not move as a rigid stack');
+  assert.notDeepEqual(depthChanges[1], depthChanges[2]);
+});
+
+test('particles, detached fragments and horizontal tears stay bounded and evolve without unbounded objects', () => {
+  for (const seconds of [0, .15, 120, 86400]) {
+    const points = Effects.contour(2 / 3, seconds, 0, 42).points;
+    const paths = [Effects.pixelPath(seconds), Effects.pixelPath(seconds, -1, 42, 80),
+      Effects.fragmentPath(points, seconds, 42), Effects.tearPath(seconds, 42)];
+    assert.equal((paths[0].match(/M/g) || []).length, Effects.PIXELS);
+    assert.equal((paths[1].match(/M/g) || []).length, 80);
+    for (const path of paths) {
+      assert.equal(typeof path, 'string');
+      assert.ok(path.length > 0 && path.length < 24000);
+      assert.doesNotMatch(path, /NaN|Infinity|--/);
+    }
+  }
+  const points = Effects.contour(2 / 3, 20, 0, 42).points;
+  assert.equal(Effects.fragmentPath(points, 20, 42), Effects.fragmentPath(points, 20, 42));
+  assert.notEqual(Effects.fragmentPath(points, 20, 42), Effects.fragmentPath(points, 20.15, 42));
+  assert.notEqual(Effects.tearPath(20, 42), Effects.tearPath(20.15, 42));
+  assert.notEqual(Effects.pixelPath(20, -1, 42), Effects.pixelPath(20, 1, 42));
+});
+
+test('random narrow fragments retain valid SVG path numbers across seeds and cycle boundaries', () => {
+  const points = Effects.contour(2 / 3, 0).points;
+  for (let seed = 0; seed < 64; seed++) {
+    for (const seconds of [0, .15, 1, 1.99, 2.01, 12, 120, 86400]) {
+      const path = Effects.fragmentPath(points, seconds, seed);
+      const fragments = (path.match(/M/g) || []).length;
+      assert.ok(fragments > 0 && fragments <= 32);
+      assert.doesNotMatch(path, /NaN|Infinity|--/,
+        `invalid fragment coordinates for seed ${seed} at ${seconds}s`);
+    }
   }
 });
 
@@ -101,6 +179,60 @@ test('finale timers, animation frames and listeners are bounded and released off
   f.controller.dispose(); f.controller.dispose();
   assert.equal(f.parent.children.length, 0); assert.equal(f.documentListeners.size, 0); assert.equal(f.mediaListeners.size, 0);
   assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0); assert.equal(f.canvas.dataset.finaleActive, 'false');
+});
+
+test('layered jitter retains one masked group and a fixed node pool across a hundred frames', () => {
+  const f = fixture();
+  f.controller.update({ match: { id: 'GF' }, scene: 'grand-final-announcement', active: true });
+  const group = f.parent.children[0], layers = depthLayers(group);
+  assert.deepEqual(layers.map(layer => layer.attributes.get('data-finale-depth')).sort(), ['body', 'front', 'rear']);
+  const count = descendants(group).length;
+  assert.ok(count < 96);
+  const initial = layers.map(geometry);
+  for (let i = 0; i < 100; i++) {
+    f.tick();
+    assert.equal(f.parent.children.length, 1);
+    assert.equal(f.parent.children[0], group);
+    assert.equal(descendants(group).length, count);
+    assert.equal(f.frames.size, 1);
+    assert.equal(f.timers.size, 1);
+  }
+  layers.forEach((layer, index) => assert.notDeepEqual(geometry(layer), initial[index]));
+  f.controller.dispose();
+  assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
+});
+
+test('reduced motion freezes all depth layers, particles and shards and resumes a single animation loop', () => {
+  const f = fixture();
+  f.controller.update({ match: { id: 'GF' }, scene: 'grand-final-announcement', active: true });
+  f.tick();
+  f.reduce.matches = true; f.mediaListeners.get('change')();
+  const group = f.parent.children[0], still = geometry(group);
+  for (let i = 0; i < 20; i++) {
+    f.tick();
+    f.controller.update({ match: { id: 'GF' }, scene: 'grand-final-announcement', active: true });
+    assert.deepEqual(geometry(group), still);
+    assert.equal(f.frames.size, 0);
+  }
+  f.reduce.matches = false; f.mediaListeners.get('change')();
+  assert.equal(f.frames.size, 1);
+  f.tick(); assert.notDeepEqual(geometry(group), still);
+  f.controller.dispose();
+});
+
+test('refreshing after a manual reveal cue change preserves synchronized procedural geometry', () => {
+  const existing = fixture(), refreshed = fixture();
+  existing.state.coverage = 1 / 3;
+  existing.controller.update({ match: { id: 'GF', finalAnnouncement: { id: 'first-cue' } },
+    scene: 'grand-final-announcement', active: true });
+  for (const f of [existing, refreshed]) {
+    f.state.index = 1; f.state.revealedCount = 2; f.state.coverage = 1 / 3;
+    f.controller.update({ match: { id: 'GF', finalAnnouncement: { id: 'second-cue' } },
+      scene: 'grand-final-announcement', active: true });
+  }
+  assert.deepEqual(geometry(existing.parent.children[0]), geometry(refreshed.parent.children[0]),
+    'cue history must not change geometry rendered for the same match and clock');
+  existing.controller.dispose(); refreshed.controller.dispose();
 });
 
 test('manual early advance bridges the rising front without a one-frame upward jump', () => {

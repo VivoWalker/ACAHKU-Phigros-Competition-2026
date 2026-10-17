@@ -4,33 +4,72 @@
   else root.BroadcastFinaleEffects = api;
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
-  const WIDTH = 1920, HEIGHT = 1080, FRAME_MS = 50, PIXELS = 220;
+  const WIDTH = 1920, HEIGHT = 1080, FRAME_MS = 50, PIXELS = 220, SEGMENTS = 160;
   const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
   const random = index => { const value = Math.sin(index * 127.1 + 311.7) * 43758.5453; return value - Math.floor(value); };
+  const ease = value => value * value * (3 - 2 * value);
+  const mix = (a, b, value) => a + (b - a) * value;
+  // Clock-sampled noise keeps independent OBS sources in sync. No random
+  // timers, geometry accumulation or full-screen turbulence filters are used.
+  function noise(x, time, seed) {
+    const cell = Math.floor(x), tick = Math.floor(time), px = ease(x - cell), pt = ease(time - tick);
+    const sample = (a, b) => random(a * 17.17 + b * 93.31 + seed);
+    return mix(mix(sample(cell, tick), sample(cell + 1, tick), px),
+      mix(sample(cell, tick + 1), sample(cell + 1, tick + 1), px), pt) * 2 - 1;
+  }
 
-  // A fixed number of staircase segments changes shape continuously. Neither
-  // the source SVG nor its calibrated capture mask is rebuilt on each frame.
-  function contour(coverage, seconds = 0) {
+  // Unequal steps, broad advancing lobes and short local tears keep the front
+  // organic. Each depth moves independently; the capture mask stays stationary.
+  function contour(coverage, seconds = 0, depth = 0, seed = 0) {
     const base = HEIGHT * (1 - clamp(coverage, 0, 2 / 3));
-    const top = [], step = 24;
-    for (let x = 0; x <= WIDTH; x += step) {
-      const wave = Math.sin(x * .009 + seconds * .72) * 28
-        + Math.sin(x * .027 - seconds * .48) * 17
-        + Math.sin(x * .063 + seconds * .31) * 9;
-      top.push([x, Math.round(clamp(base + wave, 20, HEIGHT + 64) / 4) * 4]);
+    const top = [], step = WIDTH / SEGMENTS, layerSeed = seed + depth * 151;
+    for (let i = 0; i <= SEGMENTS; i++) {
+      const x = i === 0 || i === SEGMENTS ? i * step : i * step + Math.round((random(i * 11 + seed) - .5) * 4) * 2;
+      const tick = Math.floor(seconds * 7 + random(i + 71));
+      const tear = random(Math.floor(i / 3) * 43 + tick * 13 + layerSeed) > .84
+        ? (random(i * 19 + tick * 31 + layerSeed) - .5) * 38 : 0;
+      const wave = noise(i * .075, seconds * .47, seed + 31) * 56
+        + noise(i * .32, seconds * 1.25, layerSeed + 113) * 27
+        + noise(i * 1.71, seconds * 4.3, layerSeed + 281) * 13 + tear;
+      top.push([x, Math.round(clamp(base + depth * 28 + wave, 180, HEIGHT + 96) / 2) * 2]);
     }
     let edge = `M0 ${top[0][1]}`;
     for (const [x, y] of top.slice(1)) edge += `H${x}V${y}`;
-    return { edge, area: `${edge}V${HEIGHT + 64}H0Z`, baseline: base };
+    return { edge, area: `${edge}V${HEIGHT + 96}H0Z`, baseline: base, points: top };
   }
-  function pixelPath(seconds = 0) {
+  function pixelPath(seconds = 0, depth = 1, seed = 0, count = PIXELS) {
     let result = '';
-    for (let i = 0; i < PIXELS; i++) {
-      const x = Math.round(random(i + 1) * WIDTH / 4) * 4;
-      const speed = 12 + random(i + 501) * 25;
+    for (let i = 0; i < count; i++) {
+      const drift = noise(i * 1.7, seconds * .7, seed + 78) * (8 + depth * 10);
+      const x = Math.round((random(i + 1 + seed) * WIDTH + drift) / 2) * 2;
+      const speed = (12 + random(i + 501) * 25) * depth;
       const y = Math.round(((random(i + 221) * (HEIGHT + 80) - seconds * speed) % (HEIGHT + 80) + HEIGHT + 80) % (HEIGHT + 80) / 4) * 4;
-      const size = random(i + 901) > .9 ? 7 : random(i + 101) > .55 ? 4 : 2;
+      const size = Math.max(1, Math.round((random(i + 901) > .9 ? 7 : random(i + 101) > .55 ? 4 : 2) * depth));
       result += `M${x} ${y}h${size}v${size}h-${size}Z`;
+    }
+    return result;
+  }
+  function fragmentPath(points, seconds = 0, seed = 0) {
+    let result = '';
+    for (let i = 0; i < 14; i++) {
+      const cycle = seconds * (.32 + random(i + 71) * .28) + random(i + seed);
+      const age = cycle - Math.floor(cycle), tick = Math.floor(cycle), salt = seed + i * 57 + tick * 131;
+      const index = 3 + Math.floor(random(salt + 1) * (points.length - 7));
+      const x = Math.round((points[index][0] + noise(i * 7, seconds * 2, salt) * 14) / 2) * 2;
+      const y = Math.round((points[index][1] - 12 - age * 86) / 2) * 2;
+      const notch = 2 + Math.round(random(salt + 33) * 3) * 2;
+      const w = Math.max(notch * 2 + 4, 12 + Math.round(random(salt + 7) * 25) * 2), h = 6 + Math.round(random(salt + 13) * 9) * 2;
+      result += `M${x} ${y}h${notch}v-4h${w - notch * 2}v4h${notch}v${h - 4}h-${notch}v4h-${w - notch * 2}v-4h-${notch}Z`;
+    }
+    return result;
+  }
+  function tearPath(seconds = 0, seed = 0) {
+    let result = '';
+    for (let i = 0; i < 18; i++) {
+      const tick = Math.floor(seconds * 5 + random(i + 91)), salt = i * 51 + tick * 73 + seed;
+      const x = Math.round(random(salt) * WIDTH / 4) * 4, y = Math.round(random(salt + 13) * HEIGHT / 4) * 4;
+      const width = 24 + Math.round(random(salt + 31) * 35) * 4, height = 2 + Math.round(random(salt + 71) * 4) * 2;
+      result += `M${x} ${y}h${width}v${height}h-${width}Z`;
     }
     return result;
   }
@@ -40,7 +79,9 @@
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     const svgNS = 'http://www.w3.org/2000/svg';
     let match, scene = '', active = false, disposed = false, frame = 0, timer = 0, lastFrame = 0;
-    let group, shape, outline, glow, particles, shade, phaseKey = '', target = 0, value = 0, cueId, bridge;
+    let group, shape, outline, glow, particles, shade, rearShape, rearEdge, rearParticles,
+      frontShade, frontEdge, fragments, fragmentShadow, tears, texture;
+    let phaseKey = '', target = 0, value = 0, cueId, bridge, effectSeed = 0;
     const phase = () => window.BroadcastFinalAnnouncement.phase(match, now());
     const eligible = () => window.BroadcastFinalAnnouncement.isFixed(match)
       && scene !== 'start' && !scene.startsWith('qualifier-');
@@ -54,24 +95,44 @@
       if (group?.isConnected) return true;
       const parent = canvas.querySelector('.broadcast-backdrop > g[mask]');
       if (!parent) return false;
-      group = node('g', { 'data-finale-effects': '', 'pointer-events': 'none' });
+      group = node('g', { 'data-finale-effects': '', 'pointer-events': 'none', opacity: '0' });
       const definitions = node('defs'), clip = node('clipPath', { id: 'finale-invasion-clip', clipPathUnits: 'userSpaceOnUse' });
       shape = node('path'); clip.append(shape); definitions.append(clip);
+      const rearClip = node('clipPath', { id: 'finale-invasion-rear-clip', clipPathUnits: 'userSpaceOnUse' });
+      rearShape = node('path'); rearClip.append(rearShape); definitions.append(rearClip);
       const gradient = node('linearGradient', { id: 'finale-invasion-red', x1: '0', y1: '0', x2: '0', y2: '1' });
-      gradient.append(node('stop', { 'stop-color': '#85030b' }), node('stop', { offset: '1', 'stop-color': '#430006' }));
+      gradient.append(node('stop', { 'stop-color': '#b8172b' }), node('stop', { offset: '.22', 'stop-color': '#850b1c' }),
+        node('stop', { offset: '.65', 'stop-color': '#480510' }), node('stop', { offset: '1', 'stop-color': '#24010a' }));
       definitions.append(gradient); group.append(definitions);
+      const rear = node('g', { 'data-finale-depth': 'rear' });
+      const rearFill = node('g', { 'clip-path': 'url(#finale-invasion-rear-clip)' });
+      rearFill.append(node('rect', { width: WIDTH, height: HEIGHT, fill: '#510814', opacity: '.7' }));
+      rearParticles = node('path', { fill: '#d53146', opacity: '.48' }); rearFill.append(rearParticles);
+      rearEdge = node('path', { fill: 'none', stroke: '#a31d32', 'stroke-width': '2', opacity: '.65' });
+      rear.append(rearFill, rearEdge); group.append(rear);
+      const body = node('g', { 'data-finale-depth': 'body' });
       const fill = node('g', { 'clip-path': 'url(#finale-invasion-clip)' });
       fill.append(node('rect', { width: WIDTH, height: HEIGHT, fill: 'url(#finale-invasion-red)' }));
       // The bundled reference texture supplies the fine grain. Its original
       // top edge is outside our viewport: the live procedural edge owns shape.
-      fill.append(node('image', { 'data-finale-texture': '', href: '/assets/finale/error-texture.png',
-        x: '0', y: '-360', width: WIDTH, height: '1440', opacity: '.54', preserveAspectRatio: 'xMidYMid slice' }));
-      particles = node('path', { fill: '#ff5261', opacity: '.65' }); fill.append(particles); group.append(fill);
-      glow = node('path', { fill: 'none', stroke: '#ff0824', 'stroke-width': '8', opacity: '.46' });
-      outline = node('path', { fill: 'none', stroke: '#ffe3df', 'stroke-width': '1.7', opacity: '.85' });
-      group.append(glow, outline);
+      texture = node('image', { 'data-finale-texture': '', href: '/assets/finale/error-texture.png',
+        x: '-48', y: '-408', width: '2016', height: '1536', opacity: '.5', preserveAspectRatio: 'xMidYMid slice' });
+      fill.append(texture);
+      tears = node('path', { 'data-finale-tears': '', fill: '#1c000b', opacity: '.32' });
+      particles = node('path', { fill: '#ff667a', opacity: '.72' }); fill.append(tears, particles); body.append(fill);
+      glow = node('path', { fill: 'none', stroke: '#ff183d', 'stroke-width': '9', opacity: '.34' });
+      outline = node('path', { fill: 'none', stroke: '#ffb3bb', 'stroke-width': '1.5', opacity: '.8' });
+      body.append(glow, outline); group.append(body);
+      const front = node('g', { 'data-finale-depth': 'front' });
+      const frontFill = node('g', { 'clip-path': 'url(#finale-invasion-clip)' });
+      frontShade = node('path', { fill: '#27010d', opacity: '.34' });
+      frontEdge = node('path', { fill: 'none', stroke: '#ed334e', 'stroke-width': '1', opacity: '.24' });
+      frontFill.append(frontShade, frontEdge); front.append(frontFill);
+      fragmentShadow = node('path', { fill: '#26010b', opacity: '.7', transform: 'translate(5 8)' });
+      fragments = node('path', { 'data-finale-fragments': '', fill: '#bc142e', stroke: '#ff6579', 'stroke-width': '1', opacity: '.66' });
+      front.append(fragmentShadow, fragments); group.append(front);
       // Dimming is local to the infected pixels, never a full-canvas filter.
-      shade = node('rect', { width: WIDTH, height: HEIGHT, fill: '#10070d', opacity: '0', 'clip-path': 'url(#finale-invasion-clip)' });
+      shade = node('rect', { 'data-finale-shade': '', width: WIDTH, height: HEIGHT, fill: '#10070d', opacity: '0', 'clip-path': 'url(#finale-invasion-clip)' });
       group.append(shade); parent.append(group); return true;
     }
     function stopFrame() { if (frame) window.cancelAnimationFrame(frame); frame = 0; lastFrame = 0; }
@@ -87,9 +148,19 @@
         if (progress === 1) bridge = null;
       }
       const seconds = reduce.matches ? 0 : now() / 1000;
-      const path = contour(value, seconds);
+      const path = contour(value, seconds, 0, effectSeed);
+      const rear = contour(value, seconds * .78, -1, effectSeed), front = contour(value, seconds * 1.13, 1, effectSeed);
       shape.setAttribute('d', path.area); outline.setAttribute('d', path.edge); glow.setAttribute('d', path.edge);
-      particles.setAttribute('d', pixelPath(seconds));
+      rearShape.setAttribute('d', rear.area); rearEdge.setAttribute('d', rear.edge);
+      frontShade.setAttribute('d', front.area); frontEdge.setAttribute('d', front.edge);
+      rearParticles.setAttribute('d', pixelPath(seconds, .58, effectSeed + 71, 100));
+      particles.setAttribute('d', pixelPath(seconds, 1.2, effectSeed, 120));
+      const debris = fragmentPath(path.points, seconds, effectSeed);
+      fragments.setAttribute('d', debris); fragmentShadow.setAttribute('d', debris);
+      tears.setAttribute('d', tearPath(seconds, effectSeed));
+      const driftX = noise(31, seconds * .55, effectSeed) * 18, driftY = noise(71, seconds * .43, effectSeed) * 22;
+      texture.setAttribute('transform', `translate(${driftX.toFixed(1)} ${driftY.toFixed(1)})`);
+      fragments.setAttribute('opacity', (.57 + (noise(13, seconds * 2.2, effectSeed) + 1) * .08).toFixed(2));
       group.dataset.coverage = value.toFixed(4); group.dataset.edgeBaseline = path.baseline.toFixed(1);
       canvas.dataset.finaleCoverage = value.toFixed(4);
       if (timestamp !== undefined) lastFrame = timestamp;
@@ -129,16 +200,21 @@
       if (!infected) {
         stopFrame(); stopTimer(); target = value = 0; bridge = null;
         canvas.dataset.finaleCoverage = '0';
-        if (group) group.setAttribute('visibility', 'hidden');
+        // Keep the last geometry for the CSS fade-out. Hiding visibility here
+        // would cut that transition short during a scene or stage change.
+        if (group) group.setAttribute('opacity', '0');
         schedule(); return;
       }
+      // Replays replace the cue ID. Seed from the participants so an existing
+      // source and one refreshed after a replay still draw the same noise.
+      if (target === 0) effectSeed = [...`${match.id}:${(match.players || []).join(':')}`]
+        .reduce((seed, letter) => (seed * 31 + letter.charCodeAt(0)) % 10007, 0);
       // An operator may advance to song two before the first rise finishes.
       // Bridge that clock seek locally instead of jumping the front upward.
       if (group?.isConnected && active && previousCueId && previousCueId !== cueId
         && state.index === 1 && state.coverage - value > .04) bridge = { from: value, startedAt: now() };
       target = (state.index + 1) / 3;
       if (attach()) {
-        group.removeAttribute('visibility');
         const announcement = scene === 'grand-final-announcement' || scene === 'song-selection';
         const gameplay = scene === 'double-elimination-match';
         group.setAttribute('opacity', announcement ? '.84' : gameplay ? '.24' : '.37');
@@ -158,10 +234,11 @@
         if (disposed) return; disposed = true; stopFrame(); stopTimer();
         reduce.removeEventListener('change', refresh); document.removeEventListener('visibilitychange', refresh);
         group?.remove(); group = shape = outline = glow = particles = shade = match = bridge = null;
+        rearShape = rearEdge = rearParticles = frontShade = frontEdge = fragments = fragmentShadow = tears = texture = null;
         canvas.classList.remove('finale-infected', 'finale-effects-running');
         canvas.dataset.finaleActive = 'false'; canvas.dataset.finaleCoverage = '0'; canvas.dataset.finaleStage = '0';
       }
     };
   }
-  return { WIDTH, HEIGHT, FRAME_MS, PIXELS, contour, pixelPath, createController };
+  return { WIDTH, HEIGHT, FRAME_MS, PIXELS, contour, pixelPath, fragmentPath, tearPath, createController };
 });

@@ -73,6 +73,9 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .final-song-copy p{font-size:26px;line-height:1.4;font-weight:600;margin-top:22px;color:#e0cfd6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The infection lives inside the persistent SVG's capture mask. These sparse
    accents stay on each UI element; the external OBS feeds remain unobscured. */
+[data-finale-effects],[data-finale-shade]{transition:opacity 640ms cubic-bezier(.22,.61,.36,1)}
+@starting-style{[data-finale-effects]{opacity:0}}
+@media(prefers-reduced-motion:reduce){[data-finale-effects],[data-finale-shade]{transition:none}}
 .finale-infected :is(.waiting-song,.winner-panel,.song-result-card,.result-row,.challenge-set-card){border-left-color:#d83e4f;border-top-color:#d83e4f}
 .finale-infected :is(.topmeta,.song-band>span:first-child,.waiting-song>span){color:#f2c2c8}
 .finale-infected :is(.waiting-song,.winner-panel){position:relative}

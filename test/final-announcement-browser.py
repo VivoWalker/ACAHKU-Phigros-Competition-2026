@@ -115,6 +115,18 @@ def screenshot(page, name):
     return Image.open(io.BytesIO(image)).convert('RGBA')
 
 
+def motion_preview(page, name):
+    if os.environ.get('BROADCAST_TEST_GIF') != '1':
+        return
+    frames = []
+    for _ in range(32):
+        frames.append(Image.open(io.BytesIO(page.screenshot())).convert('RGB').resize((960, 540)))
+        page.wait_for_timeout(75)
+    path = OUT / name
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=100, loop=0)
+    REPORT.setdefault('animations', []).append(str(path))
+
+
 def geometry(page, phase):
     for width, height in [(1920, 1080), (1194, 834), (834, 1194), (390, 844)]:
         page.set_viewport_size({'width': width, 'height': height})
@@ -130,9 +142,34 @@ def effect(page):
       count:document.querySelectorAll('g[data-finale-effects]').length,
       masked:g?.parentElement?.getAttribute('mask'),coverage:Number(g?.dataset.coverage),
       baseline:Number(g?.dataset.edgeBaseline),paths:[...g?.querySelectorAll('path')||[]].map(p=>p.getAttribute('d')),
+      nodes:g?.querySelectorAll('*').length,opacity:g?Number(getComputedStyle(g).opacity):0,
+      depths:[...g?.querySelectorAll('[data-finale-depth]')||[]].map(layer=>({name:layer.dataset.finaleDepth,
+        paths:[...layer.querySelectorAll('path')].map(p=>p.getAttribute('d'))})),
+      texture:g?.querySelector('[data-finale-texture]')?.getAttribute('transform'),
+      fragments:g?.querySelector('[data-finale-fragments]')?.getAttribute('d'),
       infected:document.querySelector('#canvas').classList.contains('finale-infected'),
       active:document.querySelector('#canvas').dataset.finaleActive,
       running:document.querySelector('#canvas').classList.contains('finale-effects-running')};}''')
+
+
+def begin_opacity_trace(page):
+    page.evaluate('''()=>{window.__opacityTrace=[];const started=performance.now();
+      function sample(){const g=document.querySelector('g[data-finale-effects]');
+        __opacityTrace.push({ms:performance.now()-started,opacity:Number(getComputedStyle(g).opacity),
+          target:Number(g.getAttribute('opacity')),nodes:g.querySelectorAll('*').length});
+        if(performance.now()-started<1800)requestAnimationFrame(sample);}
+      requestAnimationFrame(sample);}''')
+
+
+def assert_opacity_trace(page, before, after):
+    page.wait_for_function('__opacityTrace.at(-1)?.ms>=1800')
+    trace = page.evaluate('__opacityTrace')
+    low, high = sorted([before, after])
+    intermediate = [sample for sample in trace if low+.015 < sample['opacity'] < high-.015]
+    assert len(intermediate) >= 3, {'before': before, 'after': after, 'trace': trace}
+    assert abs(trace[-1]['opacity']-after) < .005, trace[-1]
+    assert len({sample['nodes'] for sample in trace}) == 1, trace
+    return {'from': before, 'to': after, 'intermediate_frames': len(intermediate), 'nodes': trace[-1]['nodes']}
 
 
 def main():
@@ -184,10 +221,17 @@ def main():
             live.wait_for_function("Number(document.querySelector('#canvas').dataset.finaleCoverage)>.325", timeout=7000)
             first_effect = effect(live)
             assert first_effect['count'] == 1 and first_effect['masked'] == 'url(#capture-mask)'
+            assert [depth['name'] for depth in first_effect['depths']] == ['rear', 'body', 'front'], first_effect
+            depth_paths = [depth['paths'][-1] for depth in first_effect['depths']]
+            assert len(set(depth_paths)) == 3, 'The three depth contours must have independent silhouettes'
             assert .325 < first_effect['coverage'] < .34, first_effect
             screenshot(live, 'final-song-01-desultory-signals.png')
             live.wait_for_timeout(250)
-            assert effect(live)['paths'] != first_effect['paths'], 'The red edge and pixels must flow and change shape'
+            moving = effect(live)
+            assert moving['paths'] != first_effect['paths'], 'The red edge and pixels must flow and change shape'
+            assert moving['nodes'] == first_effect['nodes'], 'Animation must update existing nodes'
+            assert all(a['paths'] != b['paths'] for a, b in zip(moving['depths'], first_effect['depths']))
+            assert moving['texture'] != first_effect['texture'] and moving['fragments'] != first_effect['fragments']
             before = playing(live, FINAL_IDS[0])
             helper.command(crew, 'set-event', {'message': 'Temporary fixture: an unrelated event revision.'})
             live.wait_for_timeout(250)
@@ -213,6 +257,7 @@ def main():
             assert .66 <= second_effect['coverage'] <= .667, second_effect
             assert second_effect['baseline'] < first_effect['baseline'] - 300
             screenshot(live, 'final-song-02-petrichor.png')
+            motion_preview(live, 'finale-invasion-motion.gif')
             check('the cue automatically changes artwork and audio to Petrichor AT17 and grows the changing red pattern to two thirds', second_effect)
             live.wait_for_function("document.querySelector('#canvas').dataset.selectionAudio==='complete'", timeout=15000)
             no_preview(live)
@@ -266,8 +311,10 @@ def main():
             helper.command(crew, 'start-final-announcement', {'matchId': 'GF', 'songIndex': 1})
             playing(live, FINAL_IDS[1])
             assert next(m for m in helper.state(crew)['tournament']['matches'] if m['id'] == 'GF')['currentSong'] == 0
+            begin_opacity_trace(live)
             helper.command(crew, 'set-broadcast-cue', {'stage': 'double-elimination', 'scene': 'double-elimination-waiting', 'matchId': 'GF', 'songIndex': 0})
             helper.idle(live, 'double-elimination-waiting')
+            waiting_opacity = assert_opacity_trace(live, .84, .37)
             no_preview(live)
             live.wait_for_function("document.querySelector('audio[data-scene-bgm]')?.dataset.trackId==='chapter-select'&&!document.querySelector('audio[data-scene-bgm]').paused")
             assert effect(live)['infected']
@@ -279,8 +326,10 @@ def main():
             check('manual replay/skip preserves the match song index, waiting retains red accents, BGM resumes after preview release, and an off-air fixed source stays muted')
 
             helper.command(crew, 'set-broadcast-display', {'showHandcams': True})
+            begin_opacity_trace(live)
             helper.command(crew, 'set-broadcast-cue', {'stage': 'double-elimination', 'scene': 'double-elimination-match', 'matchId': 'GF', 'songIndex': 0})
             helper.idle(live, 'double-elimination-match')
+            gameplay_opacity = assert_opacity_trace(live, .37, .24)
             no_preview(live)
             assert not live.locator('audio').count()
             image = screenshot(live, 'final-match-infected-transparent-cameras.png')
@@ -297,11 +346,22 @@ def main():
             assert live.evaluate("__persistentFinal.bg===document.querySelector('.broadcast-backdrop')&&__persistentFinal.logos.every((e,i)=>e===document.querySelectorAll('[data-motion-branding] img')[i]&&e.complete&&Number(getComputedStyle(e).opacity)===1)")
             check('red infection remains clipped out of all four real camera holes, gameplay is silent and backdrop/logos persist across subsequent scenes', {'alpha': samples})
 
+            begin_opacity_trace(live)
+            helper.command(crew, 'set-scene', {'scene': 'start'})
+            helper.idle(live, 'start')
+            exit_opacity = assert_opacity_trace(live, .37, 0)
+            assert effect(live)['count'] == 1 and not effect(live)['infected']
+            helper.command(crew, 'set-scene', {'scene': 'double-elimination-waiting'})
+            helper.idle(live, 'double-elimination-waiting')
+            live.wait_for_timeout(650)
+            check('red intensity interpolates on announcement/waiting/gameplay transitions and fades completely when leaving the final', [waiting_opacity, gameplay_opacity, exit_opacity])
+
             live.emulate_media(reduced_motion='reduce')
             live.wait_for_function("matchMedia('(prefers-reduced-motion: reduce)').matches&&!document.querySelector('#canvas').classList.contains('finale-effects-running')")
             reduced = effect(live)
             live.wait_for_timeout(250)
             assert effect(live)['paths'] == reduced['paths'] and not reduced['running']
+            assert live.locator('g[data-finale-effects]').evaluate("g=>getComputedStyle(g).transitionDuration") == '0s'
             live.emulate_media(reduced_motion='no-preference')
             live.wait_for_timeout(200)
             assert effect(live)['paths'] != reduced['paths']
