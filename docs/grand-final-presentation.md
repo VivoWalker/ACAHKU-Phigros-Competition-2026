@@ -37,4 +37,6 @@ During the last song, the main operator's three purification stages open distrib
 
 The new Node tests cover the shared timeline, player clocks, lifecycle cleanup, server permissions, atomic commands and restart persistence. `test/final-announcement-browser.py` checks both announcements, program audio ownership, responsive text geometry, morphing coverage, persistent background/logos, capture alpha and off-air cleanup. Existing fixed-final, selection-audio, scene-BGM and production-console browser checks retain their catalog, scoring and legacy coverage with the sequential reveal expectations.
 
+`python3 test/final-totals-transition.py` checks every rendered frame when Song 2 statistics switch to the first-two-song totals. It covers return transitions, score updates during entry, scaled views and reduced motion using disposable tournament data. Incoming totals cards wait until outgoing results have fully exited.
+
 After updating, restart the server and refresh main control and every OBS Browser Source to load the new helper and effects scripts. Preserve the existing event data directory.
