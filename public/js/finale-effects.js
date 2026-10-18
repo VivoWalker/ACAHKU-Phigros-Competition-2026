@@ -96,42 +96,93 @@
       quadrant.sort((a, b) => a.priority - b.priority || a.row - b.row || a.column - b.column);
       quadrant.forEach((cell, index) => { cell.delay = .85 * index / (quadrant.length - 1); });
     }
-    // Retain just one layout, even if an event is repeatedly reset/reseeded.
-    cachedHoleSeed = seed; cachedHoleLayout = cells; return cells;
+    const microColumns = WIDTH / HOLE_PIXEL, microRows = HEIGHT / HOLE_PIXEL;
+    const thresholds = new Float32Array(microColumns * microRows);
+    thresholds.fill(1);
+    for (const cell of cells) {
+      const tileX = cell.column * HOLE_TILE / HOLE_PIXEL, tileY = cell.row * HOLE_TILE / HOLE_PIXEL;
+      const tileWidth = Math.min(HOLE_TILE / HOLE_PIXEL, microColumns - tileX);
+      const tileHeight = Math.min(HOLE_TILE / HOLE_PIXEL, microRows - tileY);
+      // Start with growing patches, then fracture their borders at an 8px
+      // scale. Activation thresholds stay independent of progress so every
+      // recovered pixel remains recovered as a stage advances at a fixed time.
+      for (let step = 1; step <= 6; step++) {
+        const width = Math.ceil(step * tileWidth / 6), height = Math.ceil(step * tileHeight / 6);
+        const x0 = tileX + Math.floor(cell.anchorX * (tileWidth - width));
+        const y0 = tileY + Math.floor(cell.anchorY * (tileHeight - height));
+        for (let y = y0; y < y0 + height; y++) for (let x = x0; x < x0 + width; x++) {
+          const index = y * microColumns + x;
+          if (thresholds[index] !== 1) continue;
+          const roughness = (random(index * 23 + seed + 401) - .5) * .104
+            + (random(Math.floor(x / 2) * 131 + Math.floor(y / 2) * 173 + seed + 601) - .5) * .032;
+          thresholds[index] = clamp(cell.delay + (step - 1) * .025 + roughness, .005, .98);
+        }
+      }
+    }
+    // Retain just one small typed-array layout, even after repeated resets.
+    cachedHoleSeed = seed; cachedHoleLayout = { cells, thresholds }; return cachedHoleLayout;
   }
-  function pixelHoles(amount, seed = 0) {
+  function pixelHoles(amount, seed = 0, seconds = 0, motion = 1) {
     const value = clamp(amount, 0, 1);
+    const columns = WIDTH / HOLE_PIXEL, rows = HEIGHT / HOLE_PIXEL;
+    const total = Math.ceil(WIDTH / HOLE_TILE) * Math.ceil(HEIGHT / HOLE_TILE);
     if (value === 0) return { mask: '', edge: '', rects: [], cleared: 0,
-      total: Math.ceil(WIDTH / HOLE_TILE) * Math.ceil(HEIGHT / HOLE_TILE), clearance: 0 };
-    const layout = holeLayout(seed), columns = Math.ceil(WIDTH / HOLE_TILE);
-    const rectangles = Array(layout.length).fill(null), rects = [];
-    let mask = '', edge = '', area = 0, cleared = 0;
-    for (let index = 0; index < layout.length; index++) {
-      const cell = layout[index], growth = clamp((value - cell.delay) / .15, 0, 1);
-      if (growth <= 0) continue;
-      const x0 = cell.column * HOLE_TILE, y0 = cell.row * HOLE_TILE;
-      const tileWidth = Math.min(HOLE_TILE, WIDTH - x0), tileHeight = Math.min(HOLE_TILE, HEIGHT - y0);
-      const width = Math.min(tileWidth, Math.ceil(growth * tileWidth / HOLE_PIXEL) * HOLE_PIXEL);
-      const height = Math.min(tileHeight, Math.ceil(growth * tileHeight / HOLE_PIXEL) * HOLE_PIXEL);
-      const x = x0 + Math.floor(cell.anchorX * (tileWidth - width) / HOLE_PIXEL) * HOLE_PIXEL;
-      const y = y0 + Math.floor(cell.anchorY * (tileHeight - height) / HOLE_PIXEL) * HOLE_PIXEL;
-      const full = width === tileWidth && height === tileHeight;
-      rectangles[index] = { x, y, width, height, full };
-      rects.push([x, y, width, height]); area += width * height; if (full) cleared++;
-      mask += `M${x} ${y}h${width}v${height}h-${width}Z`;
+      total, clearance: 0 };
+    if (value === 1) return { mask: `M0 0h${WIDTH}v${HEIGHT}h-${WIDTH}Z`,
+      edge: `M0 0H${WIDTH}V${HEIGHT}H0Z`, rects: [[0, 0, WIDTH, HEIGHT]], cleared: total, total, clearance: 1 };
+    const { cells, thresholds } = holeLayout(seed), pixels = new Uint8Array(thresholds.length);
+    const counts = new Uint8Array(total), tileColumns = Math.ceil(WIDTH / HOLE_TILE);
+    const jitter = clamp(motion, 0, 1) * .014, tick = Math.floor(seconds * 8);
+    let area = 0;
+    for (let y = 0; y < rows; y++) for (let x = 0; x < columns; x++) {
+      const index = y * columns + x, threshold = thresholds[index];
+      const offset = jitter && Math.abs(value - threshold) <= jitter
+        ? (random(index * 37 + tick * 53 + seed + 809) * 2 - 1) * jitter : 0;
+      if (value <= threshold + offset) continue;
+      pixels[index] = 1; area++;
+      counts[Math.floor(y / 6) * tileColumns + Math.floor(x / 6)]++;
     }
-    // Adjacent full cells merge cleanly: only exposed pixel boundaries glow.
-    // Internal grid lines would turn the recovered screen into a checkerboard.
-    for (let index = 0; index < rectangles.length; index++) {
-      const rectangle = rectangles[index]; if (!rectangle) continue;
-      const { x, y, width, height, full } = rectangle;
-      const column = index % columns;
-      if (!full || !rectangles[index - columns]?.full) edge += `M${x} ${y}h${width}`;
-      if (!full || column === columns - 1 || !rectangles[index + 1]?.full) edge += `M${x + width} ${y}v${height}`;
-      if (!full || !rectangles[index + columns]?.full) edge += `M${x + width} ${y + height}h-${width}`;
-      if (!full || column === 0 || !rectangles[index - 1]?.full) edge += `M${x} ${y + height}v-${height}`;
+    // Merge row runs and matching runs above into a bounded SVG path, rather
+    // than adding thousands of DOM nodes or stroking internal grid lines.
+    const rects = [];
+    let previous = new Map();
+    for (let y = 0; y < rows; y++) {
+      const current = new Map();
+      for (let x = 0; x < columns;) {
+        if (!pixels[y * columns + x]) { x++; continue; }
+        const start = x;
+        while (x < columns && pixels[y * columns + x]) x++;
+        const key = start * columns + x, above = previous.get(key);
+        const rectangle = above || [start * HOLE_PIXEL, y * HOLE_PIXEL, (x - start) * HOLE_PIXEL, 0];
+        rectangle[3] += HOLE_PIXEL;
+        if (!above) rects.push(rectangle);
+        current.set(key, rectangle);
+      }
+      previous = current;
     }
-    return { mask, edge, rects, cleared, total: layout.length, clearance: area / (WIDTH * HEIGHT) };
+    let mask = '', edge = '', cleared = 0;
+    for (const [x, y, width, height] of rects) mask += `M${x} ${y}h${width}v${height}h-${width}Z`;
+    // Only exposed boundary runs glow. The mask and its outline share exactly
+    // the same broken pixels, including short notches and detached fragments.
+    for (let y = 0; y <= rows; y++) for (let x = 0; x < columns;) {
+      const exposed = at => !!(y > 0 && pixels[(y - 1) * columns + at]) !== !!(y < rows && pixels[y * columns + at]);
+      if (!exposed(x)) { x++; continue; }
+      const start = x;
+      while (x < columns && exposed(x)) x++;
+      edge += `M${start * HOLE_PIXEL} ${y * HOLE_PIXEL}h${(x - start) * HOLE_PIXEL}`;
+    }
+    for (let x = 0; x <= columns; x++) for (let y = 0; y < rows;) {
+      const exposed = at => !!(x > 0 && pixels[at * columns + x - 1]) !== !!(x < columns && pixels[at * columns + x]);
+      if (!exposed(y)) { y++; continue; }
+      const start = y;
+      while (y < rows && exposed(y)) y++;
+      edge += `M${x * HOLE_PIXEL} ${start * HOLE_PIXEL}v${(y - start) * HOLE_PIXEL}`;
+    }
+    for (let index = 0; index < cells.length; index++) {
+      const height = Math.min(6, rows - cells[index].row * 6);
+      if (counts[index] === 6 * height) cleared++;
+    }
+    return { mask, edge, rects, cleared, total, clearance: area / pixels.length };
   }
   function sequencePhase(match, time, api) {
     const raw = api?.phase?.(match, time) || match?.finale;
@@ -272,7 +323,8 @@
       // rendering path. An extra full-canvas mask is needed only while clearing.
       if (hope) redLayer.setAttribute('mask', 'url(#finale-hope-clearing)');
       else redLayer.removeAttribute('mask');
-      const openings = pixelHoles(hope ? cleared.amount : 0, effectSeed);
+      const motion = reduce.matches || level >= 3 ? 0 : level === 2 ? .65 : 1;
+      const openings = pixelHoles(hope ? cleared.amount : 0, effectSeed, seconds, motion);
       hopeMask.setAttribute('d', openings.mask); hopeHalo.setAttribute('d', openings.edge); hopeEdge.setAttribute('d', openings.edge);
       hopeBloom.setAttribute('d', openings.mask);
       hopeLayer.setAttribute('visibility', hope ? 'visible' : 'hidden');

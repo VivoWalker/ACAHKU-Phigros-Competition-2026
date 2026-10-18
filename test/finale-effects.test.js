@@ -345,47 +345,93 @@ test('pixel purification interpolates the three clearing stages without a circul
   }
 });
 
-test('pixel holes are finite orthogonal tiles, deterministic and nested as they grow and merge', () => {
-  const inside = (small, large) => small[0] >= large[0] - 1e-6 && small[1] >= large[1] - 1e-6
-    && small[0] + small[2] <= large[0] + large[2] + 1e-6
-    && small[1] + small[3] <= large[1] + large[3] + 1e-6;
+function holePixels(holes) {
+  const pixel = 8, columns = Effects.WIDTH / pixel, rows = Effects.HEIGHT / pixel;
+  const pixels = new Uint8Array(columns * rows);
+  for (const [x, y, width, height] of holes.rects) {
+    assert.ok([x, y, width, height].every(Number.isFinite));
+    assert.ok(x >= 0 && y >= 0 && width > 0 && height > 0);
+    assert.ok(x + width <= Effects.WIDTH && y + height <= Effects.HEIGHT);
+    assert.ok([x, y, width, height].every(value => value % pixel === 0));
+    for (let row = y / pixel; row < (y + height) / pixel; row++) {
+      for (let column = x / pixel; column < (x + width) / pixel; column++) {
+        const index = row * columns + column;
+        assert.equal(pixels[index], 0, 'merged clearing rectangles must not overlap');
+        pixels[index] = 1;
+      }
+    }
+  }
+  return pixels;
+}
+
+test('pixel holes are finite orthogonal microgrid shapes, deterministic and nested as they grow and merge', () => {
   for (const seed of [0, 42, 8102]) {
-    let before = { rects: [], clearance: 0, cleared: 0 };
+    let before = { clearance: 0, cleared: 0 }, previousPixels = holePixels({ rects: [] });
     for (const amount of [0, .05, .15, .28, .45, .65, .85, 1]) {
-      const holes = Effects.pixelHoles(amount, seed);
-      assert.deepEqual(holes, Effects.pixelHoles(amount, seed));
+      const holes = Effects.pixelHoles(amount, seed, 20);
+      assert.deepEqual(holes, Effects.pixelHoles(amount, seed, 20));
       assert.ok(Number.isInteger(holes.total) && holes.total > 100 && holes.total < 1600);
       assert.ok(Number.isInteger(holes.cleared) && holes.cleared >= before.cleared && holes.cleared <= holes.total);
       assert.ok(holes.clearance >= before.clearance && holes.clearance <= 1);
-      assert.ok(Array.isArray(holes.rects) && holes.rects.length <= holes.total);
+      assert.ok(Array.isArray(holes.rects) && holes.rects.length < 8000,
+        'boundary detail must remain a bounded geometry payload, independent of frame count');
       assert.doesNotMatch(holes.mask + holes.edge, /NaN|Infinity|--|[ACQST]/i);
-      assert.ok(holes.mask.length < 120000 && holes.edge.length < 120000);
-      let area = 0;
-      const tiles = new Set();
-      for (const [x, y, width, height] of holes.rects) {
-        assert.ok([x, y, width, height].every(Number.isFinite));
-        assert.ok(x >= 0 && y >= 0 && width > 0 && height > 0);
-        assert.ok(x + width <= Effects.WIDTH && y + height <= Effects.HEIGHT);
-        assert.ok(width <= 48 && height <= 48);
-        assert.ok([x, y, width, height].every(value => value % 8 === 0));
-        const tile = `${Math.floor(x / 48)}:${Math.floor(y / 48)}`;
-        assert.ok(!tiles.has(tile), 'a fixed tile must not contribute overlapping clearing rectangles');
-        assert.equal(Math.floor((x + width - .001) / 48), Math.floor(x / 48));
-        assert.equal(Math.floor((y + height - .001) / 48), Math.floor(y / 48));
-        tiles.add(tile);
-        area += width * height;
-      }
+      assert.ok(holes.mask.length < 240000 && holes.edge.length < 240000);
+      const pixels = holePixels(holes), area = pixels.reduce((sum, filled) => sum + filled, 0) * 64;
       assert.ok(Math.abs(holes.clearance - area / (Effects.WIDTH * Effects.HEIGHT)) < 1e-9);
-      for (const small of before.rects) {
-        assert.ok(holes.rects.some(large => inside(small, large)), 'an opened pixel hole must never close as the stage advances');
-      }
-      before = holes;
+      for (let index = 0; index < pixels.length; index++)
+        assert.ok(!previousPixels[index] || pixels[index], 'an opened pixel must never close as the stage advances at a fixed clock');
+      before = holes; previousPixels = pixels;
     }
     assert.equal(before.cleared, before.total);
     assert.equal(before.clearance, 1, 'the last stage removes every infected tile, including the bottom edge');
   }
   assert.notEqual(Effects.pixelHoles(.28, 42).mask, Effects.pixelHoles(.28, 43).mask,
     'different matches must not repeat an identical fixed hole arrangement');
+});
+
+test('pixel-hole boundaries glitch independently on the shared clock and settle completely after purification', () => {
+  for (const seed of [0, 42, 8102]) {
+    for (const amount of [.28, .65]) {
+      const before = Effects.pixelHoles(amount, seed, 20);
+      const after = Effects.pixelHoles(amount, seed, 20.15);
+      assert.notEqual(before.mask, after.mask, 'the clearing boundary should glitch within a fraction of a second');
+      assert.notEqual(before.edge, after.edge, 'glowing exposed edges must follow the changing clearing mask');
+      assert.ok(Math.abs(before.clearance - after.clearance) < .04,
+        'edge jitter must not make a whole recovered region flash in and out');
+      assert.deepEqual(Effects.pixelHoles(amount, seed, 20, 0), Effects.pixelHoles(amount, seed, 20.15, 0),
+        'reduced motion must freeze pixel-hole boundaries as well as the invasion contour');
+      holePixels(before); holePixels(after);
+    }
+    const end = Effects.pixelHoles(1, seed, 20);
+    assert.deepEqual(end, Effects.pixelHoles(1, seed, 20.15));
+    assert.equal(end.clearance, 1);
+    assert.ok(holePixels(end).every(filled => filled === 1));
+  }
+});
+
+test('jagged partial purification keeps a fixed node pool and freezes completely in reduced motion', () => {
+  const f = fixture(), match = { id: 'GF', finale: { stage: 'revealed', effectLevel: 2, effectChangedAt: 0 } };
+  f.setTime(4000);
+  f.controller.update({ match, scene: 'double-elimination-match', active: true });
+  const group = f.parent.children[0], moving = geometry(group), count = descendants(group).length;
+  for (let i = 0; i < 40; i++) {
+    f.tick();
+    assert.equal(descendants(group).length, count);
+    assert.equal(f.frames.size, 1); assert.equal(f.timers.size, 0);
+  }
+  assert.notDeepEqual(geometry(group), moving);
+  f.reduce.matches = true; f.mediaListeners.get('change')();
+  const still = geometry(group);
+  for (let i = 0; i < 10; i++) {
+    f.setTime(5000 + i * 150);
+    f.controller.update({ match, scene: 'double-elimination-match', active: true });
+    assert.deepEqual(geometry(group), still);
+    assert.equal(descendants(group).length, count);
+    assert.equal(f.frames.size, 0);
+  }
+  f.controller.dispose();
+  assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
 });
 
 test('the first clearing stage already contains pixel holes across the backdrop rather than a central aperture', () => {

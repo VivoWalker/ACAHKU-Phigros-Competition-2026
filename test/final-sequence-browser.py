@@ -89,11 +89,19 @@ def motion(page, name):
         return
     frames = []
     for _ in range(24):
-        frames.append(Image.open(io.BytesIO(page.screenshot())).convert('RGB').resize((960, 540)))
+        frames.append(preview_frame(page).resize((960, 540)))
         page.wait_for_timeout(80)
     path = OUT / name
     frames[0].save(path, save_all=True, append_images=frames[1:], duration=110, loop=0)
     REPORT.setdefault('animations', []).append(str(path))
+
+
+def preview_frame(page):
+    """Keep OBS alpha holes black in GIF previews instead of Chromium's white matte."""
+    foreground = Image.open(io.BytesIO(page.screenshot(omit_background=True))).convert('RGBA')
+    background = Image.new('RGBA', foreground.size, (0, 0, 0, 255))
+    background.alpha_composite(foreground)
+    return background.convert('RGB')
 
 
 def collect_purification(page, frames, level):
@@ -105,7 +113,7 @@ def collect_purification(page, frames, level):
         delay = due - time.monotonic()
         if delay > 0:
             page.wait_for_timeout(delay * 1000)
-        frames.append(Image.open(io.BytesIO(page.screenshot())).convert('RGB'))
+        frames.append(preview_frame(page))
         timeline.append(round((time.monotonic() - started) * 1000))
     REPORT.setdefault('transition_frames', []).append({'level': level, 'milliseconds': timeline})
 
@@ -164,14 +172,31 @@ def geometry(page, phase):
 def effect(page):
     return page.evaluate('''()=>{const c=document.querySelector('#canvas'),g=c.querySelector('[data-finale-effects]');
       const clearing=g?.querySelector('#finale-hope-clearing path'),opening=clearing?.getAttribute('d')||'';
+      const fingerprint=[...opening].reduce((hash,character)=>Math.imul(hash^character.charCodeAt(0),16777619),2166136261)>>>0;
       return {dataset:{...c.dataset},classes:c.className,group:g?{dataset:{...g.dataset},
         opacity:getComputedStyle(g).opacity,nodes:g.querySelectorAll('*').length,
         clearing:{subpaths:(opening.match(/M/g)||[]).length,curved:/[ACQST]/i.test(opening),
+          fingerprint,pathBytes:opening.length,
           ellipses:g.querySelectorAll('[data-finale-hope] ellipse').length}}:null,
         animations:document.querySelector('#scene').getAnimations({subtree:true}).map(a=>({name:a.animationName,
           iterations:a.effect?.getTiming().iterations,state:a.playState})),
         video:[...document.querySelectorAll('video')].map(v=>({src:v.currentSrc,paused:v.paused,time:v.currentTime,ended:v.ended})),
         audio:[...document.querySelectorAll('audio')].map(a=>({src:a.currentSrc,paused:a.paused,volume:a.volume}))};}''')
+
+
+def profile_geometry(page):
+    REPORT['pixel_geometry_timing'] = page.evaluate('''()=>[.28,.65].map(amount=>{
+      const samples=[],rectangles=[],bytes=[];
+      for(let index=0;index<32;index++){
+        const started=performance.now();
+        const holes=BroadcastFinaleEffects.pixelHoles(amount,42,20+index*.05,amount<.5?1:.65);
+        samples.push(performance.now()-started);rectangles.push(holes.rects.length);
+        bytes.push(holes.mask.length+holes.edge.length);
+      }
+      samples.sort((a,b)=>a-b);
+      return {amount,medianMs:samples[16],p95Ms:samples[30],maxMs:samples[31],
+        maxRectangles:Math.max(...rectangles),maxPathBytes:Math.max(...bytes)};
+    })''')
 
 
 def control_geometry(page, phase):
@@ -302,7 +327,17 @@ def main():
                     assert abs(amount - [0, .28, .65, 1, 0][level]) < .001, info
                     if level in [1, 2, 3]:
                         cleared_tiles.append(float(info['group']['dataset']['clearedTiles']))
-                        assert info['group']['clearing']['subpaths'] > 20, info
+                        assert info['group']['clearing']['subpaths'] > (20 if level < 3 else 0), info
+                        assert info['group']['clearing']['pathBytes'] < 240000, info
+                        live.wait_for_timeout(180)
+                        later = effect(live)
+                        fingerprint = info['group']['clearing']['fingerprint']
+                        if level < 3:
+                            assert later['group']['clearing']['fingerprint'] != fingerprint, (level, info, later)
+                            assert abs(float(later['group']['dataset']['clearance']) -
+                                       float(info['group']['dataset']['clearance'])) < .04, (level, info, later)
+                        else:
+                            assert later['group']['clearing']['fingerprint'] == fingerprint, (level, info, later)
                     if level >= 3:
                         assert not any(item['state'] == 'running' and
                                        any(name in item['name'] for name in ['jitter', 'flicker', 'dislocation'])
@@ -322,9 +357,11 @@ def main():
                         refreshed = effect(live)
                         assert abs(float(refreshed['group']['dataset']['hopeAmount']) - .65) < .001, refreshed
                         assert refreshed['group']['nodes'] == info['group']['nodes'], refreshed
-                        assert refreshed['group']['dataset']['clearedTiles'] == info['group']['dataset']['clearedTiles'], refreshed
+                        assert abs(float(refreshed['group']['dataset']['clearance']) -
+                                   float(info['group']['dataset']['clearance'])) < .04, refreshed
                 assert len(set(node_counts)) == 1, node_counts
                 assert 0 < cleared_tiles[0] < cleared_tiles[1] < cleared_tiles[2], cleared_tiles
+                profile_geometry(live)
                 # Operators can also restore corruption or step backwards;
                 # removing a clearing stage must not retain stale mask holes.
                 for level in [0, 2, 1, 4]:
@@ -334,7 +371,7 @@ def main():
                     assert abs(float(restored['group']['dataset']['hopeAmount']) - [0, .28, .65, 1, 0][level]) < .001, restored
                     assert restored['group']['nodes'] == node_counts[0], restored
                 save_purification(transition_frames)
-                check('distributed square pixel holes grow across three stages, survive refresh and regrowth, and preserve text geometry, logos and transparent capture windows')
+                check('jagged pixel holes glitch on the shared clock, grow across three stages, stop at full clearance, survive refresh and preserve text geometry, logos and transparent capture windows')
 
                 for pi in [0, 1]:
                     helper.command(crew, 'set-match-score', {'matchId': 'GF', 'playerIndex': pi, 'songIndex': 2,
