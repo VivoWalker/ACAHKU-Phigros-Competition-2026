@@ -34,6 +34,10 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 
 /* Keep legal long song titles within the waiting scene's fixed safe area. */
 .waiting-song h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finale-waiting{grid-template-columns:minmax(0,1fr) 740px}
+.finale-waiting .waiting-copy{min-width:0}
+.finale-waiting .finale-next-song{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.finale-sequence-corrupt .double-song h2{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;flex:1}
 
 /* Branding always owns the top plane, including after its travel completes. */
 .phigros-logo,.phigros-wordmark,.club-logo{position:relative;z-index:1000}
@@ -56,6 +60,11 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .bracket-podium{padding:38px 26px;background:#211b2acc;border-top:3px solid #dbc18c}.bracket-podium>span{font-size:24px;font-weight:600;color:#dfc999}.bracket-podium h3{font-size:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:14px 0 44px}.bracket-round-ghost,[data-bracket-ghost]{position:absolute;left:0;top:0;width:1190px;height:100%;pointer-events:none;overflow:hidden;z-index:3}[data-bracket-ghost]>.bracket-focus{height:100%;width:100%}
 .result-row.result-win{border-color:#78cfad}.result-row.result-win h2,.result-row.result-win p{color:#91f0c9}.result-row.result-loss h2,.result-row.result-loss p{color:#ffcb97}
 .result-row.result-eliminated h2,.result-row.result-eliminated p{color:#ff9bb0}.result-row.result-champion h2,.result-row.result-champion p{color:#ffe29c}.result-row.result-runner-up h2,.result-row.result-runner-up p{color:#c6d9f4}
+.result-wrap{top:280px;bottom:100px}
+.result-rows{gap:32px;min-width:0}
+.result-row{grid-template-columns:minmax(0,1fr);padding-bottom:20px}
+.result-row h2{font-size:42px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.result-row>strong{line-height:1.2;white-space:nowrap}
 .bracket-legend{display:flex;gap:22px}.bracket-legend span:first-child{color:#91f0c9}.bracket-legend span:nth-child(2){color:#ffcb97}.bracket-legend span:last-child{color:#ff9bb0}.bracket-player.champion .outcome-mark{color:#ffe29c}.bracket-player.runner-up .outcome-mark{color:#c6d9f4}.bracket-podium h3:last-child{margin-bottom:0}
 
 .final-song-card{min-width:0;overflow:hidden}
@@ -163,27 +172,27 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .finale-sequence-corrupt.finale-effects-running :is(.section-label,.player-total strong,.song-band>span){animation-delay:-1.12s;animation-duration:2.57s}
 @keyframes finale-ui-dislocation{0%,14%,27%,44%,61%,83%,100%{translate:0 0;opacity:1}18%{translate:calc(-1.8px*var(--finale-jitter)) calc(.7px*var(--finale-jitter));opacity:.9}22%{translate:calc(2.2px*var(--finale-jitter)) calc(-.9px*var(--finale-jitter));opacity:.96}49%{translate:calc(.9px*var(--finale-jitter)) calc(.5px*var(--finale-jitter));opacity:.87}54%{translate:calc(-1.3px*var(--finale-jitter)) calc(-.6px*var(--finale-jitter));opacity:1}88%{translate:calc(1.6px*var(--finale-jitter)) 0;opacity:.94}}
 [data-finale-garbled]{display:block;min-height:1.2em;letter-spacing:.12em;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
-.finale-sequence-corrupt[data-finale-purification="3"] :is(h1,h2,h3,p,dt,dd,.event-title,.topmeta,.section-label,.song-band,.player-total,.handcam-label,.footer){text-shadow:0 0 2px #fffef7,0 0 10px #d1ffffd9,0 0 23px #afe9ff99;transition:text-shadow 1500ms cubic-bezier(.22,.61,.36,1)}
-.finale-sequence-corrupt[data-finale-purification="3"] :is(.waiting-song,.song-band,.winner-panel,.song-result-card,.result-row,.challenge-set-card,.final-song-info){border-color:#e2ffff;box-shadow:inset 0 0 0 1px #f5ffff7a,0 0 17px #c7faff55;transition:border-color 1400ms ease,box-shadow 1500ms ease}
-.finale-sequence-corrupt[data-finale-purification="3"] .capture{border-color:#e5ffff;box-shadow:0 0 10px #c7faff8c;transition:border-color 1400ms ease,box-shadow 1500ms ease}
-.finale-sequence-corrupt[data-finale-purification="3"] :is(.club-logo,.phigros-logo,.key-visual img){filter:drop-shadow(0 0 3px #fffef1) drop-shadow(0 0 6px #bfefff88);transition:filter 1500ms ease}
+/* Recovery highlights glyphs only. Transparent panels, feed borders, logos
+   and the pixel-clearing mask must retain their original painted geometry. */
+.finale-sequence-corrupt[data-finale-purification="3"] :is(h1,h2,h3,p,dt,dd,.event-title,.topmeta,.section-label,.song-band>span,.player-total>span,.player-total>strong,.winner-score,.result-row>strong,.result-song-scores b,.finale-base-total>span,.finale-base-total>strong,.handcam-label,.footer>span){text-shadow:0 0 2px #fffef7,0 0 8px #d1ffffb3,0 0 16px #afe9ff66;transition:text-shadow 1500ms cubic-bezier(.22,.61,.36,1)}
 .finale-sequence-corrupt[data-finale-purification="3"] :is(.waiting-song,.song-band,.winner-panel)::after{opacity:0;animation:none;transition:opacity 900ms ease}
 .finale-sequence-corrupt[data-finale-purification="3"] :is(.topmeta,.song-band>span:first-child,.waiting-song>span){color:#e1fcff}
-.finale-sequence-corrupt[data-finale-purification="4"] :is(.waiting-song,.winner-panel,.song-result-card,.result-row,.challenge-set-card,.final-song-info){transition:border-color 900ms ease,box-shadow 900ms ease}
 @media(prefers-reduced-motion:reduce){.finale-sequence-corrupt :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.player-name h2,.player-total strong,.song-band>strong,.song-band>span,.section-label,.final-song-copy h2){animation:none!important;translate:none!important;opacity:1!important}}
 
 /* Dedicated first-two-song standings never award a champion prematurely. */
 .finale-totals{position:absolute;left:96px;right:96px;top:360px;bottom:80px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:48px}
-.finale-total-card{min-width:0;min-height:0;padding:28px 32px;background:#160f1be8;border-top:3px solid #dba9b7;display:flex;flex-direction:column;gap:22px}
-.finale-total-card>h2{font-size:48px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.finale-base-total{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:22px;border-bottom:1px solid #be9cad66}
-.finale-base-total>span{font-size:24px;line-height:1.4;font-weight:700;max-width:200px}.finale-base-total>strong{font-size:76px;line-height:1.2;white-space:nowrap}
+.finale-total-card{min-width:0;min-height:0;padding:24px 28px;background:#160f1be8;border-top:3px solid #dba9b7;display:grid;grid-template-rows:auto minmax(0,1fr);gap:20px}
+.finale-total-header{display:grid;gap:12px;min-width:0}
+.finale-total-header>h2{font-size:44px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.finale-base-total{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:16px;border-bottom:1px solid #be9cad66;min-width:0}
+.finale-base-total>span{font-size:22px;line-height:1.4;font-weight:700;max-width:200px}.finale-base-total>strong{font-size:64px;line-height:1.2;white-space:nowrap}
 .finale-base-total>span small{display:block;font-size:20px;line-height:1.4;white-space:nowrap;margin-top:6px;color:#d7becb}
-.finale-base-songs{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:24px;flex:1;min-height:0}
-.finale-base-song{min-width:0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:22px}
-.finale-base-song-head{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:baseline;gap:18px}
-.finale-base-song-head>span{font-size:22px;color:#b69fab}.finale-base-song-head>h3{font-size:29px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.finale-base-song-head>b{font-size:40px;white-space:nowrap}
-.finale-base-judgements{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0}.finale-base-judgements>div{min-width:0;color:var(--judgement-color)}.finale-base-judgements dt{font-size:20px;font-weight:700;line-height:1.4}.finale-base-judgements dd{margin:8px 0 0;font-size:32px;line-height:1.3;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finale-base-songs{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:16px;min-height:0}
+.finale-base-song{min-width:0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.finale-base-song-head{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:baseline;gap:14px}
+.finale-base-song-head>span{font-size:22px;color:#b69fab;white-space:nowrap}.finale-base-song-head>h3{font-size:30px;line-height:1.2;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.finale-base-judgements{display:grid;grid-template-columns:minmax(0,1.55fr) repeat(4,minmax(0,1fr));align-items:baseline;gap:12px;margin:0}.finale-base-judgements>div{min-width:0;color:var(--judgement-color)}.finale-base-judgements dt{font-size:19px;font-weight:700;line-height:1.4}.finale-base-judgements dd{margin:8px 0 0;font-size:32px;line-height:1.3;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finale-base-song-score dd{font-size:36px;color:#faf8fc}
 .finale-waiting-difficulty{font-size:32px;font-weight:700;line-height:1.4;color:#ffccd6;margin-top:18px}
 .finale-next-song [data-finale-garbled]{font-family:monospace;font-size:44px;letter-spacing:.1em}
 .finale-video-placeholder{position:absolute;inset:0;background:#03030a}

@@ -167,6 +167,93 @@ def geometry(page, phase):
         result['phase'] = phase
         REPORT['geometry'].append(result)
     page.set_viewport_size({'width': 1920, 'height': 1080})
+    page.wait_for_function("()=>Math.abs(document.querySelector('#canvas').getBoundingClientRect().width-1920)<.1")
+
+
+def fully_readable(page, selector, count, phase):
+    """Audit actual glyph rectangles before clipping, including wrapped lines.
+
+    textContent alone passes when an overflow-hidden title has been shortened by
+    the browser. Check every rendered line against its own box and every clipping
+    ancestor, so the real final-song title must remain visible in its entirety.
+    """
+    result = page.evaluate('''({selector})=>[...document.querySelectorAll(selector)].map(element=>{
+      const stage=document.querySelector('#canvas').getBoundingClientRect(),scale=stage.width/1920;
+      const box=e=>{const b=e.getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom}};
+      const css=getComputedStyle(element),bounds=box(element),walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT);
+      const lines=[],clipped=[];let text;
+      while(text=walker.nextNode()){
+        if(!text.textContent.trim())continue;
+        const range=document.createRange();range.selectNodeContents(text);
+        for(const r of range.getClientRects()){
+          const line={left:r.left,right:r.right,top:r.top,bottom:r.bottom,text:text.textContent};lines.push(line);
+          for(let ancestor=text.parentElement;ancestor;ancestor=ancestor.parentElement){
+            const style=getComputedStyle(ancestor),b=box(ancestor),tolerance=1.25*scale;
+            // Chromium's Range includes Saira's font ascent/descent padding,
+            // even when those pixels contain no glyph. Allow those metrics at
+            // a line's top/bottom, but never enough to conceal another line.
+            const verticalTolerance=Math.max(tolerance,parseFloat(getComputedStyle(text.parentElement).fontSize)*.25*scale);
+            if((['hidden','clip','auto','scroll'].includes(style.overflowX)&&
+                 (line.left<b.left-tolerance||line.right>b.right+tolerance))||
+               (['hidden','clip','auto','scroll'].includes(style.overflowY)&&
+                 (line.top<b.top-verticalTolerance||line.bottom>b.bottom+verticalTolerance)))
+              clipped.push({line,ancestor:ancestor.className||ancestor.id,box:b});
+          }
+        }
+      }
+      return {text:element.textContent.trim(),box:bounds,lines,clipped,
+        ellipsis:css.textOverflow==='ellipsis',width:element.clientWidth,scrollWidth:element.scrollWidth,
+        height:element.clientHeight,scrollHeight:element.scrollHeight};
+    })''', {'selector': selector})
+    assert len(result) == count, (phase, selector, result)
+    for item in result:
+        assert item['lines'] and not item['clipped'], (phase, selector, item)
+        assert item['scrollWidth'] <= item['width'] + 1, (phase, selector, item)
+    REPORT.setdefault('readability', []).append({'phase': phase, 'selector': selector, 'items': result})
+    return result
+
+
+def subtotal_geometry(page, phase):
+    geometry(page, phase)
+    # Header name and cumulative total occupy separate rows; every song keeps
+    # one full score and all four judgement counters in distinct grid cells.
+    fully_readable(page, '[data-finale-subtotal]', 2, phase)
+    fully_readable(page, '.finale-base-total>span', 2, phase)
+    fully_readable(page, '.finale-base-song-head>span', 4, phase)
+    fully_readable(page, '.finale-base-song-head>h3', 4, phase)
+    fully_readable(page, '.finale-base-judgements dt', 20, phase)
+    fully_readable(page, '.finale-base-judgements dd', 20, phase)
+    bounds = page.evaluate('''()=>[...document.querySelectorAll('.finale-total-card')].map(card=>{
+      const b=card.getBoundingClientRect(),items=[...card.querySelectorAll('.finale-total-header,.finale-base-song')];
+      return {card:{top:b.top,bottom:b.bottom,left:b.left,right:b.right},items:items.map(e=>{
+        const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};})};})''')
+    for entry in bounds:
+        for item in entry['items']:
+            assert all(item[key] >= entry['card'][key] - 1 for key in ['top', 'left']), entry
+            assert all(item[key] <= entry['card'][key] + 1 for key in ['bottom', 'right']), entry
+
+
+def graphic_styles(page):
+    return page.evaluate('''()=>[...document.querySelectorAll('#scene *,.club-logo,.phigros-logo,.key-visual img')].filter(element=>
+      !element.closest('svg')&&!element.closest('[data-motion-exits]')).map((element,index)=>{
+        const css=getComputedStyle(element);return {key:element.tagName+':'+element.className+':'+index,
+          boxShadow:css.boxShadow,filter:css.filter,outlineStyle:css.outlineStyle,outlineWidth:css.outlineWidth,
+          borders:['Top','Right','Bottom','Left'].map(side=>{const width=css['border'+side+'Width'],
+            style=css['border'+side+'Style'];return {width,style,
+              color:parseFloat(width)>0&&style!=='none'?css['border'+side+'Color']:''};})};})''')
+
+
+def text_only_highlights(page, baseline, phase):
+    styles = graphic_styles(page)
+    assert len(styles) == len(baseline), (phase, len(styles), len(baseline))
+    for ordinary, bright in zip(baseline, styles):
+        assert ordinary == bright, (phase, ordinary, bright)
+    result = page.evaluate('''()=>({text:[...document.querySelectorAll('.player-name h2,.song-band h2,.player-total strong')]
+      .map(e=>({text:e.textContent,shadow:getComputedStyle(e).textShadow})),
+      hopeGraphics:document.querySelectorAll('[data-finale-hope]').length})''')
+    assert result['text'] and all(item['shadow'] != 'none' for item in result['text']), (phase, result)
+    assert result['hopeGraphics'] == 0, (phase, result)
+    REPORT.setdefault('highlight_audits', []).append({'phase': phase, 'elements': len(styles), **result})
 
 
 def effect(page):
@@ -269,8 +356,22 @@ def main():
                 assert current(crew)['status'] != 'complete'
                 assert SECRET not in json.dumps(public_state(live), ensure_ascii=False)
                 assert '1,979,000' in live.locator('#scene').inner_text()
-                geometry(live, 'first-two-summary')
+                subtotal_geometry(live, 'first-two-summary')
                 snapshot(live, '01-first-two-summary.png')
+                # The reported overlap used ordinary Demo Player names. Also
+                # stress the maximum accepted name length through real actions;
+                # intentionally shortened names must stay in their own header.
+                fixture_player = current(crew)['players'][0]
+                fixture_name = next(player['name'] for player in helper.state(crew)['qualifier']['players']
+                                    if player['id'] == fixture_player)
+                helper.command(crew, 'rename-player', {'playerId': fixture_player,
+                    'name': 'Grand Final Challenger with a 48 character name!'})
+                live.wait_for_function("()=>document.querySelector('.finale-total-header h2')?.textContent.includes('Grand Final Challenger')")
+                live.wait_for_timeout(1000)
+                subtotal_geometry(live, 'first-two-summary-long-name')
+                helper.command(crew, 'rename-player', {'playerId': fixture_player, 'name': fixture_name})
+                live.wait_for_function("name=>document.querySelector('.finale-total-header h2')?.textContent.includes(name)", arg=fixture_name)
+                live.wait_for_timeout(800)
                 control_geometry(crew, 'first-two-summary')
                 check('the first two songs have a subtotal screen, never an awarded champion or leaked third-song title')
 
@@ -300,9 +401,12 @@ def main():
                 live.wait_for_timeout(800)
                 assert not any(not item['paused'] for item in effect(live)['video']), effect(live)
                 geometry(live, 'revealed-corrupted-waiting')
+                waiting_title = fully_readable(live, '.finale-next-song', 1, 'revealed-corrupted-waiting')[0]
+                assert waiting_title['text'] == SECRET and not waiting_title['ellipsis'], waiting_title
                 snapshot(live, '04-revealed-corrupted-waiting.png')
                 check('the uploaded-video interface plays fullscreen, stops BGM and returns to the revealed waiting screen at the shared cue deadline')
 
+                helper.command(crew, 'set-broadcast-display', {'showHandcams': True})
                 crew.wait_for_function("()=>document.querySelector('[data-production-next]')?.textContent.includes('進入第 3 首比賽')")
                 control_click(crew, '[data-production-next]')
                 helper.idle(live, 'double-elimination-match')
@@ -310,6 +414,7 @@ def main():
                 node_counts = []
                 cleared_tiles = []
                 transition_frames = []
+                baseline_graphics = None
                 for level in [0, 1, 2, 3, 4]:
                     capture_transition = os.environ.get('BROADCAST_TEST_GIF') == '1' and level in [1, 2, 3]
                     if capture_transition:
@@ -345,6 +450,12 @@ def main():
                     REPORT['effects'].append({'level': level, **info})
                     node_counts.append(info['group']['nodes'])
                     geometry(live, 'match-effect-' + str(level))
+                    match_title = fully_readable(live, '.song-band h2', 1, 'dual-camera-match-effect-' + str(level))[0]
+                    assert match_title['text'] == SECRET and not match_title['ellipsis'], match_title
+                    if level == 0:
+                        baseline_graphics = graphic_styles(live)
+                    elif level == 3:
+                        text_only_highlights(live, baseline_graphics, 'dual-camera-match-stage-three')
                     image = snapshot(live, '05-match-effect-' + str(level) + '.png')
                     # Primary capture rectangles must stay genuine alpha holes;
                     # all corruption and hope highlights belong to their surround.
@@ -372,8 +483,19 @@ def main():
                     assert restored['group']['nodes'] == node_counts[0], restored
                 save_purification(transition_frames)
                 check('jagged pixel holes glitch on the shared clock, grow across three stages, stop at full clearance, survive refresh and preserve text geometry, logos and transparent capture windows')
+                helper.command(crew, 'set-broadcast-display', {'showHandcams': False})
+                live.wait_for_function("()=>!document.querySelector('.match-layout').classList.contains('with-cameras')")
+                live.wait_for_timeout(900)
+                fully_readable(live, '.song-band h2', 1, 'single-camera-final-song-title')
+                check('subtotal scores and judgements stay separate, the full final title wraps in waiting and both camera layouts, and purification adds glow only to text')
 
+                # Keep the final result on purification stage 3, matching the
+                # reported bright champion screen rather than testing it only
+                # after all finale styling has been restored to ordinary mode.
+                helper.command(crew, 'set-final-finale-effect', {'matchId': 'GF', 'level': 3})
                 for pi in [0, 1]:
+                    helper.command(crew, 'rename-player', {'playerId': current(crew)['players'][pi],
+                        'name': 'Demo Player 0' + str(pi + 1)})
                     helper.command(crew, 'set-match-score', {'matchId': 'GF', 'playerIndex': pi, 'songIndex': 2,
                         'score': 800000 if pi == 0 else 1000000,
                         'judgements': {'accuracy': 80 if pi == 0 else 100, 'perfect': 800 if pi == 0 else 1000, 'good': 0, 'bad': 0, 'miss': 0}})
@@ -382,7 +504,12 @@ def main():
                 assert final['status'] == 'complete' and final['winnerId'] == final['players'][1], final
                 helper.command(crew, 'set-scene', {'scene': 'result'})
                 helper.idle(live, 'result')
+                live.wait_for_timeout(2700)
                 geometry(live, 'three-song-grand-final-results')
+                fully_readable(live, '.result-row>strong', 2, 'three-song-grand-final-results')
+                fully_readable(live, '.result-song-scores b', 6, 'three-song-grand-final-results')
+                assert all(item['boxShadow'] == 'none' and item['filter'] == 'none'
+                           for item in graphic_styles(live)), graphic_styles(live)
                 snapshot(live, '06-three-song-champion.png')
                 check('the third song changes the winner and the champion is calculated from all three totals')
                 assert not REPORT['browser_errors'], REPORT['browser_errors']

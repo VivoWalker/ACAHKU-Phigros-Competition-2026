@@ -211,7 +211,7 @@
     let group, shape, outline, glow, particles, shade, rearShape, rearEdge, rearParticles,
       frontShade, frontEdge, fragments, fragmentShadow, tears, texture;
     let phaseKey = '', target = 0, value = 0, cueId, bridge, effectSeed = 0;
-    let sequenceKey = '', sequence = {}, redLayer, hopeLayer, hopeMask, hopeHalo, hopeEdge, hopeBloom;
+    let sequenceKey = '', sequence = {}, redLayer, hopeMask;
     const originalLabels = new WeakMap();
     const phase = () => window.BroadcastFinalAnnouncement.phase(match, now());
     const finalSequence = () => sequencePhase(match, now(), window.BroadcastFinalSequence);
@@ -271,11 +271,6 @@
       // Dimming is local to the infected pixels, never a full-canvas filter.
       shade = node('rect', { 'data-finale-shade': '', width: WIDTH, height: HEIGHT, fill: '#10070d', opacity: '0', 'clip-path': 'url(#finale-invasion-clip)' });
       redLayer.append(shade);
-      hopeLayer = node('g', { 'data-finale-hope': '', opacity: '0' });
-      hopeBloom = node('path', { fill: '#d9ffff', opacity: '.055' });
-      hopeHalo = node('path', { fill: 'none', stroke: '#b8faff', 'stroke-width': '12', opacity: '.13', 'stroke-linejoin': 'miter' });
-      hopeEdge = node('path', { fill: 'none', stroke: '#fffde0', 'stroke-width': '2', opacity: '.85', 'stroke-linejoin': 'miter' });
-      hopeLayer.append(hopeBloom, hopeHalo, hopeEdge); group.append(hopeLayer);
       parent.append(group); return true;
     }
     function stopFrame() { if (frame) window.cancelAnimationFrame(frame); frame = 0; lastFrame = 0; }
@@ -325,10 +320,9 @@
       else redLayer.removeAttribute('mask');
       const motion = reduce.matches || level >= 3 ? 0 : level === 2 ? .65 : 1;
       const openings = pixelHoles(hope ? cleared.amount : 0, effectSeed, seconds, motion);
-      hopeMask.setAttribute('d', openings.mask); hopeHalo.setAttribute('d', openings.edge); hopeEdge.setAttribute('d', openings.edge);
-      hopeBloom.setAttribute('d', openings.mask);
-      hopeLayer.setAttribute('visibility', hope ? 'visible' : 'hidden');
-      hopeLayer.setAttribute('opacity', hope ? level === 3 && cleared.progress === 1 ? '.3' : '.85' : '0');
+      // Pixel holes reveal the original backdrop without painting luminous
+      // outlines or fills. Recovery light belongs to text glyphs only.
+      hopeMask.setAttribute('d', openings.mask);
       group.dataset.purification = extensive ? String(level) : 'off';
       group.dataset.hopeAmount = (hope ? cleared.amount : 0).toFixed(4);
       group.dataset.clearedTiles = String(openings.cleared);
@@ -420,7 +414,7 @@
         reduce.removeEventListener('change', refresh); document.removeEventListener('visibilitychange', refresh);
         group?.remove(); group = shape = outline = glow = particles = shade = match = bridge = null;
         rearShape = rearEdge = rearParticles = frontShade = frontEdge = fragments = fragmentShadow = tears = texture = null;
-        redLayer = hopeLayer = hopeMask = hopeHalo = hopeEdge = hopeBloom = null;
+        redLayer = hopeMask = null;
         canvas.classList.remove('finale-infected', 'finale-effects-running', 'finale-sequence-corrupt');
         canvas.dataset.finalePurification = 'off';
         canvas.dataset.finaleActive = 'false'; canvas.dataset.finaleCoverage = '0'; canvas.dataset.finaleStage = '0';

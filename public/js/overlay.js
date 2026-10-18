@@ -248,7 +248,10 @@
     const match = B.currentMatch(s);
     if (!match || match.id !== 'GF') return doubleWaiting(s);
     const totals = match.scores.map(row => row.slice(0, 2).every(score => score !== null) ? B.total(row.slice(0, 2)) : null);
-    const card = (id, pi) => `<article data-motion-block class='finale-total-card' data-finale-total-player='${e(id || '')}'><h2>${entrantText(entrant(s, id))}</h2><div class='finale-base-total'><span>前兩首總分<small>2-SONG TOTAL</small></span><strong data-finale-subtotal>${B.score(totals[pi])}</strong></div><div class='finale-base-songs'>${match.songs.slice(0, 2).map((song, si) => `<section class='finale-base-song'><div class='finale-base-song-head'><span>0${si + 1}</span><h3>${e(song.title)}</h3><b>${B.score(match.scores[pi][si])}</b></div><dl class='finale-base-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd>${B.score(match.judgements?.[pi]?.[si]?.[key])}</dd></div>`).join('')}</dl></section>`).join('')}</div></article>`;
+    const card = (id, pi) => {
+      const songs = match.songs.slice(0, 2).map((song, si) => `<section class='finale-base-song' data-finale-base-song-index='${si}'><div class='finale-base-song-head'><span>SONG 0${si + 1}</span><h3>${e(song.title)}</h3></div><dl class='finale-base-judgements'><div class='finale-base-song-score'><dt>SCORE</dt><dd data-stat='score'>${B.score(match.scores[pi][si])}</dd></div>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}'>${B.score(match.judgements?.[pi]?.[si]?.[key])}</dd></div>`).join('')}</dl></section>`).join('');
+      return `<article data-motion-block class='finale-total-card' data-finale-total-player='${e(id || '')}'><header class='finale-total-header'><h2>${entrantText(entrant(s, id))}</h2><div class='finale-base-total'><span>前兩首總分<small>2-SONG TOTAL</small></span><strong data-finale-subtotal>${B.score(totals[pi])}</strong></div></header><div class='finale-base-songs'>${songs}</div></article>`;
+    };
     return backdrop() + header(s, 'GRAND FINAL') + title('決賽階段成績', 'FIRST TWO SONGS · CUMULATIVE SCORES') + `<div class='finale-totals'>${match.players.map(card).join('')}</div>`;
   }
   function finalVideoScene(s) {
