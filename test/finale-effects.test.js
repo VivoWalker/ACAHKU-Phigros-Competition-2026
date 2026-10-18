@@ -364,6 +364,27 @@ function holePixels(holes) {
   return pixels;
 }
 
+function borderMetrics(pixels) {
+  const columns = Effects.WIDTH / 8, rows = Effects.HEIGHT / 8;
+  let exposed = 0, seams = 0, longRuns = 0, runs = 0;
+  const scan = (length, changed, onFormerSeam) => {
+    let run = 0;
+    const finish = () => { if (run) { runs++; if (run >= 6) longRuns += run; run = 0; } };
+    for (let position = 0; position < length; position++) {
+      if (changed(position)) { exposed++; seams += Number(onFormerSeam); run++; }
+      else finish();
+    }
+    finish();
+  };
+  // Ignore the screen's outer rectangle: only the actual exposed clearing
+  // boundary says whether the mask still follows the former 48px tile grid.
+  for (let row = 1; row < rows; row++)
+    scan(columns, column => pixels[(row - 1) * columns + column] !== pixels[row * columns + column], row % 6 === 0);
+  for (let column = 1; column < columns; column++)
+    scan(rows, row => pixels[row * columns + column - 1] !== pixels[row * columns + column], column % 6 === 0);
+  return { exposed, runs, formerSeamFraction: seams / exposed, longRunFraction: longRuns / exposed };
+}
+
 test('pixel holes are finite orthogonal microgrid shapes, deterministic and nested as they grow and merge', () => {
   for (const seed of [0, 42, 8102]) {
     let before = { clearance: 0, cleared: 0 }, previousPixels = holePixels({ rects: [] });
@@ -396,7 +417,7 @@ test('pixel-hole boundaries glitch independently on the shared clock and settle 
       const before = Effects.pixelHoles(amount, seed, 20);
       const after = Effects.pixelHoles(amount, seed, 20.15);
       assert.notEqual(before.mask, after.mask, 'the clearing boundary should glitch within a fraction of a second');
-      assert.notEqual(before.edge, after.edge, 'glowing exposed edges must follow the changing clearing mask');
+      assert.notEqual(before.edge, after.edge, 'exposed-edge diagnostics must follow the changing clearing mask');
       assert.ok(Math.abs(before.clearance - after.clearance) < .04,
         'edge jitter must not make a whole recovered region flash in and out');
       assert.deepEqual(Effects.pixelHoles(amount, seed, 20, 0), Effects.pixelHoles(amount, seed, 20.15, 0),
@@ -407,6 +428,20 @@ test('pixel-hole boundaries glitch independently on the shared clock and settle 
     assert.deepEqual(end, Effects.pixelHoles(1, seed, 20.15));
     assert.equal(end.clearance, 1);
     assert.ok(holePixels(end).every(filled => filled === 1));
+  }
+});
+
+test('organic clearing borders break former 48px seams and long rectangular edges', () => {
+  for (const seed of [0, 42, 8102]) {
+    for (const amount of [.28, .65]) {
+      const pixels = holePixels(Effects.pixelHoles(amount, seed, 20));
+      const metrics = borderMetrics(pixels);
+      assert.ok(metrics.exposed > 1000 && metrics.runs > 400, metrics);
+      assert.ok(metrics.formerSeamFraction < .25,
+        `clearing borders must not align to the removed tile grid: ${JSON.stringify({ seed, amount, ...metrics })}`);
+      assert.ok(metrics.longRunFraction < .2,
+        `pixel scars should not retain long rectangular borders: ${JSON.stringify({ seed, amount, ...metrics })}`);
+    }
   }
 });
 

@@ -118,6 +118,16 @@ def collect_purification(page, frames, level):
     REPORT.setdefault('transition_frames', []).append({'level': level, 'milliseconds': timeline})
 
 
+def collect_corruption(page, frames):
+    """Include the live text corruption before the recovery preview begins."""
+    started = time.monotonic()
+    for index in range(12):
+        delay = started + index * .1 - time.monotonic()
+        if delay > 0:
+            page.wait_for_timeout(delay * 1000)
+        frames.append(preview_frame(page))
+
+
 def save_purification(frames):
     if not frames:
         return
@@ -274,6 +284,11 @@ def effect(page):
 def profile_geometry(page):
     REPORT['pixel_geometry_timing'] = page.evaluate('''()=>[.28,.65].map(amount=>{
       const samples=[],rectangles=[],bytes=[];
+      // This synthetic seed is different from the live match. Separate its
+      // one-time field construction from the cached per-frame geometry cost;
+      // the controller prepares the real match field in its earlier RAFs.
+      const setup=performance.now();BroadcastFinaleEffects.pixelHoles(amount,42,20);
+      const cacheSetupMs=performance.now()-setup;
       for(let index=0;index<32;index++){
         const started=performance.now();
         const holes=BroadcastFinaleEffects.pixelHoles(amount,42,20+index*.05,amount<.5?1:.65);
@@ -281,9 +296,47 @@ def profile_geometry(page):
         bytes.push(holes.mask.length+holes.edge.length);
       }
       samples.sort((a,b)=>a-b);
-      return {amount,medianMs:samples[16],p95Ms:samples[30],maxMs:samples[31],
+      return {amount,cacheSetupMs,medianMs:samples[16],p95Ms:samples[30],maxMs:samples[31],
         maxRectangles:Math.max(...rectangles),maxPathBytes:Math.max(...bytes)};
     })''')
+
+
+def text_motion(page, phase, still=False):
+    """Measure actual rendered bursts rather than just checking animation names.
+
+    The labels may move, rotate and split into red/cyan copies. Their stationary
+    parents, OBS capture holes and branding must keep exactly the same geometry.
+    """
+    report = page.evaluate('''async()=>{
+      const labels=[...document.querySelectorAll('.player-name h2,.song-band h2,.finale-next-song')];
+      const stable=[...document.querySelectorAll('.capture-window,[data-motion-branding] img')];
+      const boxes=()=>stable.map(e=>{const b=e.getBoundingClientRect();return [b.x,b.y,b.width,b.height]});
+      const initial=boxes(),samples=[];
+      for(let index=0;index<72;index++){
+        samples.push(labels.map(e=>{const s=getComputedStyle(e),n=v=>parseFloat(v)||0;
+          const translation=s.translate==='none'?[0,0]:s.translate.split(' ').map(n);
+          const shadows=[...s.textShadow.matchAll(/rgba?\\([^)]*\\)\\s+(-?[\\d.]+)px\\s+(-?[\\d.]+)px/g)];
+          return {text:e.textContent,x:translation[0]||0,y:translation[1]||0,rotate:n(s.rotate),
+            split:Math.max(0,...shadows.map(v=>Math.abs(Number(v[1])))),shadow:s.textShadow};}));
+        await new Promise(resolve=>setTimeout(resolve,30));
+      }
+      return {initial,final:boxes(),labels:labels.map((e,index)=>{
+        const frames=samples.map(s=>s[index]);
+        return {text:e.textContent,frames,maxOffset:Math.max(...frames.map(s=>Math.hypot(s.x,s.y))),
+          maxRotation:Math.max(...frames.map(s=>Math.abs(s.rotate))),
+          maxSplit:Math.max(...frames.map(s=>s.split)),positions:new Set(frames.map(s=>[s.x,s.y,s.rotate].join(','))).size};})};
+    }''')
+    assert report['labels'], (phase, report)
+    for start, end in zip(report['initial'], report['final']):
+        assert all(abs(a-b) < .02 for a, b in zip(start, end)), (phase, start, end)
+    if still:
+        assert all(item['maxOffset'] == 0 and item['maxRotation'] == 0 and item['positions'] == 1
+                   for item in report['labels']), (phase, report)
+    else:
+        assert all(item['positions'] >= 4 and item['maxOffset'] > .5 and item['maxSplit'] > .5
+                   for item in report['labels']), (phase, report)
+    REPORT.setdefault('text_motion', []).append({'phase': phase, **report})
+    return report
 
 
 def control_geometry(page, phase):
@@ -381,6 +434,15 @@ def main():
                 assert SECRET not in json.dumps(public_state(live), ensure_ascii=False)
                 geometry(live, 'sealed-corrupted-waiting')
                 snapshot(live, '02-sealed-corrupted-waiting.png')
+                transition_frames = []
+                if os.environ.get('BROADCAST_TEST_GIF') == '1':
+                    live.set_viewport_size({'width': 640, 'height': 360})
+                    collect_corruption(live, transition_frames)
+                    live.set_viewport_size({'width': 1920, 'height': 1080})
+                    live.wait_for_function("()=>Math.abs(document.querySelector('#canvas').getBoundingClientRect().width-1920)<.1")
+                sealed_motion = text_motion(live, 'sealed-corrupted-waiting')
+                assert max(item['maxOffset'] for item in sealed_motion['labels']) >= 5, sealed_motion
+                assert max(item['maxSplit'] for item in sealed_motion['labels']) >= 4, sealed_motion
                 if os.environ.get('BROADCAST_TEST_SEALED_GIF') == '1':
                     motion(live, 'sealed-corruption.gif')
                 check('sealed waiting shows live garbled text and screen-wide infection without revealing the configured song')
@@ -413,8 +475,8 @@ def main():
                 assert current(crew)['currentSong'] == 2
                 node_counts = []
                 cleared_tiles = []
-                transition_frames = []
                 baseline_graphics = None
+                text_stages = {}
                 for level in [0, 1, 2, 3, 4]:
                     capture_transition = os.environ.get('BROADCAST_TEST_GIF') == '1' and level in [1, 2, 3]
                     if capture_transition:
@@ -452,6 +514,11 @@ def main():
                     geometry(live, 'match-effect-' + str(level))
                     match_title = fully_readable(live, '.song-band h2', 1, 'dual-camera-match-effect-' + str(level))[0]
                     assert match_title['text'] == SECRET and not match_title['ellipsis'], match_title
+                    measured = text_motion(live, 'match-effect-' + str(level), still=level >= 3)
+                    text_stages[level] = max(item['maxOffset'] for item in measured['labels'])
+                    if level == 0:
+                        assert text_stages[level] >= 5, measured
+                        assert max(item['maxSplit'] for item in measured['labels']) >= 4, measured
                     if level == 0:
                         baseline_graphics = graphic_styles(live)
                     elif level == 3:
@@ -462,6 +529,13 @@ def main():
                     for x, y in [(300, 450), (1250, 450)]:
                         assert image.getpixel((x, y))[3] == 0, (level, x, y, image.getpixel((x, y)))
                     if level == 2:
+                        live.emulate_media(reduced_motion='reduce')
+                        live.wait_for_timeout(150)
+                        text_motion(live, 'match-stage-two-reduced-motion', still=True)
+                        frozen = effect(live)['group']['clearing']['fingerprint']
+                        live.wait_for_timeout(200)
+                        assert effect(live)['group']['clearing']['fingerprint'] == frozen
+                        live.emulate_media(reduced_motion='no-preference')
                         live.reload()
                         helper.idle(live, 'double-elimination-match')
                         live.wait_for_timeout(800)
@@ -472,6 +546,7 @@ def main():
                                    float(info['group']['dataset']['clearance'])) < .04, refreshed
                 assert len(set(node_counts)) == 1, node_counts
                 assert 0 < cleared_tiles[0] < cleared_tiles[1] < cleared_tiles[2], cleared_tiles
+                assert text_stages[0] > text_stages[1] > text_stages[2] > text_stages[3], text_stages
                 profile_geometry(live)
                 # Operators can also restore corruption or step backwards;
                 # removing a clearing stage must not retain stale mask holes.

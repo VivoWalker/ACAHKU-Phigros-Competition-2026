@@ -75,52 +75,86 @@
     return result;
   }
 
-  let cachedHoleSeed, cachedHoleLayout;
-  function holeLayout(seed) {
-    if (cachedHoleLayout && cachedHoleSeed === seed) return cachedHoleLayout;
-    const columns = Math.ceil(WIDTH / HOLE_TILE), rows = Math.ceil(HEIGHT / HOLE_TILE);
-    const cells = [], quadrants = [[], [], [], []];
-    for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
-      const index = row * columns + column;
-      // Nearby cells heal in irregular patches rather than independent noise.
-      // Balanced quadrants keep every stage dispersed across the background.
-      const priority = random(Math.floor(column / 4) * 71 + Math.floor(row / 4) * 193 + seed) * .55
-        + random(Math.floor(column / 2) * 43 + Math.floor(row / 2) * 157 + seed + 311) * .3
-        + random(index * 29 + seed + 911) * .15;
-      const cell = { column, row, priority, delay: 0,
-        anchorX: random(index * 41 + seed + 111), anchorY: random(index * 67 + seed + 231) };
-      cells.push(cell);
-      quadrants[(row * HOLE_TILE >= HEIGHT / 2 ? 2 : 0) + (column * HOLE_TILE >= WIDTH / 2 ? 1 : 0)].push(cell);
+  let cachedHoleSeed, cachedHoleLayout, pendingHoleSeed, pendingHoleLayout;
+  const holeHash = (x, y, seed) => {
+    let value = Math.imul(x ^ seed, 374761393) ^ Math.imul(y, 668265263);
+    value = Math.imul(value ^ value >>> 13, 1274126177);
+    return ((value ^ value >>> 16) >>> 0) / 4294967296;
+  };
+  function holeNoise(x, y, seed) {
+    const ix = Math.floor(x), iy = Math.floor(y), px = ease(x - ix), py = ease(y - iy);
+    return mix(mix(holeHash(ix, iy, seed), holeHash(ix + 1, iy, seed), px),
+      mix(holeHash(ix, iy + 1, seed), holeHash(ix + 1, iy + 1, seed), px), py);
+  }
+  function holeCell(x, y, seed) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    let nearest = 4;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const cx = ix + dx, cy = iy + dy;
+      const sx = cx + .12 + holeHash(cx, cy, seed) * .76 - x;
+      const sy = cy + .12 + holeHash(cx, cy, seed + 97) * .76 - y;
+      nearest = Math.min(nearest, sx * sx + sy * sy);
     }
-    for (const quadrant of quadrants) {
-      quadrant.sort((a, b) => a.priority - b.priority || a.row - b.row || a.column - b.column);
-      quadrant.forEach((cell, index) => { cell.delay = .85 * index / (quadrant.length - 1); });
+    return Math.min(1, Math.sqrt(nearest));
+  }
+  function* buildHoleLayout(seed) {
+    const columns = WIDTH / HOLE_PIXEL, rows = HEIGHT / HOLE_PIXEL, salt = seed | 0;
+    const thresholds = new Float32Array(columns * rows), order = Array.from(thresholds, (_, index) => index);
+    // A warped field has no rectangular parent tiles. Broad openings, narrow
+    // necks and small detached pixels share the same progressive threshold.
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < columns; x++) {
+        const wx = x + (holeNoise(x / 29, y / 23, salt + 41) - .5) * 25
+          + (holeNoise(x / 9, y / 11, salt + 83) - .5) * 7;
+        const wy = y + (holeNoise(x / 27, y / 21, salt + 137) - .5) * 22
+          + (holeNoise(x / 12, y / 8, salt + 191) - .5) * 6;
+        thresholds[y * columns + x] = holeNoise(wx / 19, wy / 17, salt + 229) * .37
+          + holeNoise(wx / 7.3, wy / 8.7, salt + 311) * .25
+          + holeNoise(wx / 2.7, wy / 3.1, salt + 431) * .16
+          + holeCell(wx / 11.7, wy / 10.3, salt + 569) * .12
+          + holeHash(x, y, salt + 683) * .1;
+      }
+      yield;
     }
-    const microColumns = WIDTH / HOLE_PIXEL, microRows = HEIGHT / HOLE_PIXEL;
-    const thresholds = new Float32Array(microColumns * microRows);
-    thresholds.fill(1);
-    for (const cell of cells) {
-      const tileX = cell.column * HOLE_TILE / HOLE_PIXEL, tileY = cell.row * HOLE_TILE / HOLE_PIXEL;
-      const tileWidth = Math.min(HOLE_TILE / HOLE_PIXEL, microColumns - tileX);
-      const tileHeight = Math.min(HOLE_TILE / HOLE_PIXEL, microRows - tileY);
-      // Start with growing patches, then fracture their borders at an 8px
-      // scale. Activation thresholds stay independent of progress so every
-      // recovered pixel remains recovered as a stage advances at a fixed time.
-      for (let step = 1; step <= 6; step++) {
-        const width = Math.ceil(step * tileWidth / 6), height = Math.ceil(step * tileHeight / 6);
-        const x0 = tileX + Math.floor(cell.anchorX * (tileWidth - width));
-        const y0 = tileY + Math.floor(cell.anchorY * (tileHeight - height));
-        for (let y = y0; y < y0 + height; y++) for (let x = x0; x < x0 + width; x++) {
-          const index = y * microColumns + x;
-          if (thresholds[index] !== 1) continue;
-          const roughness = (random(index * 23 + seed + 401) - .5) * .104
-            + (random(Math.floor(x / 2) * 131 + Math.floor(y / 2) * 173 + seed + 601) - .5) * .032;
-          thresholds[index] = clamp(cell.delay + (step - 1) * .025 + roughness, .005, .98);
-        }
+    // Sparse ragged data tears break the rounded noise contours without
+    // creating a repeated row grid or one giant clean horizontal aperture.
+    for (let tear = 0; tear < 27; tear++) {
+      const x0 = Math.floor(holeHash(tear, 0, salt + 719) * columns);
+      const y0 = Math.floor(holeHash(tear, 1, salt + 719) * rows);
+      const width = 7 + Math.floor(holeHash(tear, 2, salt + 719) * 22);
+      for (let dx = 0; dx < width && x0 + dx < columns; dx++) {
+        const y = y0 + (holeHash(dx, tear, salt + 761) > .76 ? 1 : 0);
+        if (y < rows && holeHash(dx, tear, salt + 809) > .18)
+          thresholds[y * columns + x0 + dx] -= .09 + holeHash(dx, tear, salt + 857) * .12;
       }
     }
-    // Retain just one small typed-array layout, even after repeated resets.
-    cachedHoleSeed = seed; cachedHoleLayout = { cells, thresholds }; return cachedHoleLayout;
+    // Rank normalization preserves useful stage coverage for every seed while
+    // retaining the field's irregular topology. A fixed clock remains nested.
+    yield;
+    order.sort((a, b) => thresholds[a] - thresholds[b] || a - b);
+    order.forEach((index, rank) => { thresholds[index] = .001 + .998 * rank / (order.length - 1); });
+    return { thresholds };
+  }
+  function prepareHoleLayout(seed, steps = 2) {
+    if (cachedHoleLayout && cachedHoleSeed === seed) return cachedHoleLayout;
+    if (!pendingHoleLayout || pendingHoleSeed !== seed) {
+      pendingHoleSeed = seed; pendingHoleLayout = buildHoleLayout(seed);
+    }
+    for (let step = 0; step < steps; step++) {
+      const next = pendingHoleLayout.next();
+      if (!next.done) continue;
+      // At most one completed field and one in-progress field are retained.
+      cachedHoleSeed = seed; cachedHoleLayout = next.value;
+      pendingHoleSeed = undefined; pendingHoleLayout = undefined;
+      return cachedHoleLayout;
+    }
+  }
+  function holeLayout(seed) {
+    let layout;
+    // An immediate stage change can finish the already-prepared rows without
+    // restarting work. Normal reveals have ample time to prepare every row.
+    while (!(layout = prepareHoleLayout(seed, 1))) { /* drain the bounded field */ }
+    return layout;
   }
   function pixelHoles(amount, seed = 0, seconds = 0, motion = 1) {
     const value = clamp(amount, 0, 1);
@@ -130,14 +164,18 @@
       total, clearance: 0 };
     if (value === 1) return { mask: `M0 0h${WIDTH}v${HEIGHT}h-${WIDTH}Z`,
       edge: `M0 0H${WIDTH}V${HEIGHT}H0Z`, rects: [[0, 0, WIDTH, HEIGHT]], cleared: total, total, clearance: 1 };
-    const { cells, thresholds } = holeLayout(seed), pixels = new Uint8Array(thresholds.length);
+    const { thresholds } = holeLayout(seed), pixels = new Uint8Array(thresholds.length);
     const counts = new Uint8Array(total), tileColumns = Math.ceil(WIDTH / HOLE_TILE);
-    const jitter = clamp(motion, 0, 1) * .014, tick = Math.floor(seconds * 8);
+    const jitter = clamp(motion, 0, 1) * .068, tick = Math.floor(seconds * 9), salt = seed | 0;
     let area = 0;
     for (let y = 0; y < rows; y++) for (let x = 0; x < columns; x++) {
       const index = y * columns + x, threshold = thresholds[index];
+      // Local bursts move a few neighboring pixels together; independent
+      // fragments chatter around them. Only the active frontier changes, so
+      // healed interiors do not flash wholesale back into corruption.
       const offset = jitter && Math.abs(value - threshold) <= jitter
-        ? (random(index * 37 + tick * 53 + seed + 809) * 2 - 1) * jitter : 0;
+        ? ((holeHash(Math.floor(x / 3), Math.floor(y / 2), salt + tick * 157 + 911) * 2 - 1) * .65
+          + (holeHash(x, y, salt + tick * 263 + 1013) * 2 - 1) * .35) * jitter : 0;
       if (value <= threshold + offset) continue;
       pixels[index] = 1; area++;
       counts[Math.floor(y / 6) * tileColumns + Math.floor(x / 6)]++;
@@ -162,8 +200,8 @@
     }
     let mask = '', edge = '', cleared = 0;
     for (const [x, y, width, height] of rects) mask += `M${x} ${y}h${width}v${height}h-${width}Z`;
-    // Only exposed boundary runs glow. The mask and its outline share exactly
-    // the same broken pixels, including short notches and detached fragments.
+    // Keep a matching exposed-edge path for diagnostics. The rendered mask
+    // itself adds no glow, luminous borders or internal grid lines.
     for (let y = 0; y <= rows; y++) for (let x = 0; x < columns;) {
       const exposed = at => !!(y > 0 && pixels[(y - 1) * columns + at]) !== !!(y < rows && pixels[y * columns + at]);
       if (!exposed(x)) { x++; continue; }
@@ -178,8 +216,8 @@
       while (y < rows && exposed(y)) y++;
       edge += `M${x * HOLE_PIXEL} ${start * HOLE_PIXEL}v${(y - start) * HOLE_PIXEL}`;
     }
-    for (let index = 0; index < cells.length; index++) {
-      const height = Math.min(6, rows - cells[index].row * 6);
+    for (let index = 0; index < total; index++) {
+      const height = Math.min(6, rows - Math.floor(index / tileColumns) * 6);
       if (counts[index] === 6 * height) cleared++;
     }
     return { mask, edge, rects, cleared, total, clearance: area / pixels.length };
@@ -318,6 +356,9 @@
       // rendering path. An extra full-canvas mask is needed only while clearing.
       if (hope) redLayer.setAttribute('mask', 'url(#finale-hope-clearing)');
       else redLayer.removeAttribute('mask');
+      // Reuse the existing 20fps draw loop to prepare a few rows before the
+      // first purification cue. No extra timer or animation handle is needed.
+      if (!hope) prepareHoleLayout(effectSeed);
       const motion = reduce.matches || level >= 3 ? 0 : level === 2 ? .65 : 1;
       const openings = pixelHoles(hope ? cleared.amount : 0, effectSeed, seconds, motion);
       // Pixel holes reveal the original backdrop without painting luminous

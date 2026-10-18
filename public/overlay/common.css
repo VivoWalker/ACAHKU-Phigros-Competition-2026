@@ -163,21 +163,37 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 
 /* Final-song recovery sequence. Only individual DOM labels move: the
    persistent capture mask, feed borders, logos and video plane stay fixed. */
-.finale-sequence-corrupt{--finale-jitter:1;--finale-split:2px}
-.finale-sequence-corrupt[data-finale-purification="1"]{--finale-jitter:.64;--finale-split:1.25px}
-.finale-sequence-corrupt[data-finale-purification="2"]{--finale-jitter:.28;--finale-split:.6px}
-.finale-sequence-corrupt :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.player-name h2,.player-total strong,.song-band>strong,.song-band>span,.section-label,.final-song-copy h2){transition:text-shadow 900ms ease,color 900ms ease}
-.finale-sequence-corrupt.finale-effects-running :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.player-name h2,.player-total strong,.song-band>strong,.song-band>span,.section-label,.final-song-copy h2){animation:finale-ui-dislocation 1.83s cubic-bezier(.45,0,.55,1) infinite;text-shadow:var(--finale-split) 0 #ff4d6c,calc(var(--finale-split)*-1) 0 #9eeff3}
-.finale-sequence-corrupt.finale-effects-running :is(.topmeta,.player-name h2,.waiting-song>h2){animation-delay:-.63s;animation-duration:2.17s}
-.finale-sequence-corrupt.finale-effects-running :is(.section-label,.player-total strong,.song-band>span){animation-delay:-1.12s;animation-duration:2.57s}
-@keyframes finale-ui-dislocation{0%,14%,27%,44%,61%,83%,100%{translate:0 0;opacity:1}18%{translate:calc(-1.8px*var(--finale-jitter)) calc(.7px*var(--finale-jitter));opacity:.9}22%{translate:calc(2.2px*var(--finale-jitter)) calc(-.9px*var(--finale-jitter));opacity:.96}49%{translate:calc(.9px*var(--finale-jitter)) calc(.5px*var(--finale-jitter));opacity:.87}54%{translate:calc(-1.3px*var(--finale-jitter)) calc(-.6px*var(--finale-jitter));opacity:1}88%{translate:calc(1.6px*var(--finale-jitter)) 0;opacity:.94}}
+.finale-sequence-corrupt{--finale-jitter:1;--finale-split:1px}
+.finale-sequence-corrupt[data-finale-purification="1"]{--finale-jitter:.72;--finale-split:.72px}
+.finale-sequence-corrupt[data-finale-purification="2"]{--finale-jitter:.34;--finale-split:.34px}
+.finale-sequence-corrupt :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.waiting-players>p,.finale-waiting-difficulty,.player-name h2,.player-total strong,.song-band>h2,.song-band>span,.section-label,.final-song-copy h2,.winner-panel>h1,.winner-score,.result-row>h2,.result-row>strong){transition:text-shadow 900ms ease,color 900ms ease}
+/* Sharp, intermittent glyph displacements leave the layout and OBS feeds fixed.
+   Individual translate coexists with the scene engine's transform animation. */
+.finale-sequence-corrupt.finale-effects-running :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.waiting-players>p,.finale-waiting-difficulty,.player-name h2,.player-total strong,.song-band>h2,.song-band>span,.section-label,.final-song-copy h2,.winner-panel>h1,.winner-score,.result-row>h2,.result-row>strong){
+  --finale-label-jitter:1;
+  --finale-glitch-unit:calc(1px*var(--finale-jitter)*var(--finale-label-jitter));
+  animation:finale-ui-dislocation 1.37s steps(1,end) infinite;
+  transition:color 900ms ease;
+}
+.finale-sequence-corrupt.finale-effects-running :is(.waiting-song>h2,.song-band>h2,.final-song-copy h2){--finale-label-jitter:.8;animation-delay:-.43s;animation-duration:1.19s}
+.finale-sequence-corrupt.finale-effects-running :is(.event-title,.topmeta,.player-name h2,.result-row>h2){--finale-label-jitter:.55;animation-delay:-.71s;animation-duration:1.61s}
+.finale-sequence-corrupt.finale-effects-running :is(.section-label,.player-total strong,.song-band>span,.waiting-players>p,.finale-waiting-difficulty,.winner-score,.result-row>strong){--finale-label-jitter:.55;animation-delay:-1.13s;animation-duration:1.79s}
+.finale-sequence-corrupt.finale-effects-running :is(.player-2 h2,.player-2 .player-total strong){animation-delay:-.23s;animation-duration:1.47s}
+@keyframes finale-ui-dislocation{
+  0%,8%,19%,31%,47%,59%,73%,89%,100%{translate:0 0;opacity:1;text-shadow:var(--finale-split) 0 #ff4d6c55,calc(var(--finale-split)*-1) 0 #9eeff355}
+  10%,63%,93%{translate:calc(-6*var(--finale-glitch-unit)) var(--finale-glitch-unit);opacity:calc(1 - .18*var(--finale-jitter));text-shadow:calc(5*var(--finale-glitch-unit)) 0 #ff335de6,calc(-4*var(--finale-glitch-unit)) 0 #88f5ffe6}
+  13%,51%,78%{translate:calc(8*var(--finale-glitch-unit)) calc(-2*var(--finale-glitch-unit));opacity:calc(1 - .38*var(--finale-jitter));text-shadow:calc(-6*var(--finale-glitch-unit)) var(--finale-glitch-unit) #ff335de6,calc(4*var(--finale-glitch-unit)) calc(-1*var(--finale-glitch-unit)) #88f5ffe6}
+  15%,39%,56%,83%,97%{translate:calc(-2*var(--finale-glitch-unit)) 0;opacity:1;text-shadow:calc(2*var(--finale-glitch-unit)) 0 #ff4d6caa,calc(-3*var(--finale-glitch-unit)) 0 #9eeff3cc}
+  34%,65%,95%{translate:calc(4*var(--finale-glitch-unit)) calc(2*var(--finale-glitch-unit));opacity:calc(1 - .25*var(--finale-jitter));text-shadow:calc(-4*var(--finale-glitch-unit)) 0 #ff335dcc,calc(6*var(--finale-glitch-unit)) 0 #88f5ffcc}
+  36%,54%,80%{translate:calc(-7*var(--finale-glitch-unit)) calc(-1*var(--finale-glitch-unit));opacity:calc(1 - .1*var(--finale-jitter));text-shadow:calc(6*var(--finale-glitch-unit)) calc(-1*var(--finale-glitch-unit)) #ff335de6,calc(-5*var(--finale-glitch-unit)) var(--finale-glitch-unit) #88f5ffe6}
+}
 [data-finale-garbled]{display:block;min-height:1.2em;letter-spacing:.12em;font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
 /* Recovery highlights glyphs only. Transparent panels, feed borders, logos
    and the pixel-clearing mask must retain their original painted geometry. */
 .finale-sequence-corrupt[data-finale-purification="3"] :is(h1,h2,h3,p,dt,dd,.event-title,.topmeta,.section-label,.song-band>span,.player-total>span,.player-total>strong,.winner-score,.result-row>strong,.result-song-scores b,.finale-base-total>span,.finale-base-total>strong,.handcam-label,.footer>span){text-shadow:0 0 2px #fffef7,0 0 8px #d1ffffb3,0 0 16px #afe9ff66;transition:text-shadow 1500ms cubic-bezier(.22,.61,.36,1)}
 .finale-sequence-corrupt[data-finale-purification="3"] :is(.waiting-song,.song-band,.winner-panel)::after{opacity:0;animation:none;transition:opacity 900ms ease}
 .finale-sequence-corrupt[data-finale-purification="3"] :is(.topmeta,.song-band>span:first-child,.waiting-song>span){color:#e1fcff}
-@media(prefers-reduced-motion:reduce){.finale-sequence-corrupt :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.player-name h2,.player-total strong,.song-band>strong,.song-band>span,.section-label,.final-song-copy h2){animation:none!important;translate:none!important;opacity:1!important}}
+@media(prefers-reduced-motion:reduce){.finale-sequence-corrupt :is(.event-title,.topmeta,.waiting-copy>h1,.waiting-song>h2,.waiting-players>p,.finale-waiting-difficulty,.player-name h2,.player-total strong,.song-band>h2,.song-band>span,.section-label,.final-song-copy h2,.winner-panel>h1,.winner-score,.result-row>h2,.result-row>strong){animation:none!important;translate:none!important;opacity:1!important}}
 
 /* Dedicated first-two-song standings never award a champion prematurely. */
 .finale-totals{position:absolute;left:96px;right:96px;top:360px;bottom:80px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:48px}
