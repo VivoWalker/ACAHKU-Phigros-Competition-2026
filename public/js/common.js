@@ -5,7 +5,9 @@
     ['qualifier-processing', 'Qualifier results processing', '預選賽結果統計中'],
     ['double-elimination-match', 'Double elimination match', '雙淘汰賽'], ['song-result', 'Results statistics', '成績統計'], ['result', 'Result announcement', '結果公佈'],
     ['bracket', 'Bracket progress', '雙淘汰賽進度'], ['song-selection', 'Song selection', '選曲'],
-    ['grand-final-announcement', 'Grand Final songs', '總決賽曲目公佈']
+    ['grand-final-announcement', 'Grand Final songs', '總決賽曲目公佈'],
+    ['grand-final-totals', 'Grand Final first two totals', '決賽前兩首累計成績'],
+    ['grand-final-video', 'Grand Final reveal video', '決賽最終曲公布影片']
   ];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const total = values => (values || []).reduce((s, n) => s + (n ?? 0), 0);
@@ -14,10 +16,10 @@
   const player = (state, id) => state.qualifier.plan ? qualifierPlayers(state, state.qualifier.activeGroup).find(p => p.id === id) || state.qualifier.players.find(p => p.id === id) : state.qualifier.players.find(p => p.id === id);
   const name = (state, id) => player(state, id)?.name || 'Vacant slot';
   const currentMatch = state => state.tournament.matches.find(m => m.id === state.tournament.currentMatchId);
-  const matchSongCount = match => match?.id === 'GF' && match.finalMode !== 'fixed-two' ? 3 : 2;
+  const matchSongCount = match => match?.id === 'GF' && (match.finalMode !== 'fixed-two' || match.finale && match.songs?.length === 3) ? 3 : 2;
   const fixedFinalSongs = state => {
     const final = state.tournament.matches.find(match => match.id === 'GF');
-    if (final?.finalMode === 'fixed-two') return final.songs;
+    if (final?.finalMode === 'fixed-two') return final.songs.slice(0, 2);
     const config = window.CompetitionConfig;
     return config && state.event.competitionVersion === config.VERSION ? config.FINAL_SONG_IDS.map(id => state.library.find(song => song.id === id)).filter(Boolean) : [];
   };

@@ -5,6 +5,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
   const WIDTH = 1920, HEIGHT = 1080, FRAME_MS = 50, PIXELS = 220, SEGMENTS = 160;
+  const PURIFICATION_MS = 2300, INVASION_MS = 1800, FULL_RADIUS = 1270;
   const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
   const random = index => { const value = Math.sin(index * 127.1 + 311.7) * 43758.5453; return value - Math.floor(value); };
   const ease = value => value * value * (3 - 2 * value);
@@ -20,8 +21,8 @@
 
   // Unequal steps, broad advancing lobes and short local tears keep the front
   // organic. Each depth moves independently; the capture mask stays stationary.
-  function contour(coverage, seconds = 0, depth = 0, seed = 0) {
-    const base = HEIGHT * (1 - clamp(coverage, 0, 2 / 3));
+  function contour(coverage, seconds = 0, depth = 0, seed = 0, maximum = 2 / 3) {
+    const base = HEIGHT * (1 - clamp(coverage, 0, maximum));
     const top = [], step = WIDTH / SEGMENTS, layerSeed = seed + depth * 151;
     for (let i = 0; i <= SEGMENTS; i++) {
       const x = i === 0 || i === SEGMENTS ? i * step : i * step + Math.round((random(i * 11 + seed) - .5) * 4) * 2;
@@ -31,7 +32,7 @@
       const wave = noise(i * .075, seconds * .47, seed + 31) * 56
         + noise(i * .32, seconds * 1.25, layerSeed + 113) * 27
         + noise(i * 1.71, seconds * 4.3, layerSeed + 281) * 13 + tear;
-      top.push([x, Math.round(clamp(base + depth * 28 + wave, 180, HEIGHT + 96) / 2) * 2]);
+      top.push([x, Math.round(clamp(base + depth * 28 + wave, maximum > 2 / 3 ? 12 : 180, HEIGHT + 96) / 2) * 2]);
     }
     let edge = `M0 ${top[0][1]}`;
     for (const [x, y] of top.slice(1)) edge += `H${x}V${y}`;
@@ -74,6 +75,38 @@
     return result;
   }
 
+  // A finite polygon mask is cheaper and more predictable in OBS than a
+  // full-screen displacement/turbulence filter. The opening grows from the
+  // exact centre while its own small irregular edge gradually calms down.
+  function hopeContour(radius, seconds = 0, seed = 0, irregularity = 1) {
+    const points = [], segments = 96;
+    for (let i = 0; i < segments; i++) {
+      const angle = i / segments * Math.PI * 2;
+      const wrinkle = radius > 0 ? noise(i * .23, seconds * 1.2, seed + 701) * 19 * irregularity : 0;
+      const r = Math.max(0, radius + wrinkle);
+      points.push([WIDTH / 2 + Math.cos(angle) * r, HEIGHT / 2 + Math.sin(angle) * r * .79]);
+    }
+    return points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') + 'Z';
+  }
+  function sequencePhase(match, time, api) {
+    const raw = api?.phase?.(match, time) || match?.finale;
+    const stage = raw?.stage || raw?.effectiveStage || 'base';
+    const involved = match?.id === 'GF' && ['sealed', 'video', 'revealed'].includes(stage);
+    const effectLevel = clamp(Number.isInteger(match?.finale?.effectLevel) ? match.finale.effectLevel : 0, 0, 4);
+    return { stage, involved, effectLevel, changedAt: match?.finale?.effectChangedAt || 0 };
+  }
+  function purification(level, changedAt, time) {
+    const radii = [0, 345, 665, FULL_RADIUS, 0];
+    if (level === 0 || level === 4) return { radius: 0, progress: 1 };
+    const progress = ease(clamp((time - changedAt) / PURIFICATION_MS, 0, 1));
+    return { radius: mix(radii[level - 1], radii[level], progress), progress };
+  }
+  function garbledTitle(time, seed = 0) {
+    const symbols = '01░▒▓█/\\≠∅∆◇※#@$%?';
+    const tick = Math.floor(time / 120);
+    return Array.from({ length: 16 }, (_, index) => symbols[Math.floor(random(tick * 71 + index * 17 + seed) * symbols.length)]).join('');
+  }
+
   function createController({ canvas, now = () => Date.now(), onPhaseChange = () => {} } = {}) {
     const document = canvas.ownerDocument, window = document.defaultView;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -82,8 +115,11 @@
     let group, shape, outline, glow, particles, shade, rearShape, rearEdge, rearParticles,
       frontShade, frontEdge, fragments, fragmentShadow, tears, texture;
     let phaseKey = '', target = 0, value = 0, cueId, bridge, effectSeed = 0;
+    let sequenceKey = '', sequence = {}, redLayer, hopeLayer, hopeMask, hopeHalo, hopeEdge, hopeBloom;
+    const originalLabels = new WeakMap();
     const phase = () => window.BroadcastFinalAnnouncement.phase(match, now());
-    const eligible = () => window.BroadcastFinalAnnouncement.isFixed(match)
+    const finalSequence = () => sequencePhase(match, now(), window.BroadcastFinalSequence);
+    const eligible = () => (sequence.involved || window.BroadcastFinalAnnouncement.isFixed(match))
       && scene !== 'start' && !scene.startsWith('qualifier-');
     const key = state => `${state.started ? 1 : 0}:${state.pending ? 1 : 0}:${state.index}`;
     const node = (name, attributes) => {
@@ -103,13 +139,22 @@
       const gradient = node('linearGradient', { id: 'finale-invasion-red', x1: '0', y1: '0', x2: '0', y2: '1' });
       gradient.append(node('stop', { 'stop-color': '#b8172b' }), node('stop', { offset: '.22', 'stop-color': '#850b1c' }),
         node('stop', { offset: '.65', 'stop-color': '#480510' }), node('stop', { offset: '1', 'stop-color': '#24010a' }));
-      definitions.append(gradient); group.append(definitions);
+      definitions.append(gradient);
+      const clearing = node('mask', { id: 'finale-hope-clearing', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: WIDTH, height: HEIGHT });
+      clearing.append(node('rect', { width: WIDTH, height: HEIGHT, fill: 'white' }));
+      hopeMask = node('path', { fill: 'black' }); clearing.append(hopeMask); definitions.append(clearing);
+      const bloom = node('radialGradient', { id: 'finale-hope-bloom' });
+      bloom.append(node('stop', { 'stop-color': '#fffef1', 'stop-opacity': '.44' }),
+        node('stop', { offset: '.28', 'stop-color': '#d9ffff', 'stop-opacity': '.15' }),
+        node('stop', { offset: '1', 'stop-color': '#a7e7ff', 'stop-opacity': '0' }));
+      definitions.append(bloom); group.append(definitions);
+      redLayer = node('g', { 'data-finale-corruption': '' }); group.append(redLayer);
       const rear = node('g', { 'data-finale-depth': 'rear' });
       const rearFill = node('g', { 'clip-path': 'url(#finale-invasion-rear-clip)' });
       rearFill.append(node('rect', { width: WIDTH, height: HEIGHT, fill: '#510814', opacity: '.7' }));
       rearParticles = node('path', { fill: '#d53146', opacity: '.48' }); rearFill.append(rearParticles);
       rearEdge = node('path', { fill: 'none', stroke: '#a31d32', 'stroke-width': '2', opacity: '.65' });
-      rear.append(rearFill, rearEdge); group.append(rear);
+      rear.append(rearFill, rearEdge); redLayer.append(rear);
       const body = node('g', { 'data-finale-depth': 'body' });
       const fill = node('g', { 'clip-path': 'url(#finale-invasion-clip)' });
       fill.append(node('rect', { width: WIDTH, height: HEIGHT, fill: 'url(#finale-invasion-red)' }));
@@ -122,7 +167,7 @@
       particles = node('path', { fill: '#ff667a', opacity: '.72' }); fill.append(tears, particles); body.append(fill);
       glow = node('path', { fill: 'none', stroke: '#ff183d', 'stroke-width': '9', opacity: '.34' });
       outline = node('path', { fill: 'none', stroke: '#ffb3bb', 'stroke-width': '1.5', opacity: '.8' });
-      body.append(glow, outline); group.append(body);
+      body.append(glow, outline); redLayer.append(body);
       const front = node('g', { 'data-finale-depth': 'front' });
       const frontFill = node('g', { 'clip-path': 'url(#finale-invasion-clip)' });
       frontShade = node('path', { fill: '#27010d', opacity: '.34' });
@@ -130,26 +175,45 @@
       frontFill.append(frontShade, frontEdge); front.append(frontFill);
       fragmentShadow = node('path', { fill: '#26010b', opacity: '.7', transform: 'translate(5 8)' });
       fragments = node('path', { 'data-finale-fragments': '', fill: '#bc142e', stroke: '#ff6579', 'stroke-width': '1', opacity: '.66' });
-      front.append(fragmentShadow, fragments); group.append(front);
+      front.append(fragmentShadow, fragments); redLayer.append(front);
       // Dimming is local to the infected pixels, never a full-canvas filter.
       shade = node('rect', { 'data-finale-shade': '', width: WIDTH, height: HEIGHT, fill: '#10070d', opacity: '0', 'clip-path': 'url(#finale-invasion-clip)' });
-      group.append(shade); parent.append(group); return true;
+      redLayer.append(shade);
+      hopeLayer = node('g', { 'data-finale-hope': '', opacity: '0' });
+      hopeBloom = node('ellipse', { cx: WIDTH / 2, cy: HEIGHT / 2, rx: '0', ry: '0', fill: 'url(#finale-hope-bloom)' });
+      hopeHalo = node('path', { fill: 'none', stroke: '#b8faff', 'stroke-width': '27', opacity: '.13' });
+      hopeEdge = node('path', { fill: 'none', stroke: '#fffde0', 'stroke-width': '3', opacity: '.9' });
+      hopeLayer.append(hopeBloom, hopeHalo, hopeEdge); group.append(hopeLayer);
+      parent.append(group); return true;
     }
     function stopFrame() { if (frame) window.cancelAnimationFrame(frame); frame = 0; lastFrame = 0; }
     function stopTimer() { if (timer) window.clearTimeout(timer); timer = 0; }
+    function updateGarble() {
+      const sealed = sequence.involved && ['sealed', 'video'].includes(sequence.stage);
+      for (const element of canvas.querySelectorAll?.('[data-finale-garbled]') || []) {
+        if (!originalLabels.has(element)) originalLabels.set(element, element.textContent);
+        if (!sealed) { element.textContent = originalLabels.get(element); continue; }
+        const text = reduce.matches || sequence.effectLevel >= 3 ? '▓▒░ UNRECOGNIZED ░▒▓' : garbledTitle(now(), effectSeed);
+        if (element.textContent !== text) element.textContent = text;
+      }
+    }
     function draw(timestamp) {
       // The shared clock is the sole authority for the rising front. Sampling
       // it here also restores a refreshed browser midway through either rise.
-      value = reduce.matches ? target : phase().coverage;
+      const extensive = sequence.involved;
+      const level = extensive ? sequence.effectLevel : 0;
+      value = extensive ? 2 / 3 + (.965 - 2 / 3) * (reduce.matches || level > 0 ? 1 : ease(clamp((now() - sequence.changedAt) / INVASION_MS, 0, 1)))
+        : reduce.matches ? target : phase().coverage;
       if (bridge && !reduce.matches) {
         const progress = clamp((now() - bridge.startedAt) / 650, 0, 1);
         const eased = progress * progress * (3 - 2 * progress);
         value = bridge.from + (value - bridge.from) * eased;
         if (progress === 1) bridge = null;
       }
-      const seconds = reduce.matches ? 0 : now() / 1000;
-      const path = contour(value, seconds, 0, effectSeed);
-      const rear = contour(value, seconds * .78, -1, effectSeed), front = contour(value, seconds * 1.13, 1, effectSeed);
+      const seconds = reduce.matches || extensive && level >= 3 ? 0 : now() / 1000;
+      const limit = extensive ? .965 : 2 / 3;
+      const path = contour(value, seconds, 0, effectSeed, limit);
+      const rear = contour(value, seconds * .78, -1, effectSeed, limit), front = contour(value, seconds * 1.13, 1, effectSeed, limit);
       shape.setAttribute('d', path.area); outline.setAttribute('d', path.edge); glow.setAttribute('d', path.edge);
       rearShape.setAttribute('d', rear.area); rearEdge.setAttribute('d', rear.edge);
       frontShade.setAttribute('d', front.area); frontEdge.setAttribute('d', front.edge);
@@ -161,6 +225,21 @@
       const driftX = noise(31, seconds * .55, effectSeed) * 18, driftY = noise(71, seconds * .43, effectSeed) * 22;
       texture.setAttribute('transform', `translate(${driftX.toFixed(1)} ${driftY.toFixed(1)})`);
       fragments.setAttribute('opacity', (.57 + (noise(13, seconds * 2.2, effectSeed) + 1) * .08).toFixed(2));
+      const cleared = purification(level, sequence.changedAt, reduce.matches ? Infinity : now());
+      const hope = extensive && level > 0 && level < 4;
+      // Leave the established two-song reveal on its original single-mask
+      // rendering path. An extra full-canvas mask is needed only while clearing.
+      if (hope) redLayer.setAttribute('mask', 'url(#finale-hope-clearing)');
+      else redLayer.removeAttribute('mask');
+      const opening = hope ? hopeContour(cleared.radius, seconds, effectSeed, level < 3 ? 1 : 0) : 'M960 540Z';
+      hopeMask.setAttribute('d', opening); hopeHalo.setAttribute('d', opening); hopeEdge.setAttribute('d', opening);
+      hopeLayer.setAttribute('visibility', hope ? 'visible' : 'hidden');
+      hopeLayer.setAttribute('opacity', hope ? level === 3 && cleared.progress === 1 ? '.3' : '.85' : '0');
+      hopeBloom.setAttribute('rx', hope ? String(cleared.radius * 1.18) : '0');
+      hopeBloom.setAttribute('ry', hope ? String(cleared.radius * .94) : '0');
+      group.dataset.purification = extensive ? String(level) : 'off';
+      group.dataset.hopeRadius = (hope ? cleared.radius : 0).toFixed(1);
+      updateGarble();
       group.dataset.coverage = value.toFixed(4); group.dataset.edgeBaseline = path.baseline.toFixed(1);
       canvas.dataset.finaleCoverage = value.toFixed(4);
       if (timestamp !== undefined) lastFrame = timestamp;
@@ -169,20 +248,23 @@
       frame = 0;
       if (disposed || !active || document.hidden || reduce.matches || !eligible() || target <= 0 || !group?.isConnected) return;
       if (!lastFrame || timestamp - lastFrame >= FRAME_MS) draw(timestamp);
+      if (sequence.involved && sequence.effectLevel >= 3 && purification(sequence.effectLevel, sequence.changedAt, now()).progress === 1) return;
       frame = window.requestAnimationFrame(animate);
     }
     function schedule() {
       stopTimer();
       if (disposed || !active || document.hidden || !eligible()) return;
-      const state = phase();
-      if (!state.started || state.complete) return;
+      const state = phase(), currentSequence = finalSequence();
+      if (currentSequence.involved ? currentSequence.stage !== 'video' : !state.started || state.complete) return;
       // Only the short reveal timeline needs polling. Artwork advances from
       // the synchronized clock even when autoplay is blocked or audio muted.
       timer = window.setTimeout(() => {
         timer = 0;
         if (disposed || !active || document.hidden) return;
-        const next = phase(), nextKey = key(next);
-        if (nextKey !== phaseKey) { phaseKey = nextKey; onPhaseChange(); }
+        const next = phase(), nextKey = key(next), nextSequence = finalSequence();
+        if (nextKey !== phaseKey || nextSequence.stage !== sequenceKey) {
+          phaseKey = nextKey; sequenceKey = nextSequence.stage; sequence = nextSequence; onPhaseChange();
+        }
         schedule();
       }, 100);
     }
@@ -191,14 +273,19 @@
       const previousCueId = cueId;
       match = next.match; scene = next.scene || ''; active = next.active === true;
       cueId = match?.finalAnnouncement?.id;
-      const state = phase(), infected = eligible() && state.started && !state.pending;
+      sequence = finalSequence(); sequenceKey = sequence.stage;
+      const state = phase(), sequenceVisible = sequence.involved && eligible();
+      const infected = eligible() && (sequenceVisible ? sequence.effectLevel !== 4 : state.started && !state.pending);
       phaseKey = key(state);
       canvas.classList.toggle('finale-infected', infected);
-      canvas.classList.toggle('finale-effects-running', infected && active && !document.hidden && !reduce.matches);
+      canvas.classList.toggle('finale-sequence-corrupt', sequenceVisible);
+      canvas.classList.toggle('finale-effects-running', infected && active && !document.hidden && !reduce.matches && (!sequenceVisible || sequence.effectLevel < 3));
+      canvas.dataset.finalePurification = sequenceVisible ? String(sequence.effectLevel) : 'off';
       canvas.dataset.finaleStage = infected ? String(state.revealedCount) : '0';
       canvas.dataset.finaleActive = infected && active && !document.hidden ? 'true' : 'false';
       if (!infected) {
         stopFrame(); stopTimer(); target = value = 0; bridge = null;
+        updateGarble();
         canvas.dataset.finaleCoverage = '0';
         // Keep the last geometry for the CSS fade-out. Hiding visibility here
         // would cut that transition short during a scene or stage change.
@@ -213,11 +300,11 @@
       // Bridge that clock seek locally instead of jumping the front upward.
       if (group?.isConnected && active && previousCueId && previousCueId !== cueId
         && state.index === 1 && state.coverage - value > .04) bridge = { from: value, startedAt: now() };
-      target = (state.index + 1) / 3;
+      target = sequenceVisible ? .965 : (state.index + 1) / 3;
       if (attach()) {
         const announcement = scene === 'grand-final-announcement' || scene === 'song-selection';
         const gameplay = scene === 'double-elimination-match';
-        group.setAttribute('opacity', announcement ? '.84' : gameplay ? '.24' : '.37');
+        group.setAttribute('opacity', sequenceVisible ? gameplay ? '.46' : '.81' : announcement ? '.84' : gameplay ? '.24' : '.37');
         shade.setAttribute('opacity', announcement ? '.08' : '.3');
         draw();
       }
@@ -235,10 +322,13 @@
         reduce.removeEventListener('change', refresh); document.removeEventListener('visibilitychange', refresh);
         group?.remove(); group = shape = outline = glow = particles = shade = match = bridge = null;
         rearShape = rearEdge = rearParticles = frontShade = frontEdge = fragments = fragmentShadow = tears = texture = null;
-        canvas.classList.remove('finale-infected', 'finale-effects-running');
+        redLayer = hopeLayer = hopeMask = hopeHalo = hopeEdge = hopeBloom = null;
+        canvas.classList.remove('finale-infected', 'finale-effects-running', 'finale-sequence-corrupt');
+        canvas.dataset.finalePurification = 'off';
         canvas.dataset.finaleActive = 'false'; canvas.dataset.finaleCoverage = '0'; canvas.dataset.finaleStage = '0';
       }
     };
   }
-  return { WIDTH, HEIGHT, FRAME_MS, PIXELS, contour, pixelPath, fragmentPath, tearPath, createController };
+  return { WIDTH, HEIGHT, FRAME_MS, PIXELS, PURIFICATION_MS, contour, pixelPath, fragmentPath, tearPath,
+    hopeContour, sequencePhase, purification, garbledTitle, createController };
 });

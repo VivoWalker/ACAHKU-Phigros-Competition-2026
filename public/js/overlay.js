@@ -35,7 +35,7 @@
     ? Math.max(0, Math.min(1, Number(query.get('bgmVolume')))) : .25;
   const bgmEnabled = previewEnabled && query.get('bgm') !== '0' && bgmVolume > 0;
   const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'qualifier-processing', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
-  let bgmStatus = 'silent', selectionStatus = 'silent', audioSyncPending = false;
+  let bgmStatus = 'silent', selectionStatus = 'silent', videoStatus = 'silent', audioSyncPending = false;
   const audioPrompt = document.createElement('button');
   audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
   audioPrompt.textContent = 'Enable broadcast audio · 啟用直播音訊'; audioPrompt.hidden = true;
@@ -79,24 +79,57 @@
       refreshAudioPrompt();
     }
   });
-  listen(audioPrompt, 'click', () => { selectionAudio.retry(); sceneBgm.retry(); });
-  const shownScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
+  let finaleProjection;
+  const queueRender = () => { if (!pageDisposed && !previewRenderPending) {
+    previewRenderPending = true; queueMicrotask(() => { previewRenderPending = false; render(); });
+  } };
+  const finaleVideo = BroadcastFinaleVideo.createPlayer({ canvas, now: previewNow, enabled: previewEnabled,
+    onComplete: queueRender,
+    onStatus(value) { videoStatus = value; canvas.dataset.finaleVideo = value; refreshAudioPrompt(); }
+  });
+  listen(audioPrompt, 'click', () => { selectionAudio.retry(); sceneBgm.retry(); finaleVideo.retry(); });
+  const programScene = () => state?.scene === 'grand-final-video' && BroadcastFinalSequence.phase(state && B.currentMatch(state), previewNow()).videoEnded
+    ? 'double-elimination-waiting' : state?.scene;
+  const rawScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
+  const shownScene = () => rawScene() === 'grand-final-video' && BroadcastFinalSequence.phase(state && B.currentMatch(state), previewNow()).videoEnded
+    ? 'double-elimination-waiting' : rawScene();
+  function refreshFinaleProjection() {
+    const match = B.currentMatch(state), phase = BroadcastFinalSequence.phase(match, previewNow());
+    if (!phase.videoEnded || !match?.songs[2]?.hidden) return;
+    const id = match.finale.videoCue.id;
+    if (finaleProjection?.id !== id) {
+      clearTimeout(finaleProjection?.timer); finaleProjection = { id, attempts: 0, pending: false, timer: 0 };
+    }
+    const request = finaleProjection;
+    if (request.pending || request.timer || request.attempts >= 6) return;
+    request.pending = true; request.attempts++;
+    // Read a fresh public projection after the shared video clock expires.
+    // Overlays never acquire permission to mutate the tournament themselves.
+    fetch('/api/state', { signal: lifecycle.signal, cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(next => {
+      if (!pageDisposed && finaleProjection === request && next?.revision >= state.revision
+        && B.currentMatch(state)?.finale?.videoCue?.id === id) { state = next; queueRender(); }
+    }).catch(() => {}).finally(() => {
+      request.pending = false;
+      if (!pageDisposed && finaleProjection === request && B.currentMatch(state)?.songs[2]?.hidden && request.attempts < 6)
+        request.timer = setTimeout(() => { request.timer = 0; queueRender(); }, 200);
+    });
+  }
   const finalAudioScene = (scene, current = state && B.currentMatch(state)) => BroadcastFinalAnnouncement.isFixed(current)
     && !B.matchTiebreak(state) && (scene === 'grand-final-announcement'
       || scene === 'song-selection' && !!BroadcastFinalAnnouncement.audioCue(current));
   function refreshAudioPrompt() {
     if (pageDisposed) return;
     const scene = shownScene(), finale = finalAudioScene(scene);
-    const onAir = previewEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected && scene === state?.scene;
+    const onAir = previewEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected && scene === programScene();
     audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement' && !finale
-      || selectionStatus === 'blocked' && (scene === 'song-selection' || finale));
+      || selectionStatus === 'blocked' && (scene === 'song-selection' || finale) || videoStatus === 'blocked' && scene === 'grand-final-video');
   }
   function syncBgm() {
     if (pageDisposed) return;
     const scene = shownScene();
     const active = bootReady && bgmEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected
-      && scene === state?.scene && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement'
-      && !finalAudioScene(scene) && !selectionAudio.hasMedia;
+      && scene === programScene() && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement'
+      && !finalAudioScene(scene) && !selectionAudio.hasMedia && !finaleVideo.hasMedia;
     sceneBgm.update({ track: bgmTracks.get(bgmScenes.get(scene)) || null, active: !!active });
     refreshAudioPrompt();
   }
@@ -204,7 +237,22 @@
     const m = B.currentMatch(s);
     if (!m) return backdrop() + header(s, '雙淘汰賽') + title('等待晉級選手', 'DOUBLE ELIMINATION') + visual('standby-art');
     const tie = B.matchTiebreak(s);
+    const finale = BroadcastFinalSequence.phase(m, previewNow());
+    if (finale.enabled && ['sealed', 'video', 'revealed'].includes(finale.stage) && !tie) {
+      const song = m.songs[2];
+      return backdrop() + header(s, '總決賽 · FINAL SONG') + `<div class='waiting-body finale-waiting ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中 <span>PREPARING</span></div><h1 data-motion-block>FINAL SONG</h1><div class='waiting-players'>${m.players.map(id => `<p data-motion-block>${entrantText(entrant(s, id))}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>接下來 · SONG 3 / 3</span><h2 class='finale-next-song'>${finale.concealed || song?.hidden ? `<span data-finale-garbled aria-label='決勝曲尚未公布'>▓▒ ERROR_0X ▒▓</span>` : songText(song)}</h2>${!finale.concealed && song && !song.hidden ? `<p class='finale-waiting-difficulty'>${e(song.difficulty)} ${e(Math.trunc(song.level))}</p>` : ''}</div></section>${visual('waiting-art')}</div>`;
+    }
     return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong], !tie && !m.songs.length);
+  }
+  function finalTwoTotals(s) {
+    const match = B.currentMatch(s);
+    if (!match || match.id !== 'GF') return doubleWaiting(s);
+    const totals = match.scores.map(row => row.slice(0, 2).every(score => score !== null) ? B.total(row.slice(0, 2)) : null);
+    const card = (id, pi) => `<article data-motion-block class='finale-total-card' data-finale-total-player='${e(id || '')}'><h2>${entrantText(entrant(s, id))}</h2><div class='finale-base-total'><span>前兩首總分<small>2-SONG TOTAL</small></span><strong data-finale-subtotal>${B.score(totals[pi])}</strong></div><div class='finale-base-songs'>${match.songs.slice(0, 2).map((song, si) => `<section class='finale-base-song'><div class='finale-base-song-head'><span>0${si + 1}</span><h3>${e(song.title)}</h3><b>${B.score(match.scores[pi][si])}</b></div><dl class='finale-base-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd>${B.score(match.judgements?.[pi]?.[si]?.[key])}</dd></div>`).join('')}</dl></section>`).join('')}</div></article>`;
+    return backdrop() + header(s, 'GRAND FINAL') + title('決賽階段成績', 'FIRST TWO SONGS · CUMULATIVE SCORES') + `<div class='finale-totals'>${match.players.map(card).join('')}</div>`;
+  }
+  function finalVideoScene(s) {
+    return backdrop() + header(s, 'GRAND FINAL') + `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
   }
   function playerName(s, id, scores, songs, index, kind, directTotal) {
     const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
@@ -324,17 +372,20 @@
     const index = phase.index, song = songs[index];
     return heading + `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' data-final-index='${index}' class='final-song-card final-announcement-hero'><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><section class='final-song-info'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')} / 02</span></div><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></section></article>`;
   }
-  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement };
+  const renderers = { start, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
-    const scene = fixed || !follow ? requested === 'live' ? state.scene : requested : state.scene;
+    const scene = shownScene();
     warmImages(state, scene);
     const current = B.currentMatch(state);
+    refreshFinaleProjection();
+    finaleVideo.update({ match: current, active: obsActive && obsVisible && !document.hidden && countdownClient?.connected === true
+      && state.stage === 'double-elimination' && state.scene === 'grand-final-video' && rawScene() === state.scene });
     const finaleAudio = finalAudioScene(scene, current);
     const selectionScene = scene === 'song-selection' && current?.id !== 'GF';
     selectionAudio.update({ cue: finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue, songs: previewSongs(current),
       active: obsActive && obsVisible && !document.hidden && countdownClient?.connected && countdownClient.now() > 0
-        && scene === state.scene && state.stage === 'double-elimination' && current?.status !== 'complete'
+        && scene === programScene() && state.stage === 'double-elimination' && current?.status !== 'complete'
         && !B.matchTiebreak(state) && (selectionScene || finaleAudio) });
     syncBgm();
     refreshCountdown();
@@ -401,8 +452,9 @@
     pageDisposed = true;
     lifecycle.abort(); brandingRequest.abort(); clearTimeout(brandingTimer);
     clearInterval(rankingTimer); resolveInitialState();
+    clearTimeout(finaleProjection?.timer); finaleProjection = null;
     countdownClient?.dispose(); countdownLayer.dispose();
-    selectionAudio.dispose(); sceneBgm.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
+    selectionAudio.dispose(); sceneBgm.dispose(); finaleVideo.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
     mediaWarmup.dispose(); displayMedia.dispose();
     socket.removeAllListeners(); socket.disconnect();
     previewCatalog.clear(); bgmTracks.clear(); bgmScenes.clear(); state = null; audioPrompt.remove();
@@ -414,6 +466,6 @@
   countdownClient = BroadcastCountdown.createClient(socket, () => { refreshCountdown(); render(); });
   socket.on('state', next => { state = next; resolveInitialState(); render(); });
   socket.on('connect', () => canvas.classList.remove('is-offline'));
-  socket.on('disconnect', () => { canvas.classList.add('is-offline'); syncFinaleEffects(); });
-  socket.on('connect_error', () => { canvas.classList.add('is-offline'); syncFinaleEffects(); });
+  socket.on('disconnect', () => { canvas.classList.add('is-offline'); render(); syncFinaleEffects(); });
+  socket.on('connect_error', () => { canvas.classList.add('is-offline'); render(); syncFinaleEffects(); });
 })();

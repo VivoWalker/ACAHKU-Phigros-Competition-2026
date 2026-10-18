@@ -33,8 +33,10 @@ function fixture() {
     removeEventListener: name => documentListeners.delete(name)
   };
   const parent = new Element('masked-root'), classes = new Set();
+  const label = new Element('span'); label.textContent = 'UNKNOWN SONG';
   const canvas = { ownerDocument: document, dataset: {},
     querySelector: selector => selector === '.broadcast-backdrop > g[mask]' ? parent : null,
+    querySelectorAll: selector => selector === '[data-finale-garbled]' ? [label] : [],
     classList: { toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
       remove(...names) { for (const name of names) classes.delete(name); } } };
   let phaseChanges = 0;
@@ -45,7 +47,7 @@ function fixture() {
   };
   const poll = () => { const tasks = [...timers.values()]; timers.clear(); for (const callback of tasks) callback(); };
   return { controller, canvas, parent, classes, state, frames, timers, document, documentListeners,
-    mediaListeners, reduce, tick, poll, phaseChanges: () => phaseChanges };
+    mediaListeners, reduce, tick, poll, label, setTime: time => { clock = time; }, phaseChanges: () => phaseChanges };
 }
 
 function descendants(element) {
@@ -248,4 +250,92 @@ test('manual early advance bridges the rising front without a one-frame upward j
   for (let i = 0; i < 12; i++) f.tick();
   assert.equal(group.dataset.coverage, '0.4000'); assert.equal(f.frames.size, 1);
   f.controller.dispose();
+});
+
+test('final-song corruption supersedes the initial reveal and occupies nearly the whole masked backdrop', () => {
+  const f = fixture();
+  const match = { id: 'GF', finale: { stage: 'sealed', effectLevel: 0, effectChangedAt: 0 } };
+  f.controller.update({ match, scene: 'double-elimination-waiting', active: true });
+  const group = f.parent.children[0];
+  assert.ok(f.classes.has('finale-sequence-corrupt'));
+  assert.equal(f.canvas.dataset.finalePurification, '0');
+  assert.equal(group.dataset.coverage, '0.9650');
+  const labels = [f.label.textContent];
+  f.setTime(2500); f.tick(); labels.push(f.label.textContent);
+  assert.notEqual(labels[0], labels[1], 'sealed title changes without a scene rerender');
+  assert.equal(f.phaseChanges(), 0);
+  assert.ok(descendants(group).some(node => node.attributes.get('id') === 'finale-hope-clearing'));
+  assert.ok(!descendants(group).some(node => node.attributes.get('mask') === 'url(#finale-hope-clearing)'),
+    'the additional clearing mask should render only during purification');
+  assert.equal(group.parent, f.parent, 'the outer stationary capture mask still owns every effect');
+  assert.ok(Number(group.dataset.edgeBaseline) < 50);
+  f.controller.dispose();
+});
+
+test('three purification stages clear outward from centre, stop jitter and retain a bounded node pool', () => {
+  const f = fixture(), match = { id: 'GF', finale: { stage: 'revealed', effectLevel: 0, effectChangedAt: 0 } };
+  f.controller.update({ match, scene: 'double-elimination-match', active: true });
+  const group = f.parent.children[0], count = descendants(group).length, radii = [];
+  for (const level of [1, 2, 3]) {
+    match.finale.effectLevel = level; match.finale.effectChangedAt = 2000 + level * 5000;
+    f.setTime(match.finale.effectChangedAt);
+    f.controller.update({ match, scene: 'double-elimination-match', active: true });
+    const beginning = Number(group.dataset.hopeRadius);
+    assert.ok(descendants(group).some(node => node.attributes.get('mask') === 'url(#finale-hope-clearing)'));
+    f.setTime(match.finale.effectChangedAt + Effects.PURIFICATION_MS + 100); f.tick();
+    radii.push(Number(group.dataset.hopeRadius));
+    assert.ok(radii.at(-1) > beginning);
+    assert.equal(descendants(group).length, count);
+    assert.equal(f.parent.children.length, 1);
+    assert.equal(f.canvas.dataset.finalePurification, String(level));
+    assert.equal(f.frames.size, level === 3 ? 0 : 1);
+    assert.equal(f.classes.has('finale-effects-running'), level < 3);
+  }
+  assert.ok(radii[0] < radii[1] && radii[1] < radii[2]);
+  assert.ok(radii[2] > Math.hypot(Effects.WIDTH / 2, Effects.HEIGHT / 2 / .79));
+  f.controller.dispose();
+  assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
+});
+
+test('normal toggle clears added effects, while reduced motion freezes heavy corruption and garble', () => {
+  const f = fixture(), match = { id: 'GF', finale: { stage: 'sealed', effectLevel: 0, effectChangedAt: 0 } };
+  f.reduce.matches = true;
+  f.controller.update({ match, scene: 'double-elimination-waiting', active: true });
+  const group = f.parent.children[0], before = geometry(group), label = f.label.textContent;
+  for (let i = 0; i < 10; i++) {
+    f.tick(); f.controller.update({ match, scene: 'double-elimination-waiting', active: true });
+    assert.deepEqual(geometry(group), before); assert.equal(f.label.textContent, label);
+  }
+  assert.equal(f.frames.size, 0);
+  match.finale.stage = 'revealed'; match.finale.effectLevel = 4;
+  f.controller.update({ match, scene: 'double-elimination-match', active: true });
+  assert.equal(f.canvas.dataset.finalePurification, '4');
+  assert.equal(group.attributes.get('opacity'), '0');
+  assert.ok(!f.classes.has('finale-infected')); assert.ok(!f.classes.has('finale-effects-running'));
+  assert.equal(f.label.textContent, 'UNKNOWN SONG');
+  assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
+  f.controller.dispose();
+});
+
+test('center opening and garble are deterministic, finite and bounded over long runtimes', () => {
+  for (const level of [0, 1, 2, 3, 4]) {
+    const start = Effects.purification(level, 1000, 1000), end = Effects.purification(level, 1000, 1000000);
+    assert.ok(Number.isFinite(start.radius) && Number.isFinite(end.radius));
+    const path = Effects.hopeContour(end.radius, 86400, 42, level < 3 ? 1 : 0);
+    assert.ok(path.length < 6000); assert.doesNotMatch(path, /NaN|Infinity|--/);
+  }
+  assert.equal(Effects.garbledTitle(2000, 42), Effects.garbledTitle(2000, 42));
+  assert.notEqual(Effects.garbledTitle(2000, 42), Effects.garbledTitle(2200, 42));
+  assert.equal(Effects.garbledTitle(100000000, 42).length, 16);
+});
+
+test('effect phase follows the shared video timeline into revealed without mutating match state', () => {
+  const FinalSequence = require('../public/js/final-sequence');
+  const match = { id: 'GF', finalMode: 'fixed-two', finale: { stage: 'video', effectLevel: 0, effectChangedAt: 1000,
+    videoCue: { id: '22222222-2222-4222-8222-222222222222', startedAt: 1000, duration: 1 } } };
+  const before = JSON.stringify(match);
+  assert.equal(Effects.sequencePhase(match, 1500, FinalSequence).stage, 'video');
+  assert.equal(Effects.sequencePhase(match, 2100, FinalSequence).stage, 'revealed');
+  assert.equal(Effects.sequencePhase(match, 2100, FinalSequence).involved, true);
+  assert.equal(JSON.stringify(match), before);
 });

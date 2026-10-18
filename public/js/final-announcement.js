@@ -10,7 +10,7 @@
   const clamp = value => Math.max(0, Math.min(1, value));
   const ease = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
   const isFixed = match => match?.id === 'GF' && match.finalMode === 'fixed-two' &&
-    match.songs?.length === 2 && config.FINAL_SONG_IDS.every((id, index) => match.songs[index]?.id === id);
+    [2, 3].includes(match.songs?.length) && config.FINAL_SONG_IDS.every((id, index) => match.songs[index]?.id === id);
   const validCue = cue => cue && typeof cue.id === 'string' &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cue.id) &&
     Number.isSafeInteger(cue.startedAt) && cue.startedAt >= 0 && cue.startedAt <= 8640000000000000;
