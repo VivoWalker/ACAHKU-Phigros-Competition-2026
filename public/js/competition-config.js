@@ -562,6 +562,14 @@
   });
   const DOUBLE_ELIMINATION_SONG_IDS = Object.freeze(["competition-2026-de-01", "competition-2026-de-02", "competition-2026-de-03", "competition-2026-de-04", "competition-2026-de-05", "competition-2026-de-06", "competition-2026-de-07", "competition-2026-de-08", "competition-2026-de-09", "competition-2026-de-10", "competition-2026-de-11", "competition-2026-de-12", "competition-2026-de-13", "competition-2026-de-14", "competition-2026-de-15", "competition-2026-de-16", "competition-2026-de-17", "competition-2026-de-18", "competition-2026-de-19", "competition-2026-de-20", "competition-2026-de-21", "competition-2026-de-22", "competition-2026-de-23", "competition-2026-de-24", "competition-2026-de-25", "competition-2026-de-26", "competition-2026-de-27", "competition-2026-de-28", "competition-2026-de-29", "competition-2026-de-30", "competition-2026-de-31", "competition-2026-de-32", "competition-2026-de-33", "competition-2026-de-34", "competition-2026-de-35", "competition-2026-de-36", "competition-2026-de-37", "competition-2026-de-38", "competition-2026-de-39", "competition-2026-de-40", "competition-2026-de-41", "competition-2026-de-42"]);
   const FINAL_SONG_IDS = Object.freeze(["competition-2026-gf-01", "competition-2026-gf-02"]);
+  // Attached when the final-song broadcast sequence starts, rather than added
+  // to the random pool or silently migrated into historical two-song finals.
+  const FINALE_SONG = Object.freeze({
+    id: 'competition-2026-gf-finale',
+    title: 'What do you want more than a Happy ending?',
+    artist: '', difficulty: 'AT', level: 17,
+    art: 'assets/song/sealed.svg', eligible: false
+  });
   const DRAW_RULES = Object.freeze(Object.fromEntries([
     [1, [4, 1, 1], 16.45], [2, [2, 3, 1], 16.65],
     [3, [1, 3, 2], 16.85], [4, [0, 3, 3], 17.05], [5, [0, 0, 6], 17.20]
@@ -582,6 +590,6 @@
       validConstant(canonical.constant, song.level) ? canonical.constant : null;
   }
   function library() { return LIBRARY.map(song => ({ ...song })); }
-  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS,
+  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS, FINALE_SONG,
     DRAW_RULES, validConstant, chartConstant });
 });

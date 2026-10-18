@@ -27,6 +27,12 @@ The controller updates vectors at most 20 times per second with a fixed node cou
 
 The texture is `public/assets/finale/error-texture.png`, generated from the organiser's supplied red-error visual reference. Its source image is retained in the cloud workspace's generated-images directory. It is a decorative local asset with no network dependency.
 
+## Final song and purification
+
+After the first two songs, show their provisional totals, enter the sealed waiting screen, play the final-song reveal video and return to waiting. The final song is **What do you want more than a Happy ending? — AT17**. Its metadata is attached only when an unfinished GF explicitly enters the finale setup or subtotal flow; completed historical two-song finals and existing custom or scored final songs are preserved. The champion is decided by the sum of all three scores.
+
+During the last song, the main operator's three purification stages open distributed square holes through the red corruption. Holes expand and join: scattered gaps appear first, most of the red is removed in Stage 2, and Stage 3 clears the remainder. The pattern uses the pixel grid rather than a circular opening from the screen centre. UI movement diminishes across the stages; Stage 3 has no added jitter or flicker and retains bright outlines. **恢復普通效果** removes the added treatment. Video placement remains documented in `public/assets/finale/README.md`.
+
 ## Verification
 
 The new Node tests cover the shared timeline, player clocks, lifecycle cleanup, server permissions, atomic commands and restart persistence. `test/final-announcement-browser.py` checks both announcements, program audio ownership, responsive text geometry, morphing coverage, persistent background/logos, capture alpha and off-air cleanup. Existing fixed-final, selection-audio, scene-BGM and production-console browser checks retain their catalog, scoring and legacy coverage with the sequential reveal expectations.

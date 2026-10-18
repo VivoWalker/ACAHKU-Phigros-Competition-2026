@@ -5,7 +5,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
   const WIDTH = 1920, HEIGHT = 1080, FRAME_MS = 50, PIXELS = 220, SEGMENTS = 160;
-  const PURIFICATION_MS = 2300, INVASION_MS = 1800, FULL_RADIUS = 1270;
+  const PURIFICATION_MS = 2300, INVASION_MS = 1800, HOLE_TILE = 48, HOLE_PIXEL = 8;
   const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
   const random = index => { const value = Math.sin(index * 127.1 + 311.7) * 43758.5453; return value - Math.floor(value); };
   const ease = value => value * value * (3 - 2 * value);
@@ -75,18 +75,63 @@
     return result;
   }
 
-  // A finite polygon mask is cheaper and more predictable in OBS than a
-  // full-screen displacement/turbulence filter. The opening grows from the
-  // exact centre while its own small irregular edge gradually calms down.
-  function hopeContour(radius, seconds = 0, seed = 0, irregularity = 1) {
-    const points = [], segments = 96;
-    for (let i = 0; i < segments; i++) {
-      const angle = i / segments * Math.PI * 2;
-      const wrinkle = radius > 0 ? noise(i * .23, seconds * 1.2, seed + 701) * 19 * irregularity : 0;
-      const r = Math.max(0, radius + wrinkle);
-      points.push([WIDTH / 2 + Math.cos(angle) * r, HEIGHT / 2 + Math.sin(angle) * r * .79]);
+  let cachedHoleSeed, cachedHoleLayout;
+  function holeLayout(seed) {
+    if (cachedHoleLayout && cachedHoleSeed === seed) return cachedHoleLayout;
+    const columns = Math.ceil(WIDTH / HOLE_TILE), rows = Math.ceil(HEIGHT / HOLE_TILE);
+    const cells = [], quadrants = [[], [], [], []];
+    for (let row = 0; row < rows; row++) for (let column = 0; column < columns; column++) {
+      const index = row * columns + column;
+      // Nearby cells heal in irregular patches rather than independent noise.
+      // Balanced quadrants keep every stage dispersed across the background.
+      const priority = random(Math.floor(column / 4) * 71 + Math.floor(row / 4) * 193 + seed) * .55
+        + random(Math.floor(column / 2) * 43 + Math.floor(row / 2) * 157 + seed + 311) * .3
+        + random(index * 29 + seed + 911) * .15;
+      const cell = { column, row, priority, delay: 0,
+        anchorX: random(index * 41 + seed + 111), anchorY: random(index * 67 + seed + 231) };
+      cells.push(cell);
+      quadrants[(row * HOLE_TILE >= HEIGHT / 2 ? 2 : 0) + (column * HOLE_TILE >= WIDTH / 2 ? 1 : 0)].push(cell);
     }
-    return points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') + 'Z';
+    for (const quadrant of quadrants) {
+      quadrant.sort((a, b) => a.priority - b.priority || a.row - b.row || a.column - b.column);
+      quadrant.forEach((cell, index) => { cell.delay = .85 * index / (quadrant.length - 1); });
+    }
+    // Retain just one layout, even if an event is repeatedly reset/reseeded.
+    cachedHoleSeed = seed; cachedHoleLayout = cells; return cells;
+  }
+  function pixelHoles(amount, seed = 0) {
+    const value = clamp(amount, 0, 1);
+    if (value === 0) return { mask: '', edge: '', rects: [], cleared: 0,
+      total: Math.ceil(WIDTH / HOLE_TILE) * Math.ceil(HEIGHT / HOLE_TILE), clearance: 0 };
+    const layout = holeLayout(seed), columns = Math.ceil(WIDTH / HOLE_TILE);
+    const rectangles = Array(layout.length).fill(null), rects = [];
+    let mask = '', edge = '', area = 0, cleared = 0;
+    for (let index = 0; index < layout.length; index++) {
+      const cell = layout[index], growth = clamp((value - cell.delay) / .15, 0, 1);
+      if (growth <= 0) continue;
+      const x0 = cell.column * HOLE_TILE, y0 = cell.row * HOLE_TILE;
+      const tileWidth = Math.min(HOLE_TILE, WIDTH - x0), tileHeight = Math.min(HOLE_TILE, HEIGHT - y0);
+      const width = Math.min(tileWidth, Math.ceil(growth * tileWidth / HOLE_PIXEL) * HOLE_PIXEL);
+      const height = Math.min(tileHeight, Math.ceil(growth * tileHeight / HOLE_PIXEL) * HOLE_PIXEL);
+      const x = x0 + Math.floor(cell.anchorX * (tileWidth - width) / HOLE_PIXEL) * HOLE_PIXEL;
+      const y = y0 + Math.floor(cell.anchorY * (tileHeight - height) / HOLE_PIXEL) * HOLE_PIXEL;
+      const full = width === tileWidth && height === tileHeight;
+      rectangles[index] = { x, y, width, height, full };
+      rects.push([x, y, width, height]); area += width * height; if (full) cleared++;
+      mask += `M${x} ${y}h${width}v${height}h-${width}Z`;
+    }
+    // Adjacent full cells merge cleanly: only exposed pixel boundaries glow.
+    // Internal grid lines would turn the recovered screen into a checkerboard.
+    for (let index = 0; index < rectangles.length; index++) {
+      const rectangle = rectangles[index]; if (!rectangle) continue;
+      const { x, y, width, height, full } = rectangle;
+      const column = index % columns;
+      if (!full || !rectangles[index - columns]?.full) edge += `M${x} ${y}h${width}`;
+      if (!full || column === columns - 1 || !rectangles[index + 1]?.full) edge += `M${x + width} ${y}v${height}`;
+      if (!full || !rectangles[index + columns]?.full) edge += `M${x + width} ${y + height}h-${width}`;
+      if (!full || column === 0 || !rectangles[index - 1]?.full) edge += `M${x} ${y + height}v-${height}`;
+    }
+    return { mask, edge, rects, cleared, total: layout.length, clearance: area / (WIDTH * HEIGHT) };
   }
   function sequencePhase(match, time, api) {
     const raw = api?.phase?.(match, time) || match?.finale;
@@ -96,10 +141,10 @@
     return { stage, involved, effectLevel, changedAt: match?.finale?.effectChangedAt || 0 };
   }
   function purification(level, changedAt, time) {
-    const radii = [0, 345, 665, FULL_RADIUS, 0];
-    if (level === 0 || level === 4) return { radius: 0, progress: 1 };
+    const amounts = [0, .28, .65, 1, 0];
+    if (level === 0 || level === 4) return { amount: 0, progress: 1 };
     const progress = ease(clamp((time - changedAt) / PURIFICATION_MS, 0, 1));
-    return { radius: mix(radii[level - 1], radii[level], progress), progress };
+    return { amount: mix(amounts[level - 1], amounts[level], progress), progress };
   }
   function garbledTitle(time, seed = 0) {
     const symbols = '01░▒▓█/\\≠∅∆◇※#@$%?';
@@ -143,11 +188,7 @@
       const clearing = node('mask', { id: 'finale-hope-clearing', maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: WIDTH, height: HEIGHT });
       clearing.append(node('rect', { width: WIDTH, height: HEIGHT, fill: 'white' }));
       hopeMask = node('path', { fill: 'black' }); clearing.append(hopeMask); definitions.append(clearing);
-      const bloom = node('radialGradient', { id: 'finale-hope-bloom' });
-      bloom.append(node('stop', { 'stop-color': '#fffef1', 'stop-opacity': '.44' }),
-        node('stop', { offset: '.28', 'stop-color': '#d9ffff', 'stop-opacity': '.15' }),
-        node('stop', { offset: '1', 'stop-color': '#a7e7ff', 'stop-opacity': '0' }));
-      definitions.append(bloom); group.append(definitions);
+      group.append(definitions);
       redLayer = node('g', { 'data-finale-corruption': '' }); group.append(redLayer);
       const rear = node('g', { 'data-finale-depth': 'rear' });
       const rearFill = node('g', { 'clip-path': 'url(#finale-invasion-rear-clip)' });
@@ -180,9 +221,9 @@
       shade = node('rect', { 'data-finale-shade': '', width: WIDTH, height: HEIGHT, fill: '#10070d', opacity: '0', 'clip-path': 'url(#finale-invasion-clip)' });
       redLayer.append(shade);
       hopeLayer = node('g', { 'data-finale-hope': '', opacity: '0' });
-      hopeBloom = node('ellipse', { cx: WIDTH / 2, cy: HEIGHT / 2, rx: '0', ry: '0', fill: 'url(#finale-hope-bloom)' });
-      hopeHalo = node('path', { fill: 'none', stroke: '#b8faff', 'stroke-width': '27', opacity: '.13' });
-      hopeEdge = node('path', { fill: 'none', stroke: '#fffde0', 'stroke-width': '3', opacity: '.9' });
+      hopeBloom = node('path', { fill: '#d9ffff', opacity: '.055' });
+      hopeHalo = node('path', { fill: 'none', stroke: '#b8faff', 'stroke-width': '12', opacity: '.13', 'stroke-linejoin': 'miter' });
+      hopeEdge = node('path', { fill: 'none', stroke: '#fffde0', 'stroke-width': '2', opacity: '.85', 'stroke-linejoin': 'miter' });
       hopeLayer.append(hopeBloom, hopeHalo, hopeEdge); group.append(hopeLayer);
       parent.append(group); return true;
     }
@@ -231,14 +272,15 @@
       // rendering path. An extra full-canvas mask is needed only while clearing.
       if (hope) redLayer.setAttribute('mask', 'url(#finale-hope-clearing)');
       else redLayer.removeAttribute('mask');
-      const opening = hope ? hopeContour(cleared.radius, seconds, effectSeed, level < 3 ? 1 : 0) : 'M960 540Z';
-      hopeMask.setAttribute('d', opening); hopeHalo.setAttribute('d', opening); hopeEdge.setAttribute('d', opening);
+      const openings = pixelHoles(hope ? cleared.amount : 0, effectSeed);
+      hopeMask.setAttribute('d', openings.mask); hopeHalo.setAttribute('d', openings.edge); hopeEdge.setAttribute('d', openings.edge);
+      hopeBloom.setAttribute('d', openings.mask);
       hopeLayer.setAttribute('visibility', hope ? 'visible' : 'hidden');
       hopeLayer.setAttribute('opacity', hope ? level === 3 && cleared.progress === 1 ? '.3' : '.85' : '0');
-      hopeBloom.setAttribute('rx', hope ? String(cleared.radius * 1.18) : '0');
-      hopeBloom.setAttribute('ry', hope ? String(cleared.radius * .94) : '0');
       group.dataset.purification = extensive ? String(level) : 'off';
-      group.dataset.hopeRadius = (hope ? cleared.radius : 0).toFixed(1);
+      group.dataset.hopeAmount = (hope ? cleared.amount : 0).toFixed(4);
+      group.dataset.clearedTiles = String(openings.cleared);
+      group.dataset.clearance = openings.clearance.toFixed(4);
       updateGarble();
       group.dataset.coverage = value.toFixed(4); group.dataset.edgeBaseline = path.baseline.toFixed(1);
       canvas.dataset.finaleCoverage = value.toFixed(4);
@@ -289,7 +331,11 @@
         canvas.dataset.finaleCoverage = '0';
         // Keep the last geometry for the CSS fade-out. Hiding visibility here
         // would cut that transition short during a scene or stage change.
-        if (group) group.setAttribute('opacity', '0');
+        if (group) {
+          group.setAttribute('opacity', '0');
+          group.dataset.hopeAmount = '0.0000'; group.dataset.clearedTiles = '0'; group.dataset.clearance = '0.0000';
+          group.dataset.purification = sequenceVisible ? String(sequence.effectLevel) : 'off';
+        }
         schedule(); return;
       }
       // Replays replace the cue ID. Seed from the participants so an existing
@@ -330,5 +376,5 @@
     };
   }
   return { WIDTH, HEIGHT, FRAME_MS, PIXELS, PURIFICATION_MS, contour, pixelPath, fragmentPath, tearPath,
-    hopeContour, sequencePhase, purification, garbledTitle, createController };
+    pixelHoles, sequencePhase, purification, garbledTitle, createController };
 });

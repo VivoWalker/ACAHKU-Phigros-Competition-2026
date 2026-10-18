@@ -9,6 +9,7 @@ const { scorekeeperState, scorekeeperAction } = require('../lib/scorekeeper');
 const Sequence = require('../public/js/final-sequence');
 const Final = require('../public/js/final-announcement');
 const Countdown = require('../public/js/countdown');
+const CompetitionConfig = require('../public/js/competition-config');
 const match = state => state.tournament.matches.find(value => value.id === 'GF');
 function act(state, type, payload = {}) {
   const next = structuredClone(state);
@@ -52,16 +53,72 @@ test('three-song final is optional for old saves, and the shared helper runs wit
   assert.deepEqual(JSON.parse(JSON.stringify(sandbox.BroadcastFinalSequence.phase(match(state), 1000))), Sequence.phase(match(state), 1000));
 });
 
-test('first two totals are provisional, cannot declare a champion, and do not require guessing an unrevealed song', () => {
+test('first two totals attach the confirmed AT17 finale without manual entry, and cannot declare a champion', () => {
   const state = ready(); firstTwo(state);
   act(state, 'show-final-two-totals'); assert.equal(state.scene, 'grand-final-totals');
-  assert.equal(match(state).songs.length, 2); assert.equal(match(state).status, 'live');
+  assert.equal(match(state).songs.length, 3); assert.equal(match(state).status, 'live');
+  assert.deepEqual(match(state).finale.song, CompetitionConfig.FINALE_SONG);
+  assert.deepEqual(match(state).scores, [[990000, 990000, null], [980000, 980000, null]]);
+  assert.deepEqual(state.library.find(song => song.id === CompetitionConfig.FINALE_SONG.id), CompetitionConfig.FINALE_SONG);
   assert.notEqual(state.result.matchId, 'GF');
   assert.throws(() => act(state, 'record-result', { verified: true }), /all three/);
   act(state, 'start-final-finale'); assert.equal(match(state).finale.stage, 'sealed');
   assert.equal(state.scene, 'double-elimination-waiting');
-  assert.throws(() => act(state, 'reveal-final-finale'), /actual final song/);
-  assert.throws(() => act(state, 'play-final-finale-video'), /actual final song/);
+  assert.ok(!JSON.stringify(publicState(state)).includes(CompetitionConfig.FINALE_SONG.title));
+  assert.ok(!JSON.stringify(scorekeeperState(state)).includes(CompetitionConfig.FINALE_SONG.title));
+  assert.throws(() => act(state, 'play-final-finale-video'), /local reveal video/);
+  act(state, 'reveal-final-finale');
+  assert.equal(match(publicState(state)).songs[2].title, 'What do you want more than a Happy ending?');
+  assert.equal(match(publicState(state)).songs[2].difficulty, 'AT');
+  assert.equal(match(publicState(state)).songs[2].level, 17);
+  for (const playerIndex of [0, 1]) act(state, 'set-match-score', { playerIndex, songIndex: 2, score: playerIndex ? 999999 : 900000 });
+  act(state, 'record-result', { verified: true });
+  assert.equal(state.result.winnerId, match(state).players[1]);
+  assert.deepEqual(state.result.totals, [2880000, 2959999]);
+});
+
+test('video-only configuration uses the confirmed finale and leaves the preset/random pools unchanged', () => {
+  assert.equal(CompetitionConfig.FINALE_SONG.title, 'What do you want more than a Happy ending?');
+  assert.equal(CompetitionConfig.FINALE_SONG.difficulty, 'AT'); assert.equal(CompetitionConfig.FINALE_SONG.level, 17);
+  assert.equal(Object.isFrozen(CompetitionConfig.FINALE_SONG), true);
+  assert.equal(CompetitionConfig.LIBRARY.length, 50); assert.equal(CompetitionConfig.DOUBLE_ELIMINATION_SONG_IDS.length, 42);
+  assert.ok(!CompetitionConfig.LIBRARY.some(song => song.id === CompetitionConfig.FINALE_SONG.id));
+  const state = ready();
+  act(state, 'configure-final-finale', { videoPath: 'assets/finale/reveal.mp4', videoDuration: 9.5 });
+  assert.deepEqual(match(state).finale.song, CompetitionConfig.FINALE_SONG);
+  assert.equal(match(state).finale.videoPath, 'assets/finale/reveal.mp4');
+  assert.equal(match(state).finale.videoDuration, 9.5);
+  assert.equal(state.library.filter(song => song.eligible).length, 42);
+  assert.equal(state.library.filter(song => song.id === CompetitionConfig.FINALE_SONG.id).length, 1);
+  firstTwo(state); act(state, 'show-final-two-totals'); act(state, 'start-final-finale');
+  act(state, 'play-final-finale-video'); act(state, 'finish-final-finale-video');
+  assert.equal(match(state).finale.song.title, CompetitionConfig.FINALE_SONG.title);
+});
+
+test('confirmed finale setup preserves custom/scored songs, while completed two-song saves remain two-song saves', () => {
+  const custom = sealed(), configured = structuredClone(match(custom).finale.song);
+  assert.deepEqual(match(custom).songs[2], configured);
+  act(custom, 'reveal-final-finale'); act(custom, 'set-match-score', { playerIndex: 0, songIndex: 2, score: 987654 });
+  act(custom, 'set-final-finale-effect', { level: 1 });
+  assert.deepEqual(match(custom).finale.song, configured); assert.equal(match(custom).scores[0][2], 987654);
+  assert.ok(!custom.library.some(song => song.id === CompetitionConfig.FINALE_SONG.id));
+  const old = ready(); firstTwo(old); act(old, 'record-result', { verified: true });
+  const saved = JSON.stringify(old); validateState(JSON.parse(saved));
+  assert.equal(match(old).songs.length, 2); assert.equal(match(old).finale, undefined);
+  assert.equal(match(old).status, 'complete'); assert.deepEqual(old.result.totals, [1980000, 1960000]);
+  assert.throws(() => act(old, 'show-final-two-totals'), /complete|completed/i);
+  assert.equal(JSON.stringify(old), saved);
+});
+
+test('unconfigured in-progress sealed saves adopt the confirmed song only on an explicit continuation', () => {
+  for (const stage of ['summary', 'sealed']) {
+    const state = ready(); firstTwo(state);
+    match(state).finale = { stage, song: null, videoPath: '', videoDuration: 0, effectLevel: 0, effectChangedAt: Date.now() };
+    validateState(state); assert.equal(match(state).songs.length, 2);
+    act(state, stage === 'summary' ? 'start-final-finale' : 'reveal-final-finale');
+    assert.deepEqual(match(state).songs[2], CompetitionConfig.FINALE_SONG);
+    assert.deepEqual(match(state).scores, [[990000, 990000, null], [980000, 980000, null]]);
+  }
 });
 
 test('secret final metadata cannot leak through public or scorer projections, and both main and scorer reject concealed third scoring', () => {

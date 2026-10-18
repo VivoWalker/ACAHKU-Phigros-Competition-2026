@@ -272,27 +272,36 @@ test('final-song corruption supersedes the initial reveal and occupies nearly th
   f.controller.dispose();
 });
 
-test('three purification stages clear outward from centre, stop jitter and retain a bounded node pool', () => {
+test('three pixel purification stages clear a growing distributed area, stop jitter and retain a bounded node pool', () => {
   const f = fixture(), match = { id: 'GF', finale: { stage: 'revealed', effectLevel: 0, effectChangedAt: 0 } };
   f.controller.update({ match, scene: 'double-elimination-match', active: true });
-  const group = f.parent.children[0], count = descendants(group).length, radii = [];
+  const group = f.parent.children[0], count = descendants(group).length, amounts = [], cleared = [];
+  assert.ok(!descendants(group).some(node => ['ellipse', 'radialGradient'].includes(node.name)),
+    'pixel clearing must not retain the previous circular opening or bloom');
   for (const level of [1, 2, 3]) {
     match.finale.effectLevel = level; match.finale.effectChangedAt = 2000 + level * 5000;
     f.setTime(match.finale.effectChangedAt);
     f.controller.update({ match, scene: 'double-elimination-match', active: true });
-    const beginning = Number(group.dataset.hopeRadius);
+    const beginning = Number(group.dataset.hopeAmount);
     assert.ok(descendants(group).some(node => node.attributes.get('mask') === 'url(#finale-hope-clearing)'));
     f.setTime(match.finale.effectChangedAt + Effects.PURIFICATION_MS + 100); f.tick();
-    radii.push(Number(group.dataset.hopeRadius));
-    assert.ok(radii.at(-1) > beginning);
+    amounts.push(Number(group.dataset.hopeAmount));
+    cleared.push(Number(group.dataset.clearedTiles));
+    assert.ok(amounts.at(-1) > beginning);
     assert.equal(descendants(group).length, count);
     assert.equal(f.parent.children.length, 1);
     assert.equal(f.canvas.dataset.finalePurification, String(level));
     assert.equal(f.frames.size, level === 3 ? 0 : 1);
     assert.equal(f.classes.has('finale-effects-running'), level < 3);
   }
-  assert.ok(radii[0] < radii[1] && radii[1] < radii[2]);
-  assert.ok(radii[2] > Math.hypot(Effects.WIDTH / 2, Effects.HEIGHT / 2 / .79));
+  assert.deepEqual(amounts, [.28, .65, 1]);
+  assert.ok(0 < cleared[0] && cleared[0] < cleared[1] && cleared[1] < cleared[2]);
+  assert.equal(cleared[2], Effects.pixelHoles(1).total);
+  assert.equal(Number(group.dataset.clearance), 1);
+  match.finale.effectLevel = 0;
+  f.controller.update({ match, scene: 'double-elimination-match', active: true });
+  assert.equal(Number(group.dataset.hopeAmount), 0, 'restoring corruption must discard the clearing mask');
+  assert.equal(f.frames.size, 1, 'the corrupted field resumes its single animation loop');
   f.controller.dispose();
   assert.equal(f.frames.size, 0); assert.equal(f.timers.size, 0);
 });
@@ -317,13 +326,82 @@ test('normal toggle clears added effects, while reduced motion freezes heavy cor
   f.controller.dispose();
 });
 
-test('center opening and garble are deterministic, finite and bounded over long runtimes', () => {
+test('pixel purification interpolates the three clearing stages without a circular radius', () => {
+  const targets = [0, .28, .65, 1, 0];
   for (const level of [0, 1, 2, 3, 4]) {
-    const start = Effects.purification(level, 1000, 1000), end = Effects.purification(level, 1000, 1000000);
-    assert.ok(Number.isFinite(start.radius) && Number.isFinite(end.radius));
-    const path = Effects.hopeContour(end.radius, 86400, 42, level < 3 ? 1 : 0);
-    assert.ok(path.length < 6000); assert.doesNotMatch(path, /NaN|Infinity|--/);
+    const start = Effects.purification(level, 1000, 1000);
+    const middle = Effects.purification(level, 1000, 1000 + Effects.PURIFICATION_MS / 2);
+    const end = Effects.purification(level, 1000, 100000000);
+    for (const state of [start, middle, end]) {
+      assert.ok(Number.isFinite(state.amount) && state.amount >= 0 && state.amount <= 1);
+      assert.ok(Number.isFinite(state.progress) && state.progress >= 0 && state.progress <= 1);
+      assert.equal(state.radius, undefined);
+    }
+    assert.equal(end.amount, targets[level]);
+    if (level > 0 && level < 4) {
+      assert.equal(start.amount, targets[level - 1]);
+      assert.ok(start.amount < middle.amount && middle.amount < end.amount);
+    }
   }
+});
+
+test('pixel holes are finite orthogonal tiles, deterministic and nested as they grow and merge', () => {
+  const inside = (small, large) => small[0] >= large[0] - 1e-6 && small[1] >= large[1] - 1e-6
+    && small[0] + small[2] <= large[0] + large[2] + 1e-6
+    && small[1] + small[3] <= large[1] + large[3] + 1e-6;
+  for (const seed of [0, 42, 8102]) {
+    let before = { rects: [], clearance: 0, cleared: 0 };
+    for (const amount of [0, .05, .15, .28, .45, .65, .85, 1]) {
+      const holes = Effects.pixelHoles(amount, seed);
+      assert.deepEqual(holes, Effects.pixelHoles(amount, seed));
+      assert.ok(Number.isInteger(holes.total) && holes.total > 100 && holes.total < 1600);
+      assert.ok(Number.isInteger(holes.cleared) && holes.cleared >= before.cleared && holes.cleared <= holes.total);
+      assert.ok(holes.clearance >= before.clearance && holes.clearance <= 1);
+      assert.ok(Array.isArray(holes.rects) && holes.rects.length <= holes.total);
+      assert.doesNotMatch(holes.mask + holes.edge, /NaN|Infinity|--|[ACQST]/i);
+      assert.ok(holes.mask.length < 120000 && holes.edge.length < 120000);
+      let area = 0;
+      const tiles = new Set();
+      for (const [x, y, width, height] of holes.rects) {
+        assert.ok([x, y, width, height].every(Number.isFinite));
+        assert.ok(x >= 0 && y >= 0 && width > 0 && height > 0);
+        assert.ok(x + width <= Effects.WIDTH && y + height <= Effects.HEIGHT);
+        assert.ok(width <= 48 && height <= 48);
+        assert.ok([x, y, width, height].every(value => value % 8 === 0));
+        const tile = `${Math.floor(x / 48)}:${Math.floor(y / 48)}`;
+        assert.ok(!tiles.has(tile), 'a fixed tile must not contribute overlapping clearing rectangles');
+        assert.equal(Math.floor((x + width - .001) / 48), Math.floor(x / 48));
+        assert.equal(Math.floor((y + height - .001) / 48), Math.floor(y / 48));
+        tiles.add(tile);
+        area += width * height;
+      }
+      assert.ok(Math.abs(holes.clearance - area / (Effects.WIDTH * Effects.HEIGHT)) < 1e-9);
+      for (const small of before.rects) {
+        assert.ok(holes.rects.some(large => inside(small, large)), 'an opened pixel hole must never close as the stage advances');
+      }
+      before = holes;
+    }
+    assert.equal(before.cleared, before.total);
+    assert.equal(before.clearance, 1, 'the last stage removes every infected tile, including the bottom edge');
+  }
+  assert.notEqual(Effects.pixelHoles(.28, 42).mask, Effects.pixelHoles(.28, 43).mask,
+    'different matches must not repeat an identical fixed hole arrangement');
+});
+
+test('the first clearing stage already contains pixel holes across the backdrop rather than a central aperture', () => {
+  for (const seed of [0, 42, 8102]) {
+    const holes = Effects.pixelHoles(.28, seed), quadrants = [0, 0, 0, 0];
+    for (const [x, y, width, height] of holes.rects) {
+      quadrants[(x + width / 2 >= Effects.WIDTH / 2 ? 1 : 0)
+        + (y + height / 2 >= Effects.HEIGHT / 2 ? 2 : 0)] += width * height;
+    }
+    const total = quadrants.reduce((sum, area) => sum + area, 0);
+    assert.ok(total > 0);
+    for (const area of quadrants) assert.ok(area / total > .12 && area / total < .4, quadrants);
+  }
+});
+
+test('garbled titles remain deterministic and bounded over long runtimes', () => {
   assert.equal(Effects.garbledTitle(2000, 42), Effects.garbledTitle(2000, 42));
   assert.notEqual(Effects.garbledTitle(2000, 42), Effects.garbledTitle(2200, 42));
   assert.equal(Effects.garbledTitle(100000000, 42).length, 16);

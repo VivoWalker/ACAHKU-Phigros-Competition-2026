@@ -28,7 +28,7 @@ spec.loader.exec_module(helper)
 production_spec = importlib.util.spec_from_file_location('production_helpers', ROOT / 'test/production-console-browser.py')
 production = importlib.util.module_from_spec(production_spec)
 production_spec.loader.exec_module(production)
-SECRET = 'Rebirth — Browser Fixture Only'
+SECRET = 'What do you want more than a Happy ending?'
 
 SERVER = r"""
 const fs=require('node:fs'),path=require('node:path');
@@ -97,7 +97,7 @@ def motion(page, name):
 
 
 def collect_purification(page, frames, level):
-    """Capture the real growing centre opening, rather than only its endpoint."""
+    """Capture the distributed pixel holes growing through each clearing stage."""
     started = time.monotonic()
     timeline = []
     for index in range(24):
@@ -163,8 +163,11 @@ def geometry(page, phase):
 
 def effect(page):
     return page.evaluate('''()=>{const c=document.querySelector('#canvas'),g=c.querySelector('[data-finale-effects]');
+      const clearing=g?.querySelector('#finale-hope-clearing path'),opening=clearing?.getAttribute('d')||'';
       return {dataset:{...c.dataset},classes:c.className,group:g?{dataset:{...g.dataset},
-        opacity:getComputedStyle(g).opacity,nodes:g.querySelectorAll('*').length}:null,
+        opacity:getComputedStyle(g).opacity,nodes:g.querySelectorAll('*').length,
+        clearing:{subpaths:(opening.match(/M/g)||[]).length,curved:/[ACQST]/i.test(opening),
+          ellipses:g.querySelectorAll('[data-finale-hope] ellipse').length}}:null,
         animations:document.querySelector('#scene').getAnimations({subtree:true}).map(a=>({name:a.animationName,
           iterations:a.effect?.getTiming().iterations,state:a.playState})),
         video:[...document.querySelectorAll('video')].map(v=>({src:v.currentSrc,paused:v.paused,time:v.currentTime,ended:v.ended})),
@@ -252,7 +255,8 @@ def main():
                 assert SECRET not in json.dumps(public_state(live), ensure_ascii=False)
                 geometry(live, 'sealed-corrupted-waiting')
                 snapshot(live, '02-sealed-corrupted-waiting.png')
-                motion(live, 'sealed-corruption.gif')
+                if os.environ.get('BROADCAST_TEST_SEALED_GIF') == '1':
+                    motion(live, 'sealed-corruption.gif')
                 check('sealed waiting shows live garbled text and screen-wide infection without revealing the configured song')
 
                 control_click(crew, '[data-production-next]')
@@ -279,6 +283,7 @@ def main():
                 helper.idle(live, 'double-elimination-match')
                 assert current(crew)['currentSong'] == 2
                 node_counts = []
+                cleared_tiles = []
                 transition_frames = []
                 for level in [0, 1, 2, 3, 4]:
                     capture_transition = os.environ.get('BROADCAST_TEST_GIF') == '1' and level in [1, 2, 3]
@@ -291,6 +296,13 @@ def main():
                     live.wait_for_timeout(2700)
                     info = effect(live)
                     assert info['dataset']['finalePurification'] == str(level), info
+                    assert info['group']['clearing']['ellipses'] == 0, info
+                    assert not info['group']['clearing']['curved'], info
+                    amount = float(info['group']['dataset']['hopeAmount'])
+                    assert abs(amount - [0, .28, .65, 1, 0][level]) < .001, info
+                    if level in [1, 2, 3]:
+                        cleared_tiles.append(float(info['group']['dataset']['clearedTiles']))
+                        assert info['group']['clearing']['subpaths'] > 20, info
                     if level >= 3:
                         assert not any(item['state'] == 'running' and
                                        any(name in item['name'] for name in ['jitter', 'flicker', 'dislocation'])
@@ -303,9 +315,26 @@ def main():
                     # all corruption and hope highlights belong to their surround.
                     for x, y in [(300, 450), (1250, 450)]:
                         assert image.getpixel((x, y))[3] == 0, (level, x, y, image.getpixel((x, y)))
+                    if level == 2:
+                        live.reload()
+                        helper.idle(live, 'double-elimination-match')
+                        live.wait_for_timeout(800)
+                        refreshed = effect(live)
+                        assert abs(float(refreshed['group']['dataset']['hopeAmount']) - .65) < .001, refreshed
+                        assert refreshed['group']['nodes'] == info['group']['nodes'], refreshed
+                        assert refreshed['group']['dataset']['clearedTiles'] == info['group']['dataset']['clearedTiles'], refreshed
                 assert len(set(node_counts)) == 1, node_counts
+                assert 0 < cleared_tiles[0] < cleared_tiles[1] < cleared_tiles[2], cleared_tiles
+                # Operators can also restore corruption or step backwards;
+                # removing a clearing stage must not retain stale mask holes.
+                for level in [0, 2, 1, 4]:
+                    control_click(crew, '[data-final-effect="' + str(level) + '"]')
+                    live.wait_for_timeout(2700)
+                    restored = effect(live)
+                    assert abs(float(restored['group']['dataset']['hopeAmount']) - [0, .28, .65, 1, 0][level]) < .001, restored
+                    assert restored['group']['nodes'] == node_counts[0], restored
                 save_purification(transition_frames)
-                check('all three purification stages and the normal-effect switch preserve text geometry, logos and transparent capture windows')
+                check('distributed square pixel holes grow across three stages, survive refresh and regrowth, and preserve text geometry, logos and transparent capture windows')
 
                 for pi in [0, 1]:
                     helper.command(crew, 'set-match-score', {'matchId': 'GF', 'playerIndex': pi, 'songIndex': 2,
