@@ -13,7 +13,10 @@ import hashlib
 import io
 import json
 import math
+import os
 from pathlib import Path
+import shutil
+import tempfile
 
 import numpy as np
 from PIL import Image, ImageChops, ImageStat
@@ -46,7 +49,7 @@ def psnr(reference: Image.Image, output: Image.Image) -> float:
     return 100.0 if error == 0 else round(10 * math.log10(255**2 / error), 3)
 
 
-def encode(image: Image.Image, destination: Path, *, quality: int = 90, lossless: bool = False) -> dict:
+def encode(image: Image.Image, destination: Path, *, quality: int = 90, lossless: bool = False) -> tuple[dict, bytes]:
     encoded = io.BytesIO()
     image.save(encoded, format="WEBP", quality=quality, method=6, exact=True, lossless=lossless)
     data = encoded.getvalue()
@@ -58,8 +61,6 @@ def encode(image: Image.Image, destination: Path, *, quality: int = 90, lossless
         return encode(image, destination, lossless=True)
     if image.getchannel("A").tobytes() != decoded.getchannel("A").tobytes():
         raise ValueError(f"{destination}: encoder changed the alpha channel")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(data)
     return {
         "path": asset_path(destination),
         "sha256": sha256(data),
@@ -69,7 +70,7 @@ def encode(image: Image.Image, destination: Path, *, quality: int = 90, lossless
         "psnr": quality_score,
         "encoding": "lossless" if lossless else "lossy",
         "alphaSha256": sha256(image.getchannel("A").tobytes()),
-    }
+    }, data
 
 
 def source_info(source: Path, original: Image.Image) -> dict:
@@ -155,8 +156,41 @@ def sources() -> list[tuple[Path, tuple[int, int]]]:
     return entries
 
 
+def publish(artifacts: list[tuple[Path, bytes]]) -> None:
+    """Stage the complete build, then replace files with the manifest last.
+
+    Keep previous files beside the staging area so a failed publication can
+    restore them without depending on another filesystem or a second encode.
+    """
+    DESTINATION.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".display-build-", dir=DESTINATION.parent) as directory:
+        temporary = Path(directory)
+        staged = []
+        for index, (destination, data) in enumerate(artifacts):
+            output = temporary / f"new-{index}"
+            output.write_bytes(data)
+            previous = temporary / f"old-{index}" if destination.exists() else None
+            if previous is not None:
+                shutil.copy2(destination, previous)
+            staged.append((destination, output, previous))
+        replaced = []
+        try:
+            for destination, output, previous in staged:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(output, destination)
+                replaced.append((destination, previous))
+        except OSError:
+            for destination, previous in reversed(replaced):
+                if previous is None:
+                    destination.unlink()
+                else:
+                    os.replace(previous, destination)
+            raise
+
+
 def build(check: bool = False) -> dict:
     manifest = {"schemaVersion": 1, "generatedBy": "scripts/build-display-assets.py", "images": {}, "backgrounds": {}}
+    artifacts = []
     for source, bounds in sources():
         original = Image.open(source).convert("RGBA")
         image = original.copy()
@@ -166,36 +200,44 @@ def build(check: bool = False) -> dict:
         if source.suffix == ".webp" and image.size == original.size:
             # An already small WebP logo gains nothing from another encoding.
             data = source.read_bytes()
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(data)
             entry = {"path": asset_path(destination), "sha256": sha256(data),
                      "width": image.width, "height": image.height, "bytes": len(data),
                      "psnr": 100.0, "encoding": "unchanged",
                      "alphaSha256": sha256(image.getchannel("A").tobytes())}
         else:
-            entry = encode(image, destination, lossless="logo" in source.name)
+            entry, data = encode(image, destination, lossless="logo" in source.name)
+        artifacts.append((destination, data))
         entry.update(source_info(source, original))
         manifest["images"][asset_path(source)] = entry
         if source.name == "key-visual.png":
             backdrop = background_layer(original)
-            background = encode(backdrop, DESTINATION / "event/key-visual-backdrop.webp")
+            background_destination = DESTINATION / "event/key-visual-backdrop.webp"
+            background, data = encode(backdrop, background_destination)
+            artifacts.append((background_destination, data))
             background.update(source_info(source, original))
             background.update({"blurSigma": 48, "opacityApplied": False,
                                "imageViewport": {"x": -120, "y": -180, "width": 2160, "height": 1440}})
             manifest["backgrounds"][asset_path(source)] = background
     manifest_file = DESTINATION / "manifest.json"
     manifest_text = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    artifacts.append((manifest_file, manifest_text.encode("utf-8")))
     if check:
-        if manifest_file.read_text() != manifest_text:
-            raise SystemExit("Display asset manifest is stale; run scripts/build-display-assets.py")
+        for destination, data in artifacts:
+            try:
+                matches = destination.read_bytes() == data
+            except OSError:
+                matches = False
+            if not matches:
+                raise SystemExit(f"Display asset is missing or stale: {asset_path(destination)}; "
+                                 "run scripts/build-display-assets.py")
     else:
-        manifest_file.write_text(manifest_text)
+        publish(artifacts)
     return manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="rebuild and verify manifests are reproducible")
+    parser.add_argument("--check", action="store_true", help="verify image bytes and manifest without writing files")
     args = parser.parse_args()
     manifest = build(check=args.check)
     before = sum(entry["sourceBytes"] for entry in manifest["images"].values())

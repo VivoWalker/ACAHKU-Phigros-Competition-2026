@@ -14,11 +14,17 @@ const { context: countdownContext, DURATION: COUNTDOWN_CUE_DURATION } = require(
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
 const { PairingAttempts } = require('./lib/pairing-attempts');
+const { acquireDataDirectoryLock } = require('./lib/data-directory-lock');
 function createBroadcastServer(options = {}) {
   const dataDir = options.dataDir || path.join(__dirname, 'data');
+  const dataLock = acquireDataDirectoryLock(dataDir);
+  try { return initialiseBroadcastServer(options, dataDir, dataLock); }
+  catch (error) { dataLock.release(); throw error; }
+}
+function initialiseBroadcastServer(options, dataDir, dataLock) {
   const publicDir = options.publicDir || path.join(__dirname, 'public');
   const displayAssets = createDisplayAssetsReader({ publicDir });
-  const store = new StateStore(dataDir);
+  const store = new StateStore(dataDir, { assertWritable: () => dataLock.assertHeld() });
   const { pin, scorekeeperPin, sessionKey } = loadPairingCredentials(dataDir, options);
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
   const validToken = token => {
@@ -204,9 +210,26 @@ function createBroadcastServer(options = {}) {
     socket.on('disconnect', notifyStatus);
   });
   app.use((err, req, res, next) => res.status(400).json({ error: 'Invalid request.' }));
+  let closing = null;
+  function close() {
+    if (closing) return closing;
+    attempts.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null;
+    closing = new Promise((resolve, reject) => io.close(() => server.close(() => {
+      try { dataLock.release(); resolve(); } catch (error) { reject(error); }
+    })));
+    return closing;
+  }
   return { app, server, io, store, pin, scorekeeperPin,
-    listen(port = 3000, host = '0.0.0.0') { return new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, () => { server.removeListener('error', reject); resolve(server.address()); }); }); },
-    close() { attempts.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null; return new Promise(resolve => io.close(() => server.close(() => resolve()))); }
+    listen(port = 3000, host = '0.0.0.0') {
+      if (closing) return Promise.reject(new Error('This broadcast server has closed. Create a new server before listening.'));
+      return new Promise((resolve, reject) => {
+        const failed = error => { server.removeListener('error', failed); close().then(() => reject(error), () => reject(error)); };
+        server.once('error', failed);
+        try { server.listen(port, host, () => { server.removeListener('error', failed); resolve(server.address()); }); }
+        catch (error) { failed(error); }
+      });
+    },
+    close
   };
 }
 if (require.main === module) {

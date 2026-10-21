@@ -6,6 +6,7 @@ data/.scorekeeper-pin
 data/.scorekeeper-pin.*.tmp
 data/.session-key
 data/.session-key.*.tmp
+data/.server-lock/
 data/match-state.json
 data/match-state.json.*
 data/backups/

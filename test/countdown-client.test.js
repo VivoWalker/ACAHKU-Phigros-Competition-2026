@@ -12,18 +12,20 @@ function controlOperation() {
   const source = fs.readFileSync(path.join(__dirname, '../public/control/control.js'), 'utf8');
   const begin = source.indexOf('  async function sendCountdown('), end = source.indexOf('  const countdownRefreshTimer =', begin);
   assert.ok(begin >= 0 && end > begin, 'The shipped countdown handler must exist');
+  const guardsBegin = source.indexOf('  const controlReady ='), guardsEnd = source.indexOf('  let countdownClient,', guardsBegin);
+  assert.ok(guardsBegin >= 0 && guardsEnd > guardsBegin, 'The shipped connection and queue guards must exist');
   const state = createDefaultState(); state.scene = 'qualifier-match';
   let release;
   const sent = [], messages = [];
   const socket = { connected: true, id: 'first-session', timeout() { return {
     emit(name, request, callback) { sent.push({ name, request, connected: socket.connected, socketId: socket.id }); callback(null, { ok: true }); }
   }; } };
-  const sandbox = { state, socket, countdownPending: false, countdownClient: { cue: { id: 'original-cue' } },
+  const sandbox = { state, socket, connectionEpoch: 1, freshEpoch: 1, pageDisposed: false, pendingCommands: new Set(), countdownPending: false, countdownClient: { cue: { id: 'original-cue' } },
     BroadcastCountdown: Countdown, queue: new Promise(resolve => { release = resolve; }),
     refreshCountdownControls() {}, toast(message, error) { messages.push({ message, error }); }
   };
   vm.createContext(sandbox);
-  vm.runInContext(source.slice(begin, end) + '\nthis.sendCountdownUnderTest = sendCountdown;', sandbox);
+  vm.runInContext(source.slice(guardsBegin, guardsEnd) + source.slice(begin, end) + '\nthis.sendCountdownUnderTest = sendCountdown;', sandbox);
   return { sandbox, sent, messages, release, send: action => sandbox.sendCountdownUnderTest(action) };
 }
 
@@ -54,6 +56,17 @@ test('a queued countdown still works on the original connection and uses the new
     assert.equal(f.sent[0].request.contextKey, Countdown.context(f.sandbox.state).key);
     assert.equal(f.sent[0].request.cueId, 'original-cue');
     assert.equal(f.messages.length, 0); assert.equal(f.sandbox.countdownPending, false);
+  }
+});
+
+test('a queued countdown waits for fresh state on its original connection', async () => {
+  for (const action of ['start', 'cancel']) {
+    const f = controlOperation(), pending = f.send(action);
+    assert.equal(f.sandbox.countdownPending, true);
+    f.sandbox.freshEpoch = -1; f.release(); await pending;
+    assert.equal(f.sent.length, 0, 'A connected socket without current state must not issue countdown commands');
+    assert.equal(f.messages.length, 1); assert.equal(f.messages[0].error, true);
+    assert.equal(f.sandbox.countdownPending, false);
   }
 });
 

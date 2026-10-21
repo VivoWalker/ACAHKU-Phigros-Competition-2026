@@ -1,5 +1,9 @@
 (function () {
   const B = Broadcast, e = B.escape, $ = id => document.getElementById(id);
+  const sessionValue = (key, value) => {
+    try { if (value === undefined) return sessionStorage.getItem(key); if (value === null) sessionStorage.removeItem(key); else sessionStorage.setItem(key, value); } catch (_) { /* Private browsing can deny storage; this session still works in memory. */ }
+    return null;
+  };
   const lifecycle = new AbortController();
   const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: lifecycle.signal });
   const exportURLs = new Map();
@@ -8,7 +12,26 @@
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
   let state, socket, activeTab = 'broadcast', connections = { overlays: 0, controls: 0 }, focusSongId, editingSongId = null;
-  let queue = Promise.resolve(), toastTimer, token = sessionStorage.getItem('broadcast-token');
+  let queue = Promise.resolve(), toastTimer, token = sessionValue('broadcast-token');
+  let connectionEpoch = 0, freshEpoch = -1;
+  const pendingCommands = new Set();
+  const controlReady = () => !pageDisposed && !!socket?.connected && !!state && freshEpoch === connectionEpoch;
+  function invalidateConnection() {
+    connectionEpoch++; freshEpoch = -1;
+    for (const pending of pendingCommands) pending.reject(new Error('連線已變更，請核對目前保存狀態後重新操作；草稿已保留。'));
+    pendingCommands.clear();
+  }
+  function assertCurrentConnection(request) {
+    if (!request.ready || !controlReady() || request.socket !== socket || request.epoch !== connectionEpoch || request.id !== socket.id) {
+      throw new Error('連線已變更，請等候同步並核對目前狀態後重新操作；草稿已保留。');
+    }
+  }
+  async function waitForCommandQueue() {
+    const request = { socket, epoch: connectionEpoch, id: socket?.id, ready: controlReady() };
+    await queue;
+    assertCurrentConnection(request);
+    return request;
+  }
   let countdownClient, countdownPending = false;
   let finalAnnouncementTimer = null, finalAnnouncementSignature = '';
   let finalSequenceTimer = null, finalSequenceSignature = '';
@@ -59,13 +82,60 @@
   const heading = (tag, title, description, action = '') => `<div class="page-heading"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action ? `<div class="heading-action">${action}</div>` : ''}</div>`;
   const matchActions = new Set(['draw-candidates', 'ban-song', 'pick-songs', 'set-final-candidates', 'set-final-picks', 'reveal-host-song', 'start-final-announcement', 'configure-final-finale', 'show-final-two-totals', 'start-final-finale', 'play-final-finale-video', 'finish-final-finale-video', 'reveal-final-finale', 'set-final-finale-effect', 'set-song-progress', 'set-match-score', 'record-result', 'record-bye', 'lottery-bye', 'reset-current-match', 'draw-match-tiebreak', 'set-match-tiebreak-score', 'confirm-match-tiebreak']);
   const drafts = new Map();
+  const draftStorage = BroadcastDraftStorage.createStore({ role: 'control' });
+  let draftEventId = '';
+  function persistDrafts() {
+    if (!draftEventId) return;
+    draftStorage.save(draftEventId, [...drafts.values()].map(({ key, scope, id, label, numeric, base, value, reader }) => ({ key, scope, id, label, numeric, base: base ?? null, value, reader })));
+  }
+  function draftReader(reader, s) {
+    if (reader.kind === 'form') return formValues(reader.scope, s)[reader.id];
+    if (reader.kind === 'match-score') return String(s.tournament.matches.find(m => m.id === reader.id)?.scores[reader.pi]?.[reader.si] ?? '');
+    if (reader.kind === 'qualifier-score') return String(qualifierEntries(s, reader.group).find(p => p.id === reader.id)?.scores[reader.si] ?? '');
+    if (reader.kind === 'tie') return String(B.player(s, reader.id)?.tiePriority ?? '');
+    if (reader.kind === 'qualifier-slot') return s.qualifier.activePlayers[reader.slot] || '';
+    if (reader.kind === 'qualifier-progress') return String(s.qualifier.currentSong);
+    if (reader.kind === 'stage') return s.stage;
+  }
+  function validStoredDraft(saved) {
+    try {
+      const [kind, entity] = saved.scope.split(':');
+      if (kind === 'score-entry') {
+        const d = JSON.parse(decodeURIComponent(entity));
+        if (!d || !['q', 'qc', 'qd', 'qt', 'm', 'mt'].includes(d.kind) || !['A', 'B'].includes(d.group) || typeof d.id !== 'string' || !d.id
+          || typeof d.prefix !== 'string' || !d.prefix || typeof d.context !== 'string' || !Array.isArray(JSON.parse(d.context))
+          || ![d.pi, d.si, d.index].every(Number.isSafeInteger) || d.pi < 0 || d.pi > 63 || d.si < 0 || d.si > 2 || d.index < 0 || d.index > 1000) return false;
+      } else if (!['plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
+      if (saved.reader.kind === 'form') return saved.reader.scope === saved.scope && saved.reader.id === saved.id;
+      if (['match-score', 'qualifier-score', 'tie'].includes(saved.reader.kind)) return saved.reader.kind === kind && saved.reader.id === entity
+        && (kind === 'tie' || Number.isInteger(saved.reader.si) && saved.reader.si >= 0 && saved.reader.si < 3)
+        && (kind !== 'match-score' || Number.isInteger(saved.reader.pi) && saved.reader.pi >= 0 && saved.reader.pi < 2)
+        && (kind !== 'qualifier-score' || ['A', 'B'].includes(saved.reader.group));
+      if (saved.reader.kind === 'qualifier-slot') return kind === 'qualifier-display' && Number.isInteger(saved.reader.slot) && saved.reader.slot >= 0 && saved.reader.slot < 3;
+      return saved.reader.kind === 'qualifier-progress' ? kind === 'qualifier-display' : saved.reader.kind === 'stage' && kind === 'stage';
+    } catch (_) { return false; }
+  }
+  function bindDrafts(next) {
+    const id = typeof next.eventId === 'string' ? next.eventId : '';
+    if (id === draftEventId) return;
+    persistDrafts(); drafts.clear(); draftEventId = id;
+    if (!id) return;
+    for (const saved of draftStorage.load(id)) {
+      if (!saved || typeof saved.key !== 'string' || typeof saved.scope !== 'string' || typeof saved.id !== 'string' || typeof saved.label !== 'string'
+        || saved.key !== `${saved.scope}|${saved.id}` || !saved.reader || !['form', 'match-score', 'qualifier-score', 'tie', 'qualifier-slot', 'qualifier-progress', 'stage'].includes(saved.reader.kind)
+        || !['string', 'boolean'].includes(typeof saved.value) || !['string', 'number', 'boolean'].includes(typeof saved.base) && saved.base !== null || !validStoredDraft(saved)) continue;
+      const record = { ...saved, numeric: saved.numeric === true, pending: new Set(), conflict: false, recovered: true };
+      record.read = current => { try { return draftReader(record.reader, current); } catch (_) { return undefined; } };
+      drafts.set(record.key, record);
+    }
+  }
   const qualifierCorrectionReasons = new Map();
   const valueOf = el => el.type === 'checkbox' ? el.checked : el.value;
   const normal = (record, value) => typeof value === 'boolean' ? value : record.numeric && value !== '' ? String(Number(value)) : String(value ?? '').trim();
   const equal = (record, a, b) => normal(record, a) === normal(record, b);
   const draftKey = el => el.dataset.draftScope ? `${el.dataset.draftScope}|${el.id}` : null;
-  const matchContext = (s, id) => { const m = s.tournament.matches.find(item => item.id === id); return JSON.stringify([s.tournament.ruleset, m?.players, m?.songs.map(song => song.id), m?.candidates.map(song => song.id), (m?.tiebreaks || []).map(t => [t.song.id, t.confirmed])]); };
-  const qualifierContext = (s, id, group = s.qualifier.activeGroup) => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.scoringMode || 'legacy-score', group, s.qualifier.groups[group]?.songs, s.qualifier.rounds?.[group]?.playerIds, s.qualifier.rounds?.[group]?.locked, B.player(s, id)?.disqualification, s.qualifier.rounds?.[group]?.tiebreaks?.map(t => [t.song.id, t.playerIds, t.confirmed])]);
+  const matchContext = (s, id) => { const m = s.tournament.matches.find(item => item.id === id); return JSON.stringify([s.tournament.ruleset, m?.players, m?.songs.map(song => song.id), m?.candidates.map(song => song.id), (m?.tiebreaks || []).map(t => [t.song.id, t.confirmed]), m?.rematches]); };
+  const qualifierContext = (s, id, group = s.qualifier.activeGroup) => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.scoringMode || 'legacy-score', group, s.qualifier.groups[group]?.songs, s.qualifier.rounds?.[group]?.playerIds, s.qualifier.rounds?.[group]?.locked, B.player(s, id)?.disqualification, s.qualifier.rounds?.[group]?.tiebreaks?.map(t => [t.song.id, t.playerIds, t.confirmed]), s.qualifier.incidents?.filter(item => item.group === group)]);
   const seedContext = s => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.players.map(p => [p.id, Boolean(p.disqualification)]), ['A', 'B'].map(g => [s.qualifier.rounds?.[g]?.playerIds, s.qualifier.rounds?.[g]?.qualifiedIds, s.qualifier.rounds?.[g]?.locked]), s.tournament.seeded, s.tournament.seeds]);
   const sourceContext = (s = state) => { const status = s.broadcast?.sourceStatus; return JSON.stringify([status?.layout, status?.layout === 'qualifier' ? s.qualifier.activeGroup : s.tournament.currentMatchId, status?.showHandcams, status?.slots.map(slot => [slot.playerId, slot.playerName])]); };
   const sourceScope = (s = state) => `sources:${s.broadcast?.sourceStatus?.layout}:${encodeURIComponent(sourceContext(s))}`;
@@ -116,27 +186,28 @@
   function prepareDrafts(root) {
     for (const form of root.querySelectorAll('form')) { const scope = formScope(form); if (scope) form.dataset.draftScope = scope; }
     for (const el of root.querySelectorAll('input[id],textarea[id],select[id]')) {
-      let scope = el.form?.dataset.draftScope, read;
-      if (el.form?.dataset.scoreEditor) { const formScope = scope; const id = el.id; read = s => formValues(formScope, s)[id];
+      let scope = el.form?.dataset.draftScope, read, reader;
+      if (el.form?.dataset.scoreEditor) { const formScope = scope; const id = el.id; read = s => formValues(formScope, s)[id]; reader = { kind: 'form', scope: formScope, id };
       } else if (el.dataset.matchScore !== undefined) {
         const matchId = el.dataset.matchId, pi = Number(el.dataset.matchScore), si = Number(el.dataset.songIndex);
-        scope = `match-score:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => String(s.tournament.matches.find(m => m.id === matchId)?.scores[pi][si] ?? '');
+        scope = `match-score:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => String(s.tournament.matches.find(m => m.id === matchId)?.scores[pi][si] ?? ''); reader = { kind: 'match-score', id: matchId, pi, si };
       } else if (el.dataset.qualifierScore) {
         const id = el.dataset.qualifierScore, si = Number(el.dataset.songIndex);
-        scope = `qualifier-score:${id}:${encodeURIComponent(qualifierContext(state, id))}`; read = s => String(qualifierEntries(s).find(p => p.id === id)?.scores[si] ?? '');
+        scope = `qualifier-score:${id}:${encodeURIComponent(qualifierContext(state, id))}`; read = s => String(qualifierEntries(s).find(p => p.id === id)?.scores[si] ?? ''); reader = { kind: 'qualifier-score', id, si, group: state.qualifier.activeGroup };
       } else if (el.dataset.tiePlayer) {
-        const id = el.dataset.tiePlayer; scope = `tie:${id}`; read = s => String(B.player(s, id)?.tiePriority ?? '');
+        const id = el.dataset.tiePlayer; scope = `tie:${id}`; read = s => String(B.player(s, id)?.tiePriority ?? ''); reader = { kind: 'tie', id };
       } else if (['draw-winner', 'bye-note'].includes(el.id)) {
         const matchId = state.tournament.currentMatchId, id = el.id;
-        scope = `special:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => formValues(scope, s)[id];
+        scope = `special:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => formValues(scope, s)[id]; reader = { kind: 'form', scope, id };
       } else if (el.dataset.activeSlot !== undefined || el.hasAttribute('data-qualifier-progress')) {
         const group = state.qualifier.activeGroup;
         scope = `qualifier-display:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`;
         read = el.dataset.activeSlot !== undefined ? s => s.qualifier.activePlayers[Number(el.dataset.activeSlot)] || '' : s => String(s.qualifier.currentSong);
-      } else if (el.hasAttribute('data-stage')) { scope = 'stage'; read = s => s.stage;
-      } else if (scope) { const id = el.id; read = s => formValues(scope, s)[id]; }
+        reader = el.dataset.activeSlot !== undefined ? { kind: 'qualifier-slot', slot: Number(el.dataset.activeSlot) } : { kind: 'qualifier-progress' };
+      } else if (el.hasAttribute('data-stage')) { scope = 'stage'; read = s => s.stage; reader = { kind: 'stage' };
+      } else if (scope) { const id = el.id; read = s => formValues(scope, s)[id]; reader = { kind: 'form', scope, id }; }
       if (!scope || !read) continue;
-      el.dataset.draftScope = scope; el._draftRead = read;
+      el.dataset.draftScope = scope; el._draftRead = read; el._draftReader = reader;
       const record = drafts.get(draftKey(el));
       if (record) { if (el.type === 'checkbox') el.checked = record.value; else el.value = record.value; }
     }
@@ -144,7 +215,7 @@
   function rememberDraft(el) {
     const key = draftKey(el); if (!key || !el._draftRead) return;
     let record = drafts.get(key);
-    if (!record) record = { key, scope: el.dataset.draftScope, id: el.id, label: (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.id).replace(/\s+/g, ' ').trim(), read: el._draftRead, numeric: el.type === 'number', base: el._draftRead(state), pending: new Set(), conflict: false };
+    if (!record) record = { key, scope: el.dataset.draftScope, id: el.id, label: (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.id).replace(/\s+/g, ' ').trim(), read: el._draftRead, reader: el._draftReader, numeric: el.type === 'number', base: el._draftRead(state), pending: new Set(), conflict: false };
     record.value = valueOf(el);
     if (equal(record, record.value, record.base) && !record.pending.size) drafts.delete(key); else drafts.set(key, record);
     refreshDraftNotice();
@@ -161,6 +232,7 @@
       if (kind === 'seeds' && id !== encodeURIComponent(seedContext(state))) { record.conflict = true; continue; }
       if (kind === 'group-songs' && signature !== encodeURIComponent(qualifierContext(state, null, id))) { record.conflict = true; continue; }
       if (kind === 'sources' && encodeURIComponent(sourceContext()) !== signature) { record.conflict = true; continue; }
+      if (record.recovered && equal(record, current, record.value)) { drafts.delete(record.key); continue; }
       if (record.pending.has(normal(record, current))) { record.base = current; record.conflict = false; }
       else if (!equal(record, current, record.base)) record.conflict = true;
     }
@@ -187,6 +259,7 @@
     return send(type, () => build({ ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) }), { ...options, snapshot });
   }
   function refreshDraftNotice() {
+    persistDrafts();
     if (!$('content')) return;
     const pastScores = $('production-draft-editors');
     for (const form of pastScores?.querySelectorAll('form[data-score-editor]') || []) {
@@ -202,12 +275,12 @@
     const scopeLabel = record => { if (record.scope.startsWith('score-entry:')) { const d = JSON.parse(decodeURIComponent(record.scope.split(':')[1])); return `${d.kind.startsWith('q') ? qualifierLabel(d.group) + ' · ' + B.name(state, d.id) : d.id + ' · P' + (d.pi + 1)} · ${d.kind === 'qc' ? 'Challenge 总分' : d.kind.endsWith('t') ? '加赛 ' + (d.index + 1) : 'Song ' + (d.si + 1)}`; } return record.scope.split(':').slice(0, 2).join(' · ').slice(0, 120); };
     notice._conflictKeys = conflicts.map(record => record.key);
     const display = value => e(String(value ?? '空值').slice(0, 160));
-    const content = `<strong>${conflicts.length ? '编辑冲突 · 草稿已保留' : '未提交草稿'}</strong><p>${drafts.size} 个字段尚未提交。${conflicts.length ? '其他操作员修改了其中 ' + conflicts.length + ' 个字段；请核对以下差异后再提交。' : '切换标签页或收到实时更新时会保留草稿。'}</p>${conflicts.length ? `<ul class="draft-conflicts">${conflicts.map(record => `<li><strong>${e(scopeLabel(record))} · ${e(record.label.slice(0, 100))}</strong><span>服务器：${display(record.read(state))}</span><span>保留草稿：${display(record.value)}</span></li>`).join('')}</ul><div class="form-actions">${button('采用以上服务器版本', 'data-draft-resolution="server"')}${button('保留以上草稿并重新确认', 'data-draft-resolution="review"')}</div>` : ''}`;
+    const content = `<strong>${conflicts.length ? '编辑冲突 · 草稿已保留' : '未提交草稿'}</strong><p>${drafts.size} 个字段尚未提交。${[...drafts.values()].some(record => record.recovered) ? '已恢復本頁草稿，請核對後手動保存。' : ''}${conflicts.length ? '其他操作员修改了其中 ' + conflicts.length + ' 个字段；请核对以下差异后再提交。' : '切换标签页或收到实时更新时会保留草稿。'}</p>${conflicts.length ? `<ul class="draft-conflicts">${conflicts.map(record => `<li><strong>${e(scopeLabel(record))} · ${e(record.label.slice(0, 100))}</strong><span>服务器：${display(record.read(state))}</span><span>保留草稿：${display(record.value)}</span></li>`).join('')}</ul><div class="form-actions">${button('采用以上服务器版本', 'data-draft-resolution="server"')}${button('保留以上草稿并重新确认', 'data-draft-resolution="review"')}</div>` : ''}`;
     const html = content + `<div class="form-actions">${button('放棄未提交草稿', 'data-discard-drafts')}</div>`;
     if (notice._draftHTML !== html) { notice.innerHTML = html; notice._draftHTML = html; }
   }
   async function confirmResult(scope) {
-    const id = scope.split(':')[1]; await queue;
+    const id = scope.split(':')[1]; await waitForCommandQueue();
     if (state.tournament.currentMatchId !== id || encodeURIComponent(matchContext(state, id)) !== scope.split(':')[2]) throw new Error('当前场次、选手或曲目已变化，请重新核对赛果。');
     const m = state.tournament.matches.find(match => match.id === id);
     assertScoresSaved('match', id);
@@ -286,7 +359,7 @@
     const guard = () => { if (!scoreContextValid(scope, state) || d.kind.startsWith('q') && state.qualifier.activeGroup !== d.group) throw new Error('轮次、选手或曲目已变化，旧成绩草稿未提交。'); };
     if (!['q', 'qc'].includes(d.kind)) return draftForm(scope, type, build, { guard });
     const snapshot = snapshotDrafts(scope);
-    await queue;
+    await waitForCommandQueue();
     draftGuard(snapshot); guard();
     const payload = build({ ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) });
     const previous = scoreData(d, state), rounds = state.qualifier.rounds?.[d.group]?.tiebreaks || [];
@@ -333,7 +406,7 @@
     return `<section class="panel referee-panel"><details id="referee-details"><summary>裁判工具 · 准备检查 / 等待 / 重赛 / DQ</summary><p class="secondary">裁判核对后执行；十分钟等待不会自动取消资格。超出规则的情况须记录 ACA 决定。</p><div class="referee-grid"><section><h3>选手准备检查</h3><label for="readiness-player">Player<select id="readiness-player">${playerOptions(selected.id)}</select></label><form id="readiness-form" data-player-id="${e(selected.id)}">${[['device', '自备设备可用'], ['globalVersion', 'Global 版本'], ['headphones', '使用耳机'], ['charts', '所需曲目已解锁'], ['streamConsent', '已确认直播安排']].map(([key, label]) => `<label class="checkbox-label"><input id="ready-${key}" type="checkbox" ${ready[key] ? 'checked' : ''}>${label}</label>`).join('')}<div class="form-actions">${button('保存准备检查', 'type="submit"')}</div></form></section><section><h3>等待 · 10 分钟</h3><form id="wait-form"><label for="wait-player">Player<select id="wait-player">${playerOptions('')}</select></label><label for="wait-reason">Reason<select id="wait-reason">${options([['absence', '缺席'], ['chart-unlock', '曲目未解锁']], 'absence', false)}</select></label><label for="wait-song">Chart (解锁等待时填写)<select id="wait-song">${songOptions('', state.library.filter(s => songIds.includes(s.id)))}</select></label><div class="form-actions">${button('开始十分钟等待', 'type="submit"')}</div></form>${Object.entries(q.waits || {}).map(([id, wait]) => `<div class="wait-record"><strong>${e(B.name(state, id))}</strong><span data-wait-deadline="${e(wait.deadline)}" data-wait-reason="${e(wait.reason)}">${wait.reason === 'absence' ? '缺席' : '曲目未解锁'} · 截止 ${e(new Date(wait.deadline).toLocaleTimeString('zh-HK'))}${Date.parse(wait.deadline) <= Date.now() ? ' · 已届满' : ''}</span>${button('取消等待', `data-cancel-wait="${e(id)}"`)}</div>`).join('')}</section><section><h3>取消比赛资格</h3><form id="dq-form"><label for="dq-player">Player<select id="dq-player">${playerOptions('')}</select></label><label for="dq-reason">Reason<select id="dq-reason">${options([['absence', '等待届满 · 缺席'], ['chart-unlock', '等待届满 · 未解锁'], ['headphones', '未使用耳机'], ['rule-violation', '违反规则'], ['score-unavailable', '无法提供成绩'], ['other', '其他 ACA 决定']], 'other', false)}</select></label><label for="dq-note">裁判 / ACA 决定记录<textarea id="dq-note" class="report-note" maxlength="500" required></textarea></label><div class="form-actions">${button('核对并取消资格', 'type="submit" class="danger"')}</div></form>${q.players.filter(p => p.disqualification).map(p => `<p class="secondary">DQ · ${e(p.name)} · ${e(p.disqualification.reason)}</p>`).join('')}</section><section><h3>授权单曲重赛</h3><form id="rematch-form" ${pendingTie ? `data-tiebreak-index="${pendingTie.index}"` : ''}>${state.stage === 'qualifier' ? `<label for="rematch-player">Player<select id="rematch-player">${pendingTie ? options(pendingTie.playerIds.map(id => [id, B.name(state, id)])) : playerOptions('', q.activeGroup)}</select></label>` : ''}<label for="rematch-song">Song<select id="rematch-song">${options(songIds.map((id, i) => [String(i), `${pendingTie ? 'Tiebreak ' + (pendingTie.index + 1) : 'Song ' + (i + 1)} · ${B.song(state, id)?.title || id}`]), '0', false)}</select></label><label for="rematch-reason">Reason<select id="rematch-reason">${options([['game-error', '游戏错误'], ['score-page-left', '无意离开成绩画面']], 'game-error', false)}</select></label><label class="checkbox-label"><input id="rematch-video" type="checkbox">已检查比赛录像</label><label class="checkbox-label"><input id="rematch-unintentional" type="checkbox">确认并非故意</label><label class="checkbox-label"><input id="rematch-agree" type="checkbox">所有相关选手同意</label><label for="rematch-note">裁判记录<textarea id="rematch-note" class="report-note" maxlength="500" required></textarea></label><p class="secondary">${state.stage === 'qualifier' ? '每位选手每轮每首曲目仅一次重赛机会。' : '每场每首曲目双方共用一次重赛额度。'}${state.stage === 'qualifier' && challenge() && !pendingTie ? '重赛后清除该选手当前轮的 Challenge 总分，完成三首结算后重新录入。' : '只清除该曲成绩及判定资料。'}</p><div class="form-actions">${button('核对并授权重赛', `type="submit" ${!songIds.length ? 'disabled' : ''}`)}</div></form></section></div></details></section>`;
   }
   async function confirmQualifierRound(group) {
-    await queue;
+    await waitForCommandQueue();
     assertScoresSaved('qualifier', group);
     if (state.qualifier.activeGroup !== group) throw new Error('当前轮次已变化，请重新核对。');
     const revision = state.revision, ids = B.rankings(state, group).slice(0, 4).map(p => p.id);
@@ -341,14 +414,14 @@
     return send('finalize-qualifier-round', { group, verified: true }, { expectedRevision: revision });
   }
   async function confirmQualification() {
-    await queue; const revision = state.revision;
+    await waitForCommandQueue(); const revision = state.revision;
     assertScoresSaved('qualifier');
     const ids = proposal() ? QualifierRules.seeds(state) : Array.from({ length: 4 }, (_, i) => [B.rankings(state, 'A')[i]?.id, B.rankings(state, 'B')[i]?.id]).flat();
     if (!confirm(`已核对预选成绩及同分处理。确认以下种子并锁定预选？\n${ids.map((id, i) => `${i + 1}. ${B.name(state, id)}`).join('\n')}`)) return;
     return send('qualify', { verified: true }, { expectedRevision: revision });
   }
   async function confirmTiebreak(kind, index, group = state.qualifier.activeGroup) {
-    await queue; const revision = state.revision, m = B.currentMatch(state);
+    await waitForCommandQueue(); const revision = state.revision, m = B.currentMatch(state);
     assertScoresSaved(kind === 'q' ? 'qualifier' : 'match', kind === 'q' ? group : m?.id);
     const t = kind === 'q' ? state.qualifier.rounds?.[group]?.tiebreaks?.[index] : m?.tiebreaks?.[index];
     if (!t || t.confirmed || (kind === 'q' && state.qualifier.activeGroup !== group)) throw new Error('加赛轮次已变化，请重新核对。');
@@ -360,7 +433,7 @@
   async function submitIncident(form, scope) {
     const kind = form.id, snapshot = snapshotDrafts(scope), values = { ...formValues(scope), ...Object.fromEntries(snapshot.map(i => [i.record.id, i.value])) };
     if (kind === 'readiness-form') return draftForm(scope, 'set-player-readiness', fields => ({ playerId: form.dataset.playerId, ...Object.fromEntries(['device', 'globalVersion', 'headphones', 'charts', 'streamConsent'].map(key => [key, fields[`ready-${key}`] === true])) }));
-    await queue;
+    await waitForCommandQueue();
     if (scope.split(':')[1] !== encodeURIComponent(incidentContext())) throw new Error('轮次、场次或曲目已变化，请重新核对裁判操作。');
     const revision = state.revision, m = B.currentMatch(state);
     let type, payload;
@@ -392,9 +465,10 @@
     const preview = backupPreview; if (!preview || preview.backup.id !== scope.split(':')[1]) throw new Error('请先查看恢复摘要。');
     const snapshot = snapshotDrafts(scope), values = { ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) };
     const reason = values['restore-reason'].trim(); if (!reason) throw new Error('请填写恢复理由。');
-    await queue; if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看摘要后确认；理由已保留。');
+    const connection = await waitForCommandQueue(); if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看摘要后确认；理由已保留。');
     if (!confirm(`恢复备份版本 ${preview.backup.revision}\n${preview.backup.event.title}\n已完成 ${preview.backup.completedMatches} 场\n${backupScoreSummary(preview.backup, 'qualifier')}\n${backupScoreSummary(preview.backup, 'match')}\n将替换当前赛事版本 ${preview.revision}，当前版本会自动备份。\n正式选曲历史会保留，不会重新开放给其他场次。\n理由：${reason}`)) return;
     const task = queue.then(async () => {
+      assertCurrentConnection(connection);
       if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看摘要后确认；理由已保留。');
       const result = await requestJSON('/api/restore', { method: 'POST', body: JSON.stringify({ backupId: preview.backup.id, expectedRevision: preview.revision, reason }) });
       clearSubmitted(snapshot); backupPreview = null; correctionPreview = null; await loadBackups(); toast('备份已恢复 · 版本 ' + result.revision); return result;
@@ -407,25 +481,29 @@
     const values = { ...formValues(scope), ...Object.fromEntries(snapshotDrafts(scope).map(item => [item.record.id, item.value])) };
     const reason = values['correction-reason'].trim(); if (!reason) throw new Error('请填写纠错理由。');
     if (preview.impact.requiresConfirmation && !values['correction-confirm-clear']) throw new Error('请明确勾选清除下游场次的确认。');
-    await queue; if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看影响后确认；理由已保留。');
+    await waitForCommandQueue(); if (state.revision !== preview.revision) throw new Error('预览已过期，请重新查看影响后确认；理由已保留。');
     if (!confirm(`重新打开场次 ${id}\n本场曲目及分数保留。\n需要清除并重新进行：${preview.impact.affectedMatchIds.join(', ') || '无下游'}\n理由：${reason}`)) return;
     await draftForm(scope, 'reopen-result', () => ({ matchId: id, reason, affectedMatchIds: preview.impact.affectedMatchIds, confirmClear: values['correction-confirm-clear'] === true }), { expectedRevision: preview.revision });
     correctionPreview = null; render(); toast('场次已重新打开；请复核并重新确认赛果。');
   }
   function toast(message, error = false) { if (pageDisposed) return; clearTimeout(toastTimer); $('toast').textContent = message; $('toast').className = 'visible' + (error ? ' error' : ''); toastTimer = setTimeout(() => { $('toast').className = ''; }, error ? 7000 : 2500); }
   function send(type, payload = {}, { snapshot = [], guard, expectedRevision } = {}) {
+    const requestSocket = socket, requestEpoch = connectionEpoch, connectionId = socket?.id, wasReady = controlReady();
     const contextMatch = (typeof payload !== 'function' && payload.matchId) || $('content')?.dataset.matchId || state?.tournament.currentMatchId;
     const contextSignature = matchContext(state, contextMatch);
     const body = () => { const value = typeof payload === 'function' ? payload() : payload; return matchActions.has(type) ? { ...value, matchId: value.matchId || contextMatch } : value; };
     const task = queue.then(() => new Promise((resolve, reject) => {
-      if (!socket?.connected || !state) return reject(new Error('Disconnected. Reconnect before updating the broadcast.'));
+      if (!wasReady || !controlReady() || socket !== requestSocket || requestEpoch !== connectionEpoch || requestSocket.id !== connectionId) return reject(new Error('連線已變更，請等候同步並核對目前狀態後重新操作；草稿已保留。'));
       let command;
       try { draftGuard(snapshot); guard?.(); command = body(); if (matchActions.has(type) && (command.matchId !== state.tournament.currentMatchId || contextSignature !== matchContext(state, command.matchId))) { const error = new Error('当前场次、选手或曲目已切换，旧操作未提交；草稿已保留。'); error.code = 'MATCH_CHANGED'; throw error; } } catch (error) { return reject(error); }
       for (const item of snapshot) item.record.pending.add(normal(item.record, item.value));
       $('sync-status').textContent = 'Saving…';
-      socket.timeout(8000).emit('command', { expectedRevision: expectedRevision ?? state.revision, action: { type, payload: command } }, (err, result) => {
+      const pending = { reject }; pendingCommands.add(pending);
+      requestSocket.timeout(8000).emit('command', { expectedRevision: expectedRevision ?? state.revision, action: { type, payload: command } }, (err, result) => {
+        if (!pendingCommands.delete(pending)) return;
+        if (!controlReady() || socket !== requestSocket || requestEpoch !== connectionEpoch || requestSocket.id !== connectionId) return reject(new Error('連線已變更，保存結果尚未確認；請重新同步後核對，草稿已保留。'));
         if (err) return reject(new Error('No acknowledgement received. Reconnect and check the saved state before retrying.'));
-        if (!result.ok) { const error = new Error(result.code === 'STALE' ? '编辑冲突：版本已变化，草稿已保留，请重新核对。' : result.error); error.code = result.code; return reject(error); }
+        if (!result?.ok) { const error = new Error(result?.code === 'STALE' ? '编辑冲突：版本已变化，草稿已保留，请重新核对。' : result?.error || 'Update was not saved.'); error.code = result?.code; return reject(error); }
         clearSubmitted(snapshot);
         $('sync-status').textContent = `Saved · revision ${result.revision}`; resolve(result);
       });
@@ -441,17 +519,19 @@
   }
   function connect() {
     if (pageDisposed) return;
+    invalidateConnection();
     countdownClient?.dispose();
     if (socket) { socket.removeAllListeners(); socket.disconnect(); }
     socket = createBroadcastSocket('/control', { token });
     countdownClient = BroadcastCountdown.createClient(socket, refreshCountdownControls);
-    socket.on('connect', () => { $('pairing').hidden = true; $('workspace').hidden = false; controlStatus(true); });
-    socket.on('state', next => { state = next; render(); $('sync-status').textContent = `Saved · revision ${next.revision}`; });
+    const activeSocket = socket;
+    socket.on('connect', () => { if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); $('pairing').hidden = true; $('workspace').hidden = false; controlStatus(true); $('sync-status').textContent = 'Synchronizing…'; });
+    socket.on('state', next => { if (socket !== activeSocket || pageDisposed) return; bindDrafts(next); state = next; freshEpoch = connectionEpoch; render(); $('sync-status').textContent = `Saved · revision ${next.revision}`; });
     socket.on('connections', next => { connections = next; refreshConnections(); });
-    socket.on('disconnect', () => controlStatus(false));
+    socket.on('disconnect', () => { if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); controlStatus(false); });
     socket.on('connect_error', error => {
-      controlStatus(false);
-      if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionStorage.removeItem('broadcast-token'); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
+      if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); controlStatus(false);
+      if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionValue('broadcast-token', null); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
     });
   }
   listen($('pair-form'), 'submit', async event => {
@@ -460,7 +540,7 @@
     try {
       const response = await fetch('../api/session', { method: 'POST', signal: lifecycle.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: $('pin').value }) });
       const result = await response.json(); if (pageDisposed) return; if (!response.ok) throw new Error(result.error);
-      token = result.token; sessionStorage.setItem('broadcast-token', token); $('pin').value = ''; connect();
+      token = result.token; sessionValue('broadcast-token', token); $('pin').value = ''; connect();
     } catch (error) { if (!pageDisposed) $('pair-error').textContent = error.message; } finally { if (!pageDisposed) submit.disabled = false; }
   });
   function refreshConnections() {
@@ -489,7 +569,7 @@
     const requestSocket = socket, connectionId = socket.id;
     countdownPending = true; refreshCountdownControls();
     try {
-      await queue;
+      await waitForCommandQueue();
       if (!requestSocket.connected || requestSocket !== socket || requestSocket.id !== connectionId) throw new Error('連線已變更，請確認選手準備完成後重新按下倒計時。');
       if (BroadcastCountdown.context(state)?.key !== current.key) throw new Error('選手、場次或曲目已切換，請重新核對。');
       const result = await new Promise((resolve, reject) => requestSocket.timeout(8000).emit('countdown-command', { action, expectedRevision: state.revision, contextKey: current.key, cueId }, (error, value) => error ? reject(new Error('未收到倒計時確認，請檢查目前畫面。')) : resolve(value)));
@@ -611,7 +691,7 @@
     const match = B.currentMatch(state);
     if (state.stage !== 'double-elimination' || !fixedFinal(match) || ['pending', 'complete'].includes(match.status)) throw new Error('請先選擇可進行的總決賽場次。');
     const signature = JSON.stringify([match.id, matchContext(state, match.id), match.finale?.stage]);
-    await queue;
+    await waitForCommandQueue();
     const current = B.currentMatch(state);
     if (signature !== JSON.stringify([current?.id, current && matchContext(state, current.id), current?.finale?.stage])) throw new Error('決賽進度或曲目已變更，請核對後操作。');
     assertScoresSaved('match', match.id);
@@ -798,7 +878,7 @@
   }
   async function takeProductionCue(cue) {
     const signature = JSON.stringify([state.stage, state.scene, state.qualifier.activeGroup, state.qualifier.activePlayers, state.qualifier.currentSong, state.tournament.currentMatchId, matchContext(state, state.tournament.currentMatchId)]);
-    await queue;
+    await waitForCommandQueue();
     if (signature !== JSON.stringify([state.stage, state.scene, state.qualifier.activeGroup, state.qualifier.activePlayers, state.qualifier.currentSong, state.tournament.currentMatchId, matchContext(state, state.tournament.currentMatchId)])) throw new Error('播出步驟或場次已變更，請核對目前畫面後再操作。');
     assertScoresSaved(state.stage === 'qualifier' ? 'qualifier' : 'match', state.stage === 'qualifier' ? state.qualifier.activeGroup : state.tournament.currentMatchId);
     return send('set-broadcast-cue', cue, { expectedRevision: state.revision });
@@ -812,7 +892,7 @@
     const match = B.currentMatch(state);
     if (state.stage !== 'double-elimination' || !fixedFinal(match) || ['pending', 'complete'].includes(match.status)) throw new Error('請先選擇可進行的總決賽場次。');
     const signature = JSON.stringify([state.stage, state.scene, match.id, matchContext(state, match.id), match.finalAnnouncement]);
-    await queue;
+    await waitForCommandQueue();
     const current = B.currentMatch(state);
     if (signature !== JSON.stringify([state.stage, state.scene, current?.id, current && matchContext(state, current.id), current?.finalAnnouncement])) throw new Error('決賽公布進度或場次已變更，請核對畫面後再操作。');
     assertScoresSaved('match', match.id);
@@ -951,7 +1031,7 @@
   mediaWarmup.prepareFonts();
   function disposePage(event) {
     if (event.persisted || pageDisposed) return;
-    pageDisposed = true; lifecycle.abort();
+    persistDrafts(); pageDisposed = true; invalidateConnection(); lifecycle.abort();
     clearInterval(countdownRefreshTimer); clearInterval(waitRefreshTimer); clearInterval(finalAnnouncementTimer); finalAnnouncementTimer = null; clearInterval(finalSequenceTimer); finalSequenceTimer = null; clearTimeout(toastTimer);
     tabAnimation?.cancel(); tabAnimation = null;
     countdownClient?.dispose(); BroadcastMotion.disposeCovers($('content'));
