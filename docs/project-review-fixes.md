@@ -22,3 +22,20 @@ python3 test/control-tiebreak-correction.py
 ```
 
 The normal `npm test` suite includes the server and domain regressions. Tests do not use the real event's PINs, session key or saved tournament.
+
+## Follow-up reliability repairs
+
+The follow-up review adds these fixes without replacing the schema-1 event format or existing pairing sessions:
+
+| Issue | Repair | Regression coverage |
+| --- | --- | --- |
+| A main-control command queued before disconnection could run after reconnection | Commands belong to their original connection and are discarded when that connection changes; a fresh synchronized state is required for a new command | `test/control-reconnect-browser.py` |
+| Different replacement tiebreak songs shared an array index and incorrectly shared a replay allowance | Replay limits follow the song identity within the existing player/round or match scope; saved metadata and aliases retain same-song limits | `test/tiebreak-rematch-identity.test.js` |
+| Two running servers could overwrite the same event file | The server acquires exclusive ownership of the canonical data directory before loading state or credentials, and releases it on shutdown or failed startup | `test/data-directory-lock.test.js` |
+| Image verification overwrote output before reporting stale assets | `--check` compares all generated image bytes and the manifest without writing; regular builds stage outputs before publication and roll back publication failures | `test/display-assets-build.py` |
+| Refreshing a staff page lost unsaved drafts | Both roles retain bounded, expiring drafts in tab storage, isolated by event identity; recovery requires normal conflict review and never submits automatically | `test/draft-storage.test.js`, `test/draft-recovery-browser.py`, `test/event-identity.test.js` |
+| Browser checks lacked a reproducible shared entrypoint | Pinned Python dependencies, shared Python/browser runners and GitHub Actions exercise the core suite on Node 20/24 and the critical Chromium flows | `npm run test:python`, `npm run test:browser:smoke` |
+
+New events have a random persistent identity. Older events adopt one without changing their scores, revision or audit history. Explicit backup restoration keeps the current event's identity; automatic recovery also retains a valid identity from the damaged current file. An unidentifiable legacy recovery receives an identity before staff pages reconnect.
+
+The data-directory lock protects broadcast servers on the same computer's local filesystem. Standalone `StateStore` use remains available to offline tools; stop the server before using a separate tool to write its event data. Concurrent starts may both decline rather than risk two writers; retry after the other launch has stopped. A live or unverifiable process claim is never removed based on its age.

@@ -25,6 +25,8 @@ OBS Browser Source:  http://localhost:3000/overlay/start.html
 
 The codes are created locally in `data/.control-pin` and `data/.scorekeeper-pin`. The laptop and iPad do not need external accounts. The two panels retain separate paired sessions in the browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` and `SCOREKEEPER_PIN` before starting the server; explicitly configured codes must differ. Existing main-control codes and paired sessions continue to work after upgrading. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
 
+Run one broadcast server per event data directory on the same computer's local filesystem. A second instance refuses to start, including on another port, so two servers cannot overwrite each other's saved results. Normal shutdown releases the lock; a later start can recover a lock left by a process that has exited. Do not remove `data/.server-lock/` while a server is running. Use separate data directories for independent events.
+
 Pairing codes and the session key are written through private atomic files. An empty saved main-control code, a blank explicitly configured code, or a damaged session key stops startup. Restore the affected credential from a private backup; a main-control code can also be supplied through a nonempty `CONTROL_PIN`. If the original session key cannot be recovered, stop the server, preserve the damaged file elsewhere, and remove it from `data/` before restarting. The server then creates a fresh key and each staff panel must pair again.
 
 New events contain **sample players and the official 50-chart song list**, with no scores or seeded bracket. Qualifiers use **Challenge Mode total scoring**: record the total shown by Phigros after the three-song set. The six qualifier charts, 42 Double Elimination charts and two fixed Grand Final charts already have their local jackets, names, artists and specified difficulties. Levels discard the decimal part: 14.7 becomes 14 and 16.9 becomes 16. Verify the roster and choose the qualifier plan before recording totals. The supplied Phigros logo, society logos and event key visual are bundled as local files; see the replacement instructions below.
@@ -57,6 +59,8 @@ The ready-to-use derivatives require no new runtime packages. After changing ori
 python3 scripts/build-display-assets.py
 ```
 
+Use `python3 scripts/build-display-assets.py --check` to verify the generated image bytes and manifest without changing files. A normal rebuild prepares the complete output before publishing it, replaces the manifest last, and rolls back replaced files if publication fails.
+
 Keep one following browser source active, with **Shutdown source when not visible** and **Refresh browser when scene becomes active** unchecked. Check browser-source hardware acceleration in the OBS version being used. Run these optional regressions with temporary event data; the cold baseline uses the frontend from commit `528916d` (override with `--baseline-ref`):
 
 ```sh
@@ -73,6 +77,8 @@ The main panel at `/control/` keeps the existing layout and all tournament and b
 The scorekeeper sheet follows the main operator's current stage, active qualifier batch or selected elimination match. It only shows the qualifier entrants currently selected for play, rather than the whole round/group roster. Select Plan A or Plan B in main control first. After Challenge Mode plays its three songs continuously and displays the final settlement, enter **each song's score and Perfect / Good / Bad / Miss counts**, plus the game's **official three-song total**. All sixteen values are required to save that player's complete sheet in one atomic update. Song scores accept **0 to 1,000,000**, the official total accepts **0 to 3,000,000**, and zero is valid in every field. No separate Accuracy percentage is required for Challenge results. The three-song sum is shown for checking; ranking still uses the manually recorded official total. Elimination matches and single-song tiebreaks retain their existing score entries. Qualification and seeding lock the relevant qualifier results, and result confirmation locks completed matches. Older events retain their individual-song entries and sealed MC-score restrictions.
 
 Live updates preserve unsaved drafts and input focus. If another operator changes the same score, review the server value and choose which value to keep before saving. When main control changes the active qualifier batch, group, match, roster or songs, old drafts remain marked with their original context and cannot be submitted to the new sheet. Changing only the current song or broadcast scene preserves the batch's scoring sheet. Disconnected scorekeepers retain drafts and must reconnect before saving; queued actions from an old connection are not replayed automatically. Save a player's edits before moving to the next batch, group or match.
+
+Both staff panels also keep unsaved drafts in the current tab's browser storage for up to seven days, allowing a page refresh to recover them. Drafts stay on that browser and are isolated by panel role and event; they are never submitted automatically. Recovered edits use the same saved-value conflict checks, and a completed save or explicit discard clears their local copy. Keep the tab open until scores are saved: closing a tab can remove this storage, and browsers that deny storage retain drafts only while the page remains loaded. Main-control disconnection also cancels queued commands; after reconnection, review the synchronized state before issuing a new command.
 
 Scorekeeper permissions are enforced by the server: its session can only submit qualifier or match scores for the current sheet. It cannot change players or songs, resolve ties, confirm results, advance the bracket, switch scenes, start a countdown, manage sources, export private data, restore backups or open the main-control session. Main control keeps responsibility for those operations.
 
@@ -352,6 +358,17 @@ npm run dev
 ```
 
 `npm test` uses temporary data and covers group rankings, ties, selection rules, complete bracket progression, podium placements, byes/lotteries, private finals picks, atomic persistence, authenticated HTTP/Socket.IO, disconnection recovery, server restart, local branding lookup, and saved display modes with backwards compatibility for older tournaments. It does not modify the production tournament.
+
+Install the pinned Python test dependencies with Python 3.12 to run the media and browser regressions:
+
+```sh
+python3 -m pip install -r requirements-test.txt
+python3 -m playwright install --with-deps chromium
+npm run test:python
+npm run test:browser:smoke
+```
+
+The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection and draft recovery. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on Node 20 and 24, and the Python/Chromium suites with these same entrypoints.
 
 The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
 
