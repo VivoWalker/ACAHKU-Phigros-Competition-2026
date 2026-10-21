@@ -41,9 +41,12 @@ test('old tournament files read safely and persist the first display command acr
   assert.equal(store.state.broadcast, undefined);
   assert.deepEqual(publicState(store.state).broadcast, { showHandcams: false });
   assert.equal(store.state.broadcast, undefined);
-  assert.equal(fs.readFileSync(filename, 'utf8'), original);
+  const { eventId, ...unchanged } = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  assert.equal(typeof eventId, 'string');
+  assert.deepEqual(unchanged, legacy, 'Loading only adopts identity metadata; display mode and scores stay unchanged.');
   store.commit({ type: 'set-broadcast-display', payload: { showHandcams: true } }, 0);
   const restarted = new StateStore(directory);
+  assert.equal(restarted.state.eventId, eventId);
   assert.deepEqual(restarted.state.broadcast, { showHandcams: true });
   assert.equal(restarted.state.revision, 1);
   assert.deepEqual(restarted.state.qualifier, legacy.qualifier);

@@ -226,7 +226,9 @@ test('scoring-mode adoption is explicit for blank legacy events and never reinte
     playerId: player.id, songIndex, score: 990000, judgements: { accuracy: 100 - player.number } });
   store.state = legacy; store.write(legacy);
   assert.equal(rankings(legacy, 'A')[0].total, 2970000); assert.equal(rankings(legacy, 'A')[0].accuracy, 99);
-  assert.deepEqual(new StateStore(dir).state, legacy);
+  const restarted = new StateStore(dir);
+  assert.equal(typeof restarted.state.eventId, 'string');
+  assert.deepEqual(restarted.state, { ...legacy, eventId: restarted.state.eventId });
   assert.equal(new StateStore(dir).state.qualifier.scoringMode, undefined, 'Restart must never infer Challenge totals from existing ordinary scores.');
 });
 

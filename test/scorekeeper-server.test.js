@@ -242,6 +242,7 @@ test('scorekeeper codes and tokens survive a process restart and use a distinct 
   assert.equal((await fetch(f.url + '/api/scorekeeper-state', { headers: { Authorization: 'Bearer ' + f.scorerToken } })).status, 200);
   assert.equal((await f.connect('/scorekeeper')).state.qualifier.players[0].scores[0], 990000);
   assert.equal((await f.score('set-qualifier-score', { playerId: 'p1', songIndex: 1, score: 980000 })).ok, true);
+  await f.app.close();
   assert.throws(() => createBroadcastServer({ dataDir: f.dir, pin: 'same-fixture-code', scorekeeperPin: 'same-fixture-code' }), /must be different/);
   const alternative = createBroadcastServer({ dataDir: f.dir, pin });
   t.after(() => alternative.close()); assert.notEqual(alternative.scorekeeperPin, pin);
