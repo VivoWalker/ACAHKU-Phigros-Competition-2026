@@ -1,0 +1,4 @@
+# Python 3.12; used by the optional media and real-browser regressions.
+playwright==1.62.0
+Pillow==12.3.0
+numpy==2.3.5
