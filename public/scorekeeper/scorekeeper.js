@@ -1,6 +1,10 @@
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
+  const sessionValue = (key, value) => {
+    try { if (value === undefined) return sessionStorage.getItem(key); if (value === null) sessionStorage.removeItem(key); else sessionStorage.setItem(key, value); } catch (_) { /* Private browsing can deny storage; this session still works in memory. */ }
+    return null;
+  };
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const scoreText = value => value === null || value === undefined ? '—' : Number(value).toLocaleString('en-US');
   const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -11,8 +15,38 @@
   const judgementText = (raw, statsOnly = false) => `${statsOnly ? '' : `ACC ${raw?.accuracy === undefined || raw?.accuracy === '' ? '—' : raw.accuracy}% · `}P/G/B/M ${counterNames.map(name => raw?.[name] === undefined || raw?.[name] === '' ? '—' : raw[name]).join('/')}`;
   const drafts = new Map(), fields = new Map(), revisionWaiters = new Set(), pendingCommands = new Set();
   const lifecycle = new AbortController(), listenerOptions = { signal: lifecycle.signal };
-  let token = sessionStorage.getItem('scorekeeper-token'), socket, state, view, renderedSignature = '', connectionEpoch = 0, freshEpoch = -1;
+  let token = sessionValue('scorekeeper-token'), socket, state, view, renderedSignature = '', connectionEpoch = 0, freshEpoch = -1;
   let saving = false, toastTimer, loginPending = false, disposed = false;
+  const draftStorage = BroadcastDraftStorage.createStore({ role: 'scorekeeper' });
+  let draftEventId = '';
+  function persistDrafts() {
+    if (!draftEventId) return;
+    draftStorage.save(draftEventId, [...drafts.values()].map(({ key, contextKey, contextLabel, playerKey, playerName, scoreOnly, challengeTotal, challengeResult, songStats, songIndex, raw, rawJudgements, base }) => ({ key, contextKey, contextLabel, playerKey, playerName, scoreOnly, challengeTotal, challengeResult, songStats, songIndex, raw, rawJudgements, base })));
+  }
+  function bindDrafts(next) {
+    const id = typeof next.eventId === 'string' ? next.eventId : '';
+    if (id === draftEventId) return;
+    persistDrafts(); drafts.clear(); draftEventId = id;
+    if (!id) return;
+    for (const saved of draftStorage.load(id)) {
+      if (!saved || typeof saved.key !== 'string' || typeof saved.contextKey !== 'string' || typeof saved.contextLabel !== 'string'
+        || typeof saved.playerKey !== 'string' || typeof saved.playerName !== 'string' || typeof saved.raw !== 'string'
+        || !Number.isInteger(saved.songIndex) || saved.songIndex < 0 || saved.songIndex > 3 || !saved.base || typeof saved.base !== 'object'
+        || !saved.rawJudgements || judgementNames.some(name => typeof saved.rawJudgements[name] !== 'string')) continue;
+      try { if (JSON.parse(saved.key)[0] !== saved.contextKey) continue; } catch (_) { continue; }
+      drafts.set(saved.key, { ...saved, server: saved.base, conflict: false, sending: false, recovered: true });
+    }
+  }
+  function reconcileRecoveredDrafts() {
+    const recovered = [...drafts.values()].filter(record => record.recovered && fields.has(record.key));
+    for (const record of recovered) {
+      const group = record.challengeResult ? recovered.filter(item => item.challengeResult && item.contextKey === record.contextKey && item.playerKey === record.playerKey) : [record];
+      if (record.challengeResult && group.length !== 4) continue;
+      if (group.every(item => { const field = fields.get(item.key), parsed = parseEntry(item.raw, item.rawJudgements, field); return !field.reason && parsed.valid && same(parsed.value, snapshotValue(field)); })) {
+        for (const item of group) drafts.delete(item.key);
+      }
+    }
+  }
 
   function releasePending() {
     for (const waiter of revisionWaiters) { clearTimeout(waiter.timer); waiter.reject(new Error('連線中斷，草稿已保留。')); }
@@ -27,7 +61,7 @@
   }
   function dispose() {
     if (disposed) return;
-    disposed = true; lifecycle.abort(); clearTimeout(toastTimer); toastTimer = null;
+    persistDrafts(); disposed = true; lifecycle.abort(); clearTimeout(toastTimer); toastTimer = null;
     disconnectSocket();
     drafts.clear(); fields.clear(); state = view = token = null; renderedSignature = '';
   }
@@ -128,6 +162,7 @@
       <div class="score-fields" style="--song-count:${view.count}">${Array.from({ length: view.challengeTotal ? 4 : view.count }, (_, si) => scoreFieldHtml(descriptor(player, pi, si))).join('')}</div>${view.challengeTotal ? '<p class="challenge-crosscheck" data-challenge-crosscheck role="status"></p>' : ''}<div class="player-actions"><p data-player-status>所有分數已同步</p><button class="primary-button" type="submit" data-save-player="${escape(playerKey)}">${view.challengeTotal ? '保存完整成績' : '保存分數'}</button></div></form>`;
   }
   function draftNotice() {
+    persistDrafts();
     const stale = new Map();
     let active = 0, conflicts = 0;
     for (const record of drafts.values()) {
@@ -141,12 +176,12 @@
     notice.hidden = !drafts.size;
     if (!drafts.size) { notice.innerHTML = ''; return; }
     const activeText = active ? `${view?.challengeTotal ? '完整成績草稿尚未保存。' : `${active} 欄分數尚未保存。`}${conflicts ? `其中 ${conflicts} 欄已被其他工作人員修改，請在分數欄下方核對。` : `請按選手下方的「${view?.challengeTotal ? '保存完整成績' : '保存分數'}」。`}` : '';
-    const html = `<h2>未保存的分數草稿</h2>${activeText ? `<p>${escape(activeText)}</p>` : ''}${Array.from(stale.entries(), ([key, item]) => `<div class="stale-context"><div><span>${escape(item.label)} · ${item.records.length} 欄草稿</span><p>主控已切換場次；草稿保留在原場次，不能提交到目前場次。</p><p class="stale-draft-values">${item.records.map(record => `${escape(record.playerName)} · ${record.challengeTotal ? 'Challenge 總分' : '第 ' + (record.songIndex + 1) + ' 首'}：${escape(record.raw === '' ? '未計分' : record.raw)}${record.scoreOnly ? '' : ' · ' + escape(judgementText(record.rawJudgements, record.songStats))}`).join('<br>')}</p></div><button type="button" data-discard-context="${escape(key)}" ${saving ? 'disabled' : ''}>丟棄此場次草稿</button></div>`).join('')}`;
+    const html = `<h2>未保存的分數草稿</h2>${[...drafts.values()].some(record => record.recovered) ? '<p>已恢復本頁草稿，請核對後手動保存。</p>' : ''}${activeText ? `<p>${escape(activeText)}</p>` : ''}${Array.from(stale.entries(), ([key, item]) => `<div class="stale-context"><div><span>${escape(item.label)} · ${item.records.length} 欄草稿</span><p>主控已切換場次；草稿保留在原場次，不能提交到目前場次。</p><p class="stale-draft-values">${item.records.map(record => `${escape(record.playerName)} · ${record.challengeTotal ? 'Challenge 總分' : '第 ' + (record.songIndex + 1) + ' 首'}：${escape(record.raw === '' ? '未計分' : record.raw)}${record.scoreOnly ? '' : ' · ' + escape(judgementText(record.rawJudgements, record.songStats))}`).join('<br>')}</p></div><button type="button" data-discard-context="${escape(key)}" ${saving ? 'disabled' : ''}>丟棄此場次草稿</button></div>`).join('')}`;
     if (notice.innerHTML !== html) notice.innerHTML = html;
   }
   function render() {
     if (disposed || !state) return;
-    view = currentView(); rebuildFields(); reviseDrafts();
+    view = currentView(); rebuildFields(); reconcileRecoveredDrafts(); reviseDrafts();
     $('pairing').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
     $('event-title').textContent = state.event?.titleZH || state.event?.title || 'ACAHKU / SCORE ENTRY';
     $('context-title').textContent = view.title; $('context-description').textContent = view.description;
@@ -347,7 +382,7 @@
     socket.on('connect', () => { if (disposed || socket !== activeSocket) return; connectionEpoch++; freshEpoch = -1; connectionText('正在同步…', true); render(); });
     socket.on('state', next => {
       if (disposed || socket !== activeSocket) return;
-      state = next; freshEpoch = connectionEpoch; connectionText('已連線', false); render(); resolveWaiters();
+      bindDrafts(next); state = next; freshEpoch = connectionEpoch; connectionText('已連線', false); render(); resolveWaiters();
     });
     socket.on('disconnect', () => {
       if (disposed || socket !== activeSocket) return;
@@ -356,7 +391,7 @@
     socket.on('connect_error', error => {
       if (disposed || socket !== activeSocket) return;
       if (['FORBIDDEN', 'PAIRING_REQUIRED', 'unauthorized'].includes(error.message) || /unauthor|expired|invalid token/i.test(error.message)) {
-        sessionStorage.removeItem('scorekeeper-token'); token = null; disconnectSocket(); state = null; view = null; renderedSignature = ''; freshEpoch = -1;
+        sessionValue('scorekeeper-token', null); token = null; disconnectSocket(); state = null; view = null; renderedSignature = ''; freshEpoch = -1;
         $('workspace').hidden = true; $('pairing').hidden = false; $('logout').hidden = true;
         $('pair-error').textContent = '計分員登入已失效，請重新輸入計分員密碼。'; connectionText('需要重新登入', true);
       } else { connectionText('無法連線 · 正在重試', true); if (!state) $('pair-error').textContent = '暫時無法連線至比賽伺服器，請檢查網路。'; }
@@ -371,14 +406,14 @@
       const result = await response.json();
       if (disposed) return;
       if (!response.ok || !result.token || result.role !== 'scorekeeper') throw new Error(response.status === 429 ? '登入嘗試過於頻繁，請稍後再試。' : '計分員密碼不正確，請向主控工作人員確認。');
-      token = result.token; sessionStorage.setItem('scorekeeper-token', token); $('pin').value = ''; connect();
+      token = result.token; sessionValue('scorekeeper-token', token); $('pin').value = ''; connect();
     } catch (error) { if (!disposed) $('pair-error').textContent = error instanceof TypeError ? '無法連線至比賽伺服器，請檢查網路後再試。' : error.message; }
     finally { loginPending = false; if (!disposed) button.disabled = false; }
   }, listenerOptions);
   $('logout').addEventListener('click', () => {
     if (disposed) return;
     disconnectSocket(); state = null; view = null;
-    sessionStorage.removeItem('scorekeeper-token'); token = null;
+    sessionValue('scorekeeper-token', null); token = null;
     $('workspace').hidden = true; $('pairing').hidden = false; $('logout').hidden = true;
     $('pair-error').textContent = drafts.size ? '已登出；本頁未保存的草稿保留至重新登入。' : ''; connectionText('尚未登入', true);
   }, listenerOptions);

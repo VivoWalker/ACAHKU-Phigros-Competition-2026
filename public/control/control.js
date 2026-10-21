@@ -1,5 +1,9 @@
 (function () {
   const B = Broadcast, e = B.escape, $ = id => document.getElementById(id);
+  const sessionValue = (key, value) => {
+    try { if (value === undefined) return sessionStorage.getItem(key); if (value === null) sessionStorage.removeItem(key); else sessionStorage.setItem(key, value); } catch (_) { /* Private browsing can deny storage; this session still works in memory. */ }
+    return null;
+  };
   const lifecycle = new AbortController();
   const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: lifecycle.signal });
   const exportURLs = new Map();
@@ -8,7 +12,7 @@
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
   let state, socket, activeTab = 'broadcast', connections = { overlays: 0, controls: 0 }, focusSongId, editingSongId = null;
-  let queue = Promise.resolve(), toastTimer, token = sessionStorage.getItem('broadcast-token');
+  let queue = Promise.resolve(), toastTimer, token = sessionValue('broadcast-token');
   let connectionEpoch = 0, freshEpoch = -1;
   const pendingCommands = new Set();
   const controlReady = () => !pageDisposed && !!socket?.connected && !!state && freshEpoch === connectionEpoch;
@@ -78,13 +82,60 @@
   const heading = (tag, title, description, action = '') => `<div class="page-heading"><div><div class="eyebrow">${tag}</div><h1>${title}</h1><p>${description}</p></div>${action ? `<div class="heading-action">${action}</div>` : ''}</div>`;
   const matchActions = new Set(['draw-candidates', 'ban-song', 'pick-songs', 'set-final-candidates', 'set-final-picks', 'reveal-host-song', 'start-final-announcement', 'configure-final-finale', 'show-final-two-totals', 'start-final-finale', 'play-final-finale-video', 'finish-final-finale-video', 'reveal-final-finale', 'set-final-finale-effect', 'set-song-progress', 'set-match-score', 'record-result', 'record-bye', 'lottery-bye', 'reset-current-match', 'draw-match-tiebreak', 'set-match-tiebreak-score', 'confirm-match-tiebreak']);
   const drafts = new Map();
+  const draftStorage = BroadcastDraftStorage.createStore({ role: 'control' });
+  let draftEventId = '';
+  function persistDrafts() {
+    if (!draftEventId) return;
+    draftStorage.save(draftEventId, [...drafts.values()].map(({ key, scope, id, label, numeric, base, value, reader }) => ({ key, scope, id, label, numeric, base: base ?? null, value, reader })));
+  }
+  function draftReader(reader, s) {
+    if (reader.kind === 'form') return formValues(reader.scope, s)[reader.id];
+    if (reader.kind === 'match-score') return String(s.tournament.matches.find(m => m.id === reader.id)?.scores[reader.pi]?.[reader.si] ?? '');
+    if (reader.kind === 'qualifier-score') return String(qualifierEntries(s, reader.group).find(p => p.id === reader.id)?.scores[reader.si] ?? '');
+    if (reader.kind === 'tie') return String(B.player(s, reader.id)?.tiePriority ?? '');
+    if (reader.kind === 'qualifier-slot') return s.qualifier.activePlayers[reader.slot] || '';
+    if (reader.kind === 'qualifier-progress') return String(s.qualifier.currentSong);
+    if (reader.kind === 'stage') return s.stage;
+  }
+  function validStoredDraft(saved) {
+    try {
+      const [kind, entity] = saved.scope.split(':');
+      if (kind === 'score-entry') {
+        const d = JSON.parse(decodeURIComponent(entity));
+        if (!d || !['q', 'qc', 'qd', 'qt', 'm', 'mt'].includes(d.kind) || !['A', 'B'].includes(d.group) || typeof d.id !== 'string' || !d.id
+          || typeof d.prefix !== 'string' || !d.prefix || typeof d.context !== 'string' || !Array.isArray(JSON.parse(d.context))
+          || ![d.pi, d.si, d.index].every(Number.isSafeInteger) || d.pi < 0 || d.pi > 63 || d.si < 0 || d.si > 2 || d.index < 0 || d.index > 1000) return false;
+      } else if (!['plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
+      if (saved.reader.kind === 'form') return saved.reader.scope === saved.scope && saved.reader.id === saved.id;
+      if (['match-score', 'qualifier-score', 'tie'].includes(saved.reader.kind)) return saved.reader.kind === kind && saved.reader.id === entity
+        && (kind === 'tie' || Number.isInteger(saved.reader.si) && saved.reader.si >= 0 && saved.reader.si < 3)
+        && (kind !== 'match-score' || Number.isInteger(saved.reader.pi) && saved.reader.pi >= 0 && saved.reader.pi < 2)
+        && (kind !== 'qualifier-score' || ['A', 'B'].includes(saved.reader.group));
+      if (saved.reader.kind === 'qualifier-slot') return kind === 'qualifier-display' && Number.isInteger(saved.reader.slot) && saved.reader.slot >= 0 && saved.reader.slot < 3;
+      return saved.reader.kind === 'qualifier-progress' ? kind === 'qualifier-display' : saved.reader.kind === 'stage' && kind === 'stage';
+    } catch (_) { return false; }
+  }
+  function bindDrafts(next) {
+    const id = typeof next.eventId === 'string' ? next.eventId : '';
+    if (id === draftEventId) return;
+    persistDrafts(); drafts.clear(); draftEventId = id;
+    if (!id) return;
+    for (const saved of draftStorage.load(id)) {
+      if (!saved || typeof saved.key !== 'string' || typeof saved.scope !== 'string' || typeof saved.id !== 'string' || typeof saved.label !== 'string'
+        || saved.key !== `${saved.scope}|${saved.id}` || !saved.reader || !['form', 'match-score', 'qualifier-score', 'tie', 'qualifier-slot', 'qualifier-progress', 'stage'].includes(saved.reader.kind)
+        || !['string', 'boolean'].includes(typeof saved.value) || !['string', 'number', 'boolean'].includes(typeof saved.base) && saved.base !== null || !validStoredDraft(saved)) continue;
+      const record = { ...saved, numeric: saved.numeric === true, pending: new Set(), conflict: false, recovered: true };
+      record.read = current => { try { return draftReader(record.reader, current); } catch (_) { return undefined; } };
+      drafts.set(record.key, record);
+    }
+  }
   const qualifierCorrectionReasons = new Map();
   const valueOf = el => el.type === 'checkbox' ? el.checked : el.value;
   const normal = (record, value) => typeof value === 'boolean' ? value : record.numeric && value !== '' ? String(Number(value)) : String(value ?? '').trim();
   const equal = (record, a, b) => normal(record, a) === normal(record, b);
   const draftKey = el => el.dataset.draftScope ? `${el.dataset.draftScope}|${el.id}` : null;
-  const matchContext = (s, id) => { const m = s.tournament.matches.find(item => item.id === id); return JSON.stringify([s.tournament.ruleset, m?.players, m?.songs.map(song => song.id), m?.candidates.map(song => song.id), (m?.tiebreaks || []).map(t => [t.song.id, t.confirmed])]); };
-  const qualifierContext = (s, id, group = s.qualifier.activeGroup) => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.scoringMode || 'legacy-score', group, s.qualifier.groups[group]?.songs, s.qualifier.rounds?.[group]?.playerIds, s.qualifier.rounds?.[group]?.locked, B.player(s, id)?.disqualification, s.qualifier.rounds?.[group]?.tiebreaks?.map(t => [t.song.id, t.playerIds, t.confirmed])]);
+  const matchContext = (s, id) => { const m = s.tournament.matches.find(item => item.id === id); return JSON.stringify([s.tournament.ruleset, m?.players, m?.songs.map(song => song.id), m?.candidates.map(song => song.id), (m?.tiebreaks || []).map(t => [t.song.id, t.confirmed]), m?.rematches]); };
+  const qualifierContext = (s, id, group = s.qualifier.activeGroup) => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.scoringMode || 'legacy-score', group, s.qualifier.groups[group]?.songs, s.qualifier.rounds?.[group]?.playerIds, s.qualifier.rounds?.[group]?.locked, B.player(s, id)?.disqualification, s.qualifier.rounds?.[group]?.tiebreaks?.map(t => [t.song.id, t.playerIds, t.confirmed]), s.qualifier.incidents?.filter(item => item.group === group)]);
   const seedContext = s => JSON.stringify([s.qualifier.plan || 'legacy', s.qualifier.players.map(p => [p.id, Boolean(p.disqualification)]), ['A', 'B'].map(g => [s.qualifier.rounds?.[g]?.playerIds, s.qualifier.rounds?.[g]?.qualifiedIds, s.qualifier.rounds?.[g]?.locked]), s.tournament.seeded, s.tournament.seeds]);
   const sourceContext = (s = state) => { const status = s.broadcast?.sourceStatus; return JSON.stringify([status?.layout, status?.layout === 'qualifier' ? s.qualifier.activeGroup : s.tournament.currentMatchId, status?.showHandcams, status?.slots.map(slot => [slot.playerId, slot.playerName])]); };
   const sourceScope = (s = state) => `sources:${s.broadcast?.sourceStatus?.layout}:${encodeURIComponent(sourceContext(s))}`;
@@ -135,27 +186,28 @@
   function prepareDrafts(root) {
     for (const form of root.querySelectorAll('form')) { const scope = formScope(form); if (scope) form.dataset.draftScope = scope; }
     for (const el of root.querySelectorAll('input[id],textarea[id],select[id]')) {
-      let scope = el.form?.dataset.draftScope, read;
-      if (el.form?.dataset.scoreEditor) { const formScope = scope; const id = el.id; read = s => formValues(formScope, s)[id];
+      let scope = el.form?.dataset.draftScope, read, reader;
+      if (el.form?.dataset.scoreEditor) { const formScope = scope; const id = el.id; read = s => formValues(formScope, s)[id]; reader = { kind: 'form', scope: formScope, id };
       } else if (el.dataset.matchScore !== undefined) {
         const matchId = el.dataset.matchId, pi = Number(el.dataset.matchScore), si = Number(el.dataset.songIndex);
-        scope = `match-score:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => String(s.tournament.matches.find(m => m.id === matchId)?.scores[pi][si] ?? '');
+        scope = `match-score:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => String(s.tournament.matches.find(m => m.id === matchId)?.scores[pi][si] ?? ''); reader = { kind: 'match-score', id: matchId, pi, si };
       } else if (el.dataset.qualifierScore) {
         const id = el.dataset.qualifierScore, si = Number(el.dataset.songIndex);
-        scope = `qualifier-score:${id}:${encodeURIComponent(qualifierContext(state, id))}`; read = s => String(qualifierEntries(s).find(p => p.id === id)?.scores[si] ?? '');
+        scope = `qualifier-score:${id}:${encodeURIComponent(qualifierContext(state, id))}`; read = s => String(qualifierEntries(s).find(p => p.id === id)?.scores[si] ?? ''); reader = { kind: 'qualifier-score', id, si, group: state.qualifier.activeGroup };
       } else if (el.dataset.tiePlayer) {
-        const id = el.dataset.tiePlayer; scope = `tie:${id}`; read = s => String(B.player(s, id)?.tiePriority ?? '');
+        const id = el.dataset.tiePlayer; scope = `tie:${id}`; read = s => String(B.player(s, id)?.tiePriority ?? ''); reader = { kind: 'tie', id };
       } else if (['draw-winner', 'bye-note'].includes(el.id)) {
         const matchId = state.tournament.currentMatchId, id = el.id;
-        scope = `special:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => formValues(scope, s)[id];
+        scope = `special:${matchId}:${encodeURIComponent(matchContext(state, matchId))}`; read = s => formValues(scope, s)[id]; reader = { kind: 'form', scope, id };
       } else if (el.dataset.activeSlot !== undefined || el.hasAttribute('data-qualifier-progress')) {
         const group = state.qualifier.activeGroup;
         scope = `qualifier-display:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`;
         read = el.dataset.activeSlot !== undefined ? s => s.qualifier.activePlayers[Number(el.dataset.activeSlot)] || '' : s => String(s.qualifier.currentSong);
-      } else if (el.hasAttribute('data-stage')) { scope = 'stage'; read = s => s.stage;
-      } else if (scope) { const id = el.id; read = s => formValues(scope, s)[id]; }
+        reader = el.dataset.activeSlot !== undefined ? { kind: 'qualifier-slot', slot: Number(el.dataset.activeSlot) } : { kind: 'qualifier-progress' };
+      } else if (el.hasAttribute('data-stage')) { scope = 'stage'; read = s => s.stage; reader = { kind: 'stage' };
+      } else if (scope) { const id = el.id; read = s => formValues(scope, s)[id]; reader = { kind: 'form', scope, id }; }
       if (!scope || !read) continue;
-      el.dataset.draftScope = scope; el._draftRead = read;
+      el.dataset.draftScope = scope; el._draftRead = read; el._draftReader = reader;
       const record = drafts.get(draftKey(el));
       if (record) { if (el.type === 'checkbox') el.checked = record.value; else el.value = record.value; }
     }
@@ -163,7 +215,7 @@
   function rememberDraft(el) {
     const key = draftKey(el); if (!key || !el._draftRead) return;
     let record = drafts.get(key);
-    if (!record) record = { key, scope: el.dataset.draftScope, id: el.id, label: (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.id).replace(/\s+/g, ' ').trim(), read: el._draftRead, numeric: el.type === 'number', base: el._draftRead(state), pending: new Set(), conflict: false };
+    if (!record) record = { key, scope: el.dataset.draftScope, id: el.id, label: (el.labels?.[0]?.textContent || el.getAttribute('aria-label') || el.id).replace(/\s+/g, ' ').trim(), read: el._draftRead, reader: el._draftReader, numeric: el.type === 'number', base: el._draftRead(state), pending: new Set(), conflict: false };
     record.value = valueOf(el);
     if (equal(record, record.value, record.base) && !record.pending.size) drafts.delete(key); else drafts.set(key, record);
     refreshDraftNotice();
@@ -180,6 +232,7 @@
       if (kind === 'seeds' && id !== encodeURIComponent(seedContext(state))) { record.conflict = true; continue; }
       if (kind === 'group-songs' && signature !== encodeURIComponent(qualifierContext(state, null, id))) { record.conflict = true; continue; }
       if (kind === 'sources' && encodeURIComponent(sourceContext()) !== signature) { record.conflict = true; continue; }
+      if (record.recovered && equal(record, current, record.value)) { drafts.delete(record.key); continue; }
       if (record.pending.has(normal(record, current))) { record.base = current; record.conflict = false; }
       else if (!equal(record, current, record.base)) record.conflict = true;
     }
@@ -206,6 +259,7 @@
     return send(type, () => build({ ...formValues(scope), ...Object.fromEntries(snapshot.map(item => [item.record.id, item.value])) }), { ...options, snapshot });
   }
   function refreshDraftNotice() {
+    persistDrafts();
     if (!$('content')) return;
     const pastScores = $('production-draft-editors');
     for (const form of pastScores?.querySelectorAll('form[data-score-editor]') || []) {
@@ -221,7 +275,7 @@
     const scopeLabel = record => { if (record.scope.startsWith('score-entry:')) { const d = JSON.parse(decodeURIComponent(record.scope.split(':')[1])); return `${d.kind.startsWith('q') ? qualifierLabel(d.group) + ' · ' + B.name(state, d.id) : d.id + ' · P' + (d.pi + 1)} · ${d.kind === 'qc' ? 'Challenge 总分' : d.kind.endsWith('t') ? '加赛 ' + (d.index + 1) : 'Song ' + (d.si + 1)}`; } return record.scope.split(':').slice(0, 2).join(' · ').slice(0, 120); };
     notice._conflictKeys = conflicts.map(record => record.key);
     const display = value => e(String(value ?? '空值').slice(0, 160));
-    const content = `<strong>${conflicts.length ? '编辑冲突 · 草稿已保留' : '未提交草稿'}</strong><p>${drafts.size} 个字段尚未提交。${conflicts.length ? '其他操作员修改了其中 ' + conflicts.length + ' 个字段；请核对以下差异后再提交。' : '切换标签页或收到实时更新时会保留草稿。'}</p>${conflicts.length ? `<ul class="draft-conflicts">${conflicts.map(record => `<li><strong>${e(scopeLabel(record))} · ${e(record.label.slice(0, 100))}</strong><span>服务器：${display(record.read(state))}</span><span>保留草稿：${display(record.value)}</span></li>`).join('')}</ul><div class="form-actions">${button('采用以上服务器版本', 'data-draft-resolution="server"')}${button('保留以上草稿并重新确认', 'data-draft-resolution="review"')}</div>` : ''}`;
+    const content = `<strong>${conflicts.length ? '编辑冲突 · 草稿已保留' : '未提交草稿'}</strong><p>${drafts.size} 个字段尚未提交。${[...drafts.values()].some(record => record.recovered) ? '已恢復本頁草稿，請核對後手動保存。' : ''}${conflicts.length ? '其他操作员修改了其中 ' + conflicts.length + ' 个字段；请核对以下差异后再提交。' : '切换标签页或收到实时更新时会保留草稿。'}</p>${conflicts.length ? `<ul class="draft-conflicts">${conflicts.map(record => `<li><strong>${e(scopeLabel(record))} · ${e(record.label.slice(0, 100))}</strong><span>服务器：${display(record.read(state))}</span><span>保留草稿：${display(record.value)}</span></li>`).join('')}</ul><div class="form-actions">${button('采用以上服务器版本', 'data-draft-resolution="server"')}${button('保留以上草稿并重新确认', 'data-draft-resolution="review"')}</div>` : ''}`;
     const html = content + `<div class="form-actions">${button('放棄未提交草稿', 'data-discard-drafts')}</div>`;
     if (notice._draftHTML !== html) { notice.innerHTML = html; notice._draftHTML = html; }
   }
@@ -472,12 +526,12 @@
     countdownClient = BroadcastCountdown.createClient(socket, refreshCountdownControls);
     const activeSocket = socket;
     socket.on('connect', () => { if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); $('pairing').hidden = true; $('workspace').hidden = false; controlStatus(true); $('sync-status').textContent = 'Synchronizing…'; });
-    socket.on('state', next => { if (socket !== activeSocket || pageDisposed) return; state = next; freshEpoch = connectionEpoch; render(); $('sync-status').textContent = `Saved · revision ${next.revision}`; });
+    socket.on('state', next => { if (socket !== activeSocket || pageDisposed) return; bindDrafts(next); state = next; freshEpoch = connectionEpoch; render(); $('sync-status').textContent = `Saved · revision ${next.revision}`; });
     socket.on('connections', next => { connections = next; refreshConnections(); });
     socket.on('disconnect', () => { if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); controlStatus(false); });
     socket.on('connect_error', error => {
       if (socket !== activeSocket || pageDisposed) return; invalidateConnection(); controlStatus(false);
-      if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionStorage.removeItem('broadcast-token'); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
+      if (['PAIRING_REQUIRED', 'FORBIDDEN'].includes(error.message)) { socket.disconnect(); token = null; sessionValue('broadcast-token', null); $('workspace').hidden = true; $('pairing').hidden = false; $('connection').innerHTML = '<span class="dot"></span>Pair this device'; if (error.message === 'FORBIDDEN') $('pair-error').textContent = '此頁面需要主控配對碼；計分員請使用計分員入口。'; }
     });
   }
   listen($('pair-form'), 'submit', async event => {
@@ -486,7 +540,7 @@
     try {
       const response = await fetch('../api/session', { method: 'POST', signal: lifecycle.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: $('pin').value }) });
       const result = await response.json(); if (pageDisposed) return; if (!response.ok) throw new Error(result.error);
-      token = result.token; sessionStorage.setItem('broadcast-token', token); $('pin').value = ''; connect();
+      token = result.token; sessionValue('broadcast-token', token); $('pin').value = ''; connect();
     } catch (error) { if (!pageDisposed) $('pair-error').textContent = error.message; } finally { if (!pageDisposed) submit.disabled = false; }
   });
   function refreshConnections() {
@@ -977,7 +1031,7 @@
   mediaWarmup.prepareFonts();
   function disposePage(event) {
     if (event.persisted || pageDisposed) return;
-    pageDisposed = true; invalidateConnection(); lifecycle.abort();
+    persistDrafts(); pageDisposed = true; invalidateConnection(); lifecycle.abort();
     clearInterval(countdownRefreshTimer); clearInterval(waitRefreshTimer); clearInterval(finalAnnouncementTimer); finalAnnouncementTimer = null; clearInterval(finalSequenceTimer); finalSequenceTimer = null; clearTimeout(toastTimer);
     tabAnimation?.cancel(); tabAnimation = null;
     countdownClient?.dispose(); BroadcastMotion.disposeCovers($('content'));
