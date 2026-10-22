@@ -5,14 +5,19 @@
   "description": "Offline LAN broadcast overlays and tournament control for ACAHKU",
   "main": "server.js",
   "scripts": {
+    "preinstall": "node scripts/check-node-version.js",
+    "prestart": "node scripts/check-node-version.js",
     "start": "node server.js",
+    "predev": "node scripts/check-node-version.js",
     "dev": "node --watch server.js",
     "postinstall": "node scripts/copy-fonts.js",
+    "pretest": "node scripts/check-node-version.js",
     "test": "node --test test/*.test.js",
+    "test:runtime": "node --test test/node-version.test.js",
     "test:python": "python3 scripts/test-regressions.py --suite python",
     "test:browser:smoke": "python3 scripts/test-regressions.py --suite browser-smoke"
   },
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=24.22.1 <25" },
   "dependencies": {
     "@fontsource/saira": "5.2.8",
     "express": "5.1.0",

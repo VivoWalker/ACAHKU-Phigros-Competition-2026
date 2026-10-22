@@ -188,7 +188,7 @@ def main():
                         assert page.locator('.result-song-scores b').all_inner_texts() == ['987,654', '976,543', '0', '965,432']
                         assert page.locator('.result-row>strong').all_inner_texts() == ['1,964,197', '965,432']
                     else:
-                        assert 'SONG SELECTION NEXT' in page.locator('.waiting-song').inner_text()
+                        assert page.locator('.waiting-song h2').inner_text() == '即將開始選曲'
                         assert 'SONG 1 /' not in page.locator('.waiting-song').inner_text()
                     report['checks'].append(kind)
                     for width, height in [(1920, 1080), (1194, 834), (834, 1194), (390, 844)]:

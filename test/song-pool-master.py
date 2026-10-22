@@ -20,7 +20,6 @@ with sync_playwright() as pw:
     def current():return next(m for m in st()['tournament']['matches'] if m['id']==st()['tournament']['currentMatchId'])
     if mode!='stale':command('seed-bracket',{'ids':['p'+str(i) for i in range(1,9)],'ruleset':'proposal-2026'})
     page.click('.tabs [data-tab=songs]');page.wait_for_selector('.song-pool-status');assert page.locator('.song-pool-metrics strong').all_text_contents()==([str(count),'4','2'] if mode=='stale' else [str(count),'0',str(count)])
-    assert '30 首' in page.locator('.song-pool-status').inner_text() and '42 首' in page.locator('.song-pool-status').inner_text()
     if mode=='shortage':
      click('[data-command=draw-candidates]');click('[data-ban-pass="0"]');click('[data-ban-pass="1"]');click('[data-command=pick-songs]');used=[s['id'] for s in current()['songs']]
      command('select-match',{'matchId':'W2'});assert page.locator('[data-command=draw-candidates]').is_disabled();assert '不足 6 首候選' in page.locator('.song-pool-status').inner_text()

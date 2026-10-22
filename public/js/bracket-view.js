@@ -45,21 +45,21 @@
           const tone = route?.kind || '', name = id ? B.name(state, id) : pendingPair ? '種子配對待定' : m.status === 'pending' ? sourceName(m.sources[index]) : '輪空';
           return `<div class="bracket-player ${e(tone)}" data-bracket-player="${e(id || '')}" data-slot="${m.id}:${index}">
             <div class="player-line"><span class="outcome-mark">${route ? won ? '勝' : '負' : String(index + 1).padStart(2, '0')}</span><strong title="${e(name)}">${e(name)}</strong>${!preview && m.resultType === 'score' ? `<span class="bracket-total">${B.score(B.total(m.scores[index]))}</span>` : ''}</div>
-            ${!preview ? `<div class="bracket-route"${route ? ` data-route="${e(route.kind)}"` : ''}><i aria-hidden="true">${route ? '→' : '·'}</i><span>${e(route?.label || (m.resultType === 'bye' || m.resultType === 'draw' ? '輪空／抽籤晉級' : pendingPair ? '等待完整場次後按種子配對' : m.status === 'pending' ? sourceName(m.sources[index]) : '等待賽果'))}</span></div>` : ''}
+            ${!preview && route ? `<div class="bracket-route" data-route="${e(route.kind)}"><i aria-hidden="true">→</i><span>${e(route.label)}</span></div>` : ''}
           </div>`;
         }).join('')}
       </article>`;
     }
     const qualified = id => id && !state.qualifier.players.find(player => player.id === id)?.disqualification ? id : null;
     const final = matches.find(m => m.id === 'GF'), champion = qualified(final?.winnerId), runner = qualified(final?.loserId), third = qualified(matches.find(m => m.id === 'L6')?.loserId);
-    return `<div class="bracket-page-heading"><h1>雙淘汰賽進度</h1><p class="bracket-legend"><span>勝者／晉級</span><span>敗者／轉組</span><span>淘汰</span></p></div>
+    return `<div class="bracket-page-heading"><h1>雙淘汰賽進度</h1></div>
       <nav class="bracket-rail" aria-label="Round progress">${[1,2,3,4,5,6].map(r => {
         const group = matches.filter(m => m.round === r), done = group.filter(m => m.status === 'complete').length;
         return `<div class="round-step ${r === round ? 'focused' : ''} ${done === group.length ? 'finished' : ''}" data-round-step="${r}"><b>${r === 6 ? 'FINAL' : 'R'+r}</b><span>${done} / ${group.length}${done === group.length ? ' ✓' : ''}</span></div>`;
       }).join('')}</nav>
       <div class="bracket-board" data-focus-round="${round}">
         <section class="bracket-focus" data-motion-key="bracket-round-${round}" data-count="${current.length}"><div class="focus-heading"><h2>${round === 6 ? '總決賽' : 'ROUND '+round}</h2><span>${current.filter(m => m.status === 'complete').length} / ${current.length} 場完成</span></div><div class="focus-matches">${current.map(m => card(m, false)).join('')}</div></section>
-        <aside class="bracket-destinations" data-motion-key="bracket-destinations"><div class="destination-heading"><h2>${next.length ? '晉級去向' : '最終名次'}</h2><span>${next.length ? 'ADVANCEMENT' : 'PODIUM'}</span></div><div class="destination-matches">${next.length ? next.map(m => card(m, true)).join('') : `<div class="bracket-podium"><span>CHAMPION</span><h3>${e(champion ? B.name(state, champion) : '冠軍待定')}</h3><span>RUNNER-UP</span><h3>${e(runner ? B.name(state, runner) : '亞軍待定')}</h3><span>THIRD PLACE</span><h3>${e(third ? B.name(state, third) : '季軍待定')}</h3></div>`}</div></aside>
+        <aside class="bracket-destinations" data-motion-key="bracket-destinations"><div class="destination-heading"><h2>${next.length ? '晉級去向' : '最終名次'}</h2></div><div class="destination-matches">${next.length ? next.map(m => card(m, true)).join('') : `<div class="bracket-podium"><span>CHAMPION</span><h3>${e(champion ? B.name(state, champion) : '—')}</h3><span>RUNNER-UP</span><h3>${e(runner ? B.name(state, runner) : '—')}</h3><span>THIRD PLACE</span><h3>${e(third ? B.name(state, third) : '—')}</h3></div>`}</div></aside>
       </div>`;
   }
   function createController(mount, requestRender, fixedRound = null) {

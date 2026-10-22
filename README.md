@@ -4,12 +4,14 @@ A local tournament server, transparent OBS overlays and iPad-friendly main-contr
 
 ## Quick start
 
-Install Node.js **20 or newer** (verified with Node 24). From this project folder:
+Install **Node.js 24 LTS, version 24.22.1 or newer within the 24.x release line**. The minimum version includes the [October 21, 2026 security fixes](https://nodejs.org/en/blog/release/v24.22.1), including the Brotli decoder fix. Version managers can use the checked-in `.node-version`. From this project folder:
 
 ```sh
 npm install
 npm start
 ```
+
+Check `node --version` on the computer running the broadcast. Updating the application or running `npm install` does not update that computer's Node.js runtime. Dependency installation, startup and tests reject unsupported runtime versions with an upgrade message; direct `node server.js` also checks before loading the server. After upgrading Node.js, restart the server and refresh the staff panels and OBS Browser Source.
 
 The downloadable **offline bundle** already includes the verified JavaScript dependencies and local fonts. With Node.js installed, unzip it and run `npm start` directly; `npm install` is only needed to install or refresh dependencies in the source-only package.
 
@@ -24,6 +26,8 @@ OBS Browser Source:  http://localhost:3000/overlay/start.html
 ```
 
 The codes are created locally in `data/.control-pin` and `data/.scorekeeper-pin`. The laptop and iPad do not need external accounts. The two panels retain separate paired sessions in the browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` and `SCOREKEEPER_PIN` before starting the server; explicitly configured codes must differ. Existing main-control codes and paired sessions continue to work after upgrading. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
+
+HTTP commands accept ordinary JSON bodies, as sent by the bundled staff panels. Compressed JSON request bodies are rejected before a decompressor is created; the existing 100 KiB body limit still applies.
 
 Run one broadcast server per event data directory on the same computer's local filesystem. A second instance refuses to start, including on another port, so two servers cannot overwrite each other's saved results. Normal shutdown releases the lock; a later start can recover a lock left by a process that has exited. Do not remove `data/.server-lock/` while a server is running. Use separate data directories for independent events.
 
@@ -368,7 +372,13 @@ npm run test:python
 npm run test:browser:smoke
 ```
 
-The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection and draft recovery. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on Node 20 and 24, and the Python/Chromium suites with these same entrypoints.
+The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection and draft recovery. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
+
+The control and scorekeeper panels use concise headings and field labels; validation, draft conflicts and lock reasons appear when relevant. OBS scenes retain scores, chart details and advancement routes without duplicate subtitles. To check staff panels at laptop/mobile widths and every overlay scene, including capture transparency:
+
+```sh
+python3 test/concise-ui-browser.py
+```
 
 The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
 
