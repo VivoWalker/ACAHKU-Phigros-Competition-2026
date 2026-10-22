@@ -164,7 +164,6 @@ def draw_and_ban(page, overlay):
     match = current(page)
     notice = page.locator('.round-difficulty-notice').inner_text()
     assert f'R{match["round"]}' in notice
-    assert ('高檔最多 1 首' if match['round'] == 1 else '全部定數至少 16.9') in notice
     if page.locator('[data-command="draw-candidates"]').count():
         saved_click(page, '[data-command="draw-candidates"]')
     match = current(page)

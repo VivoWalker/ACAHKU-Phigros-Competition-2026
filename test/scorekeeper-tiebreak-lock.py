@@ -55,7 +55,12 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
                 form.locator('input[data-score-key]').fill('900000')
                 form.locator('input[data-judgement-name=accuracy]').fill('98')
                 form.locator('button[data-save-player]').click()
-                page.wait_for_function('id=>document.querySelector(`form[data-player-key="${id}"] [data-player-status]`).textContent==="所有分數已同步"', arg=player_id)
+                page.wait_for_function('''async id=>{
+                  const response=await fetch('/api/scorekeeper-state',{headers:{Authorization:'Bearer '+sessionStorage.getItem('scorekeeper-token')}});
+                  const state=await response.json(),player=state.qualifier.tiebreak?.players.find(player=>player.id===id);
+                  return player?.scores[0]===900000&&player?.judgements[0]?.accuracy===98&&
+                    document.querySelector(`form[data-player-key="${id}"] [data-save-player]`).disabled;
+                }''', arg=player_id)
             page.evaluate('''async()=>{
               const response=await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'control',pin:'tie-lock-main-fixture'})});
               const {token}=await response.json(),socket=io('/control',{forceNew:true,auth:{token}});
@@ -70,7 +75,6 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
             page.wait_for_function('document.querySelectorAll("input[data-score-key]").length===3 && document.querySelectorAll("input[data-score-key]:not(:disabled)").length===0')
             assert page.locator('form[data-player-key]').evaluate_all('(forms)=>forms.map(form=>form.dataset.playerKey)') == ['p4']
             assert '加賽已確認' in page.locator('#match-notice').inner_text()
-            assert '主控' in page.locator('#match-notice').inner_text()
             assert page.locator('input[data-judgement-key]:not(:disabled)').count() == 0
             assert page.locator('button[data-save-player]:not(:disabled)').count() == 0
             for width, height in [(1194, 834), (390, 844)]:
@@ -92,7 +96,7 @@ with tempfile.TemporaryDirectory(prefix='scorekeeper-tiebreak-lock-browser-') as
             assert not errors, errors
             report = {'result': 'PASS', 'pending_tiebreak_editable': True, 'confirmed_tiebreak_base_read_only': True,
                       'tiebreak_participants_outside_live_batch_editable': True, 'confirmed_batch_player_ids': ['p4'],
-                      'master_correction_guidance': True, 'repeat_tiebreak_editable': True,
+                      'confirmed_tiebreak_lock_notice': True, 'repeat_tiebreak_editable': True,
                       'layout_widths': [1194, 390], 'overlap': False, 'page_errors': errors}
             (OUT / 'report.json').write_text(json.dumps(report, indent=2))
             print(json.dumps(report))

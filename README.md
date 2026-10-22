@@ -374,6 +374,12 @@ npm run test:browser:smoke
 
 The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection and draft recovery. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
 
+The control and scorekeeper panels use concise headings and field labels; validation, draft conflicts and lock reasons appear when relevant. OBS scenes retain scores, chart details and advancement routes without duplicate subtitles. To check staff panels at laptop/mobile widths and every overlay scene, including capture transparency:
+
+```sh
+python3 test/concise-ui-browser.py
+```
+
 The repair regressions also cover commands aimed at an old match, stable player renaming, locked qualifier chart metadata, reviewed downstream result corrections, snapshot retention, disk failures, damaged-state recovery, authenticated restores and private source-check invalidation.
 
 The scorekeeper server regressions verify independent pairing codes, unchanged existing main-control tokens, role-specific login limits, HTTP and Socket.IO permission isolation, rejected commands without state or backup writes, current-sheet checks, score synchronization, sealed finals picks and persisted codes across restart. Its optional browser regression requires Python Playwright, Pillow and Chromium:

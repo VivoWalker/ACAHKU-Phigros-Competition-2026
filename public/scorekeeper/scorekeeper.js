@@ -104,7 +104,6 @@
     return {
       key: state.contextKey, kind: challengeTotal ? 'qualifier-challenge-result' : `${qualifier ? 'qualifier' : 'match'}${tie ? '-tiebreak' : ''}`, qualifier, tiebreak: !!tie, challenge, challengeTotal, count,
       title: `${context}${tie ? ` · 加賽 ${tie.index + 1}` : ''}`,
-      description: challengeTotal ? `主控目前選定 ${group} 組 · 三首歌曲連續遊玩；完成後照結算畫面，填寫各曲分數、Perfect / Good / Bad / Miss 及遊戲總分。` : tie ? challenge ? '記錄本輪加賽分數；只比較分數，原有 Challenge 總分保持不變，賽果由主控確認。' : '記錄本輪加賽分數、成績頁 ACC 及判定；加賽分數不加入原有總分，賽果由主控確認。' : qualifier ? `主控目前選定 ${group} 組 · 比賽歌曲 ${Number(source?.currentSong || 0) + 1} / 3 · ${base?.plan === 'B' ? 'A 組單號 / B 組雙號' : '請核對成績頁 ACC 及判定'}` : match ? `第 ${match.round} 輪 · 比賽歌曲 ${Number(match.currentSong || 0) + 1} / ${count} · 請核對成績頁 ACC 及判定` : '主控選定比賽場次後，會在這裡顯示選手及歌曲。',
       songs: tie ? [tie.song] : source?.songs || [], players: qualifier && !tie ? (source?.players || []).filter(player => base?.activePlayers?.includes(player.id)) : source?.players || [], source, base,
       locked: !base || base.locked || !qualifier && !['ready', 'live'].includes(match?.status),
       baseLocked: !tie && !!base?.baseLocked,
@@ -151,15 +150,15 @@
   }
   function scoreFieldHtml(field) {
     const { songIndex: si, player } = field, challenge = field.challengeResult;
-    const title = field.challengeTotal ? '三首 Challenge Mode 結算總分' : field.song?.title || '等待選曲';
+    const title = field.challengeTotal ? '遊戲總分' : field.song?.title || '等待選曲';
     const counters = challenge ? [['perfect', 'Perfect'], ['good', 'Good'], ['bad', 'Bad'], ['miss', 'Miss']] : [['perfect', 'P'], ['good', 'G'], ['bad', 'B'], ['miss', 'M']];
-    return `<div class="score-field ${field.challengeTotal ? 'challenge-total-field' : ''}" data-field-key="${escape(field.key)}"><label><span class="song-number">${field.challengeTotal ? 'OFFICIAL TOTAL · 遊戲總分' : '第 ' + (si + 1) + ' 首'}</span><span class="song-title" data-song-title>${escape(title)}</span><span class="song-meta" data-song-meta></span>${challenge && !field.challengeTotal ? '<span class="score-label">此曲分數</span>' : ''}<input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="16" placeholder="${challenge ? '必填，0 有效' : '尚未計分'}" aria-label="${escape(player.name || '空位')} ${field.challengeTotal ? 'Challenge 總分' : '第 ' + (si + 1) + ' 首分數'}" data-score-key="${escape(field.key)}" data-song-index="${si}"${challenge ? ' required' : ''}${field.challengeTotal ? ' data-challenge-total="true"' : ''}></label>${field.scoreOnly ? '' : `<div class="judgement-fields">${challenge ? '' : `<label class="accuracy-field"><span>成績頁 Accuracy (%)</span><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="12" placeholder="例如 98.7654" aria-label="${escape(player.name || '空位')} 第 ${si + 1} 首 Accuracy" data-judgement-key="${escape(field.key)}" data-judgement-name="accuracy"></label>`}<div class="judgement-counts">${counters.map(([name, label]) => `<label data-judgement="${name}"><span>${label}</span><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="16" placeholder="${challenge ? '必填' : '—'}" aria-label="${escape(player.name || '空位')} 第 ${si + 1} 首 ${name}" data-judgement-key="${escape(field.key)}" data-judgement-name="${name}"${challenge ? ' required' : ''}></label>`).join('')}</div><p class="judgement-help">${challenge ? '四項判定數均須填寫；沒有該判定請填 0。' : 'ACC 照原成績頁填寫；P/G/B/M 全填或全留空。'}</p></div>`}<p class="field-status" data-field-status></p><div class="conflict-actions" data-conflict-actions hidden><p class="conflict-message" data-conflict-message></p><button type="button" data-use-server="${escape(field.key)}">採用已保存分數</button><button type="button" data-keep-draft="${escape(field.key)}">保留草稿，準備覆寫</button></div></div>`;
+    return `<div class="score-field ${field.challengeTotal ? 'challenge-total-field' : ''}" data-field-key="${escape(field.key)}"><label>${field.challengeTotal ? '' : `<span class="song-number">第 ${si + 1} 首</span>`}<span class="song-title" data-song-title>${escape(title)}</span><span class="song-meta" data-song-meta></span>${challenge && !field.challengeTotal ? '<span class="score-label">分數</span>' : ''}<input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="16" placeholder="${challenge ? field.challengeTotal ? '0–3,000,000' : '0–1,000,000' : '尚未計分'}" aria-label="${escape(player.name || '空位')} ${field.challengeTotal ? 'Challenge 總分' : '第 ' + (si + 1) + ' 首分數'}" data-score-key="${escape(field.key)}" data-song-index="${si}"${challenge ? ' required' : ''}${field.challengeTotal ? ' data-challenge-total="true"' : ''}></label>${field.scoreOnly ? '' : `<div class="judgement-fields">${challenge ? '' : `<label class="accuracy-field"><span>ACC (%)</span><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" maxlength="12" placeholder="例如 98.7654" aria-label="${escape(player.name || '空位')} 第 ${si + 1} 首 Accuracy" data-judgement-key="${escape(field.key)}" data-judgement-name="accuracy"></label>`}<div class="judgement-counts">${counters.map(([name, label]) => `<label data-judgement="${name}"><span>${label}</span><input type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="16" placeholder="—" aria-label="${escape(player.name || '空位')} 第 ${si + 1} 首 ${name}" data-judgement-key="${escape(field.key)}" data-judgement-name="${name}"${challenge ? ' required' : ''}></label>`).join('')}</div></div>`}<p class="field-status" data-field-status></p><div class="conflict-actions" data-conflict-actions hidden><p class="conflict-message" data-conflict-message></p><button type="button" data-use-server="${escape(field.key)}">採用已保存分數</button><button type="button" data-keep-draft="${escape(field.key)}">保留草稿，準備覆寫</button></div></div>`;
   }
   function cardHtml(player, pi) {
     const playerKey = String(view.qualifier ? player.id : pi);
     return `<form class="player-card ${view.challengeTotal ? 'challenge-result-card' : ''}" data-player-key="${escape(playerKey)}" novalidate>
-      <div class="player-header"><div><span class="player-index">${view.qualifier && player.number ? '選手 #' + escape(player.number) : '選手 ' + (pi + 1)}</span><h2 data-player-name>${escape(player.name || '空位')}</h2><span class="on-air" data-on-air hidden>目前直播選手</span></div><div class="saved-total"><span>${view.tiebreak ? '已保存加賽分數' : '已保存總分'}</span><strong data-player-total>${scoreText(view.challengeTotal ? player.challengeTotal : view.tiebreak ? player.scores?.[0] : player.total ?? 0)}</strong></div></div>
-      <div class="score-fields" style="--song-count:${view.count}">${Array.from({ length: view.challengeTotal ? 4 : view.count }, (_, si) => scoreFieldHtml(descriptor(player, pi, si))).join('')}</div>${view.challengeTotal ? '<p class="challenge-crosscheck" data-challenge-crosscheck role="status"></p>' : ''}<div class="player-actions"><p data-player-status>所有分數已同步</p><button class="primary-button" type="submit" data-save-player="${escape(playerKey)}">${view.challengeTotal ? '保存完整成績' : '保存分數'}</button></div></form>`;
+      <div class="player-header"><div><span class="player-index">${view.qualifier && player.number ? '選手 #' + escape(player.number) : '選手 ' + (pi + 1)}</span><h2 data-player-name>${escape(player.name || '空位')}</h2></div><div class="saved-total"><span>${view.tiebreak ? '加賽分數' : '已保存總分'}</span><strong data-player-total>${scoreText(view.challengeTotal ? player.challengeTotal : view.tiebreak ? player.scores?.[0] : player.total ?? 0)}</strong></div></div>
+      <div class="score-fields" style="--song-count:${view.count}">${Array.from({ length: view.challengeTotal ? 4 : view.count }, (_, si) => scoreFieldHtml(descriptor(player, pi, si))).join('')}</div>${view.challengeTotal ? '<p class="challenge-crosscheck" data-challenge-crosscheck role="status"></p>' : ''}<div class="player-actions"><p data-player-status hidden></p><button class="primary-button" type="submit" data-save-player="${escape(playerKey)}">${view.challengeTotal ? '保存完整成績' : '保存分數'}</button></div></form>`;
   }
   function draftNotice() {
     persistDrafts();
@@ -175,8 +174,9 @@
     const notice = $('draft-notice');
     notice.hidden = !drafts.size;
     if (!drafts.size) { notice.innerHTML = ''; return; }
-    const activeText = active ? `${view?.challengeTotal ? '完整成績草稿尚未保存。' : `${active} 欄分數尚未保存。`}${conflicts ? `其中 ${conflicts} 欄已被其他工作人員修改，請在分數欄下方核對。` : `請按選手下方的「${view?.challengeTotal ? '保存完整成績' : '保存分數'}」。`}` : '';
-    const html = `<h2>未保存的分數草稿</h2>${[...drafts.values()].some(record => record.recovered) ? '<p>已恢復本頁草稿，請核對後手動保存。</p>' : ''}${activeText ? `<p>${escape(activeText)}</p>` : ''}${Array.from(stale.entries(), ([key, item]) => `<div class="stale-context"><div><span>${escape(item.label)} · ${item.records.length} 欄草稿</span><p>主控已切換場次；草稿保留在原場次，不能提交到目前場次。</p><p class="stale-draft-values">${item.records.map(record => `${escape(record.playerName)} · ${record.challengeTotal ? 'Challenge 總分' : '第 ' + (record.songIndex + 1) + ' 首'}：${escape(record.raw === '' ? '未計分' : record.raw)}${record.scoreOnly ? '' : ' · ' + escape(judgementText(record.rawJudgements, record.songStats))}`).join('<br>')}</p></div><button type="button" data-discard-context="${escape(key)}" ${saving ? 'disabled' : ''}>丟棄此場次草稿</button></div>`).join('')}`;
+    const activeText = conflicts ? `${conflicts} 欄已被其他工作人員修改` : active ? `${active} 欄未保存` : '';
+    const title = conflicts ? '成績衝突' : [...drafts.values()].some(record => record.recovered) ? '已恢復草稿' : '未保存草稿';
+    const html = `<h2>${title}</h2>${activeText ? `<p>${escape(activeText)}</p>` : ''}${Array.from(stale.entries(), ([key, item]) => `<div class="stale-context"><div><span>${escape(item.label)} · ${item.records.length} 欄草稿</span><p>場次已切換，草稿留在原場次。</p><p class="stale-draft-values">${item.records.map(record => `${escape(record.playerName)} · ${record.challengeTotal ? 'Challenge 總分' : '第 ' + (record.songIndex + 1) + ' 首'}：${escape(record.raw === '' ? '未計分' : record.raw)}${record.scoreOnly ? '' : ' · ' + escape(judgementText(record.rawJudgements, record.songStats))}`).join('<br>')}</p></div><button type="button" data-discard-context="${escape(key)}" ${saving ? 'disabled' : ''}>丟棄此場次草稿</button></div>`).join('')}`;
     if (notice.innerHTML !== html) notice.innerHTML = html;
   }
   function render() {
@@ -184,9 +184,7 @@
     view = currentView(); rebuildFields(); reconcileRecoveredDrafts(); reviseDrafts();
     $('pairing').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
     $('event-title').textContent = state.event?.titleZH || state.event?.title || 'ACAHKU / SCORE ENTRY';
-    $('context-title').textContent = view.title; $('context-description').textContent = view.description;
-    $('score-range').textContent = view.challengeTotal ? '每曲 0–1,000,000' : '0–1,000,000';
-    $('score-guidance').textContent = view.challengeTotal ? '總分 0–3,000,000。三首分數、12 項判定數及遊戲總分全部填妥，再保存完整成績；0 有效。' : '填寫後按「保存分數」；留空代表尚未計分。';
+    $('context-title').textContent = view.title;
     $('sync-status').textContent = ready() ? `資料已同步 · #${state.revision}` : '連線中斷，分數草稿已保留';
     $('score-list').classList.toggle('challenge-results', view.challengeTotal);
     const signature = JSON.stringify([view.key, view.players.map(p => p.id), view.songs.map(s => [s.id, s.title, s.hidden]), view.count, view.challenge]);
@@ -194,14 +192,13 @@
       renderedSignature = signature;
       $('score-list').innerHTML = view.players.length ? view.players.map(cardHtml).join('') : `<section class="empty-state"><h2>尚未有可計分選手</h2><p>${view.qualifier ? '請等候主控選定目前這一批上場選手。' : '請等候主控完成選手與比賽場次設定。'}</p></section>`;
     }
-    const matchNotice = view.needsPlan ? view.base?.lockedReason || '請由主控先設定 Plan A 或 Plan B，再錄入課題模式總分。' : view.locked ? view.qualifier ? '預選賽晉級名單已鎖定。分數由主控處理後才能繼續修改。' : view.base?.status === 'complete' ? '此場比賽賽果已確認，分數已鎖定。' : '此場次尚未準備完成，請等候主控設定。' : view.baseLocked ? `加賽已確認，請等候主控確認晉級或賽果、或開啟下一輪加賽。${view.base.baseLockedReason}` : !ready() ? '連線中斷；可繼續填寫草稿，重新連線並同步後才能保存。' : '';
+    const matchNotice = view.needsPlan ? view.base?.lockedReason || '未設定預選方案' : view.locked ? view.qualifier ? '預選賽已鎖定' : view.base?.status === 'complete' ? '賽果已確認' : '場次尚未就緒' : view.baseLocked ? `加賽已確認 · 原成績已鎖定${view.base.baseLockedReason ? ` · ${view.base.baseLockedReason}` : ''}` : !ready() ? '離線 · 草稿已保留' : '';
     $('match-notice').hidden = !matchNotice; $('match-notice').textContent = matchNotice;
     for (const form of $('score-list').querySelectorAll('form[data-player-key]')) {
       const pi = view.players.findIndex((player, index) => String(view.qualifier ? player.id : index) === form.dataset.playerKey);
       const player = view.players[pi];
       form.querySelector('[data-player-name]').textContent = player.name || '空位';
       form.querySelector('[data-player-total]').textContent = scoreText(view.challengeTotal ? player.challengeTotal : view.tiebreak ? player.scores?.[0] : player.total ?? 0);
-      form.querySelector('[data-on-air]').hidden = !view.qualifier || !state.qualifier.activePlayers?.includes(player.id);
       const playerDrafts = [];
       for (const input of form.querySelectorAll('[data-score-key]')) {
         const field = fields.get(input.dataset.scoreKey), record = drafts.get(field.key), wrapper = input.closest('.score-field');
@@ -221,26 +218,32 @@
         }
         input.setAttribute('aria-invalid', String(!valid));
         wrapper.classList.toggle('is-current', field.challengeTotal || view.challengeTotal && field.songStats || view.tiebreak || field.songIndex === view.source?.currentSong);
-        wrapper.querySelector('[data-song-title]').textContent = field.challengeTotal ? '三首 Challenge Mode 結算總分' : field.song?.title || '等待選曲';
-        wrapper.querySelector('[data-song-meta]').textContent = field.challengeTotal ? '照錄遊戲結算總分，作為正式排名依據。總分相同以獨立加賽處理。' : field.song?.hidden ? '尚未公開' : field.song?.id ? `${field.song.difficulty || ''} ${field.song.level ?? ''}`.trim() : '尚未選定歌曲';
+        wrapper.querySelector('[data-song-title]').textContent = field.challengeTotal ? '遊戲總分' : field.song?.title || '等待選曲';
+        const songMeta = wrapper.querySelector('[data-song-meta]');
+        songMeta.textContent = field.challengeTotal ? '' : field.song?.hidden ? '尚未公開' : field.song?.id ? `${field.song.difficulty || ''} ${field.song.level ?? ''}`.trim() : '';
+        songMeta.hidden = !songMeta.textContent;
         const status = wrapper.querySelector('[data-field-status]');
-        status.textContent = field.reason || !valid ? field.reason || parsed.error : record?.conflict ? '已保存分數有變動，請先核對。' : record ? record.sending ? '正在保存…' : '草稿尚未保存' : `已保存：${scoreText(field.value)}${field.judgements?.accuracy === undefined ? '' : ` · ACC ${field.judgements.accuracy}%`}`;
+        status.textContent = field.reason || (!valid ? parsed.error : record?.conflict ? '伺服器成績已變更' : '');
+        status.hidden = !status.textContent;
         status.classList.toggle('warning', !!field.reason || !valid || !!record?.conflict);
         wrapper.querySelector('[data-conflict-actions]').hidden = !record?.conflict || !!field.reason;
-        wrapper.querySelector('[data-conflict-message]').textContent = record?.conflict ? `已保存：${scoreText(field.value)}${field.scoreOnly ? '' : ' · ' + judgementText(field.judgements, field.songStats)}；你的草稿：${record.raw || '未計分'}${field.scoreOnly ? '' : ' · ' + judgementText(record.rawJudgements, field.songStats)}。${field.scoreOnly ? '請核對分數。' : '分數及判定一併核對。'}` : '';
+        wrapper.querySelector('[data-conflict-message]').textContent = record?.conflict ? `已保存：${scoreText(field.value)}${field.scoreOnly ? '' : ' · ' + judgementText(field.judgements, field.songStats)}；你的草稿：${record.raw || '未計分'}${field.scoreOnly ? '' : ' · ' + judgementText(record.rawJudgements, field.songStats)}。` : '';
         for (const button of wrapper.querySelectorAll('[data-conflict-actions] button')) button.disabled = saving;
       }
       const blocked = playerDrafts.some(record => record.conflict || !parseEntry(record.raw, record.rawJudgements, fields.get(record.key)).valid || fields.get(record.key)?.reason);
       form.querySelector('[data-save-player]').disabled = saving || !ready() || !playerDrafts.length || blocked;
       form.querySelector('[data-save-player]').textContent = saving && playerDrafts.some(record => record.sending) ? '正在保存…' : view.challengeTotal ? '保存完整成績' : '保存分數';
-      form.querySelector('[data-player-status]').textContent = playerDrafts.length ? `${view.challengeTotal ? '完整成績尚未保存' : `${playerDrafts.length} 欄未保存`}${blocked ? ' · 請先完成並核對所有欄位' : ''}` : '所有分數已同步';
+      const playerStatus = form.querySelector('[data-player-status]');
+      playerStatus.textContent = blocked ? '請核對標示欄位' : '';
+      playerStatus.hidden = !playerStatus.textContent;
       if (view.challengeTotal) {
         const songScores = [0, 1, 2].map(si => parseScore(form.querySelector(`[data-song-index="${si}"]`).value));
         const total = parseScore(form.querySelector('[data-challenge-total]').value, 3000000), complete = songScores.every(value => value.valid && value.value !== null);
         const sum = complete ? songScores.reduce((value, item) => value + item.value, 0) : null, mismatch = complete && total.valid && total.value !== null && sum !== total.value;
         const crosscheck = form.querySelector('[data-challenge-crosscheck]');
         crosscheck.classList.toggle('warning', mismatch);
-        crosscheck.textContent = sum === null ? '三首分數加總：待各曲分數填妥後顯示，供核對。正式排名使用上方照錄的遊戲總分。' : `三首分數加總（核對用）：${scoreText(sum)}。${mismatch ? '與填寫的遊戲總分不同，請核對結算畫面；仍會保留你照錄的遊戲總分。' : '正式排名使用上方照錄的遊戲總分。'}`;
+        crosscheck.textContent = mismatch ? `各曲合計 ${scoreText(sum)}，與遊戲總分不同，請核對。` : '';
+        crosscheck.hidden = !mismatch;
       }
     }
     draftNotice();

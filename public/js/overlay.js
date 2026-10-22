@@ -206,11 +206,8 @@
   function header(s, context = '') {
     return `<header class='topbar'><div class='brand'>${logo()}<span data-motion-key='event-title' class='event-title'>${e(s.event.title)}</span></div><div class='header-right'>${context ? `<div data-motion-block class='topmeta'>${e(context)}</div>` : ''}${clubLogos()}</div></header>`;
   }
-  function footer(context) {
-    return context ? `<footer data-motion-block class='footer'><span>${e(context)}</span></footer>` : '';
-  }
-  function title(text, sub = '') {
-    return `<div data-motion-block class='scene-head'><h1>${e(text)}</h1>${sub ? `<p>${e(sub)}</p>` : ''}</div>`;
+  function title(text) {
+    return `<div data-motion-block class='scene-head'><h1>${e(text)}</h1></div>`;
   }
   function visual(className = '') {
     return branding.visual ? `<figure data-motion-key='event-art' class='key-visual ${className}'><img src='${e(url(displayPath(branding.visual)))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
@@ -223,26 +220,26 @@
     return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 data-motion-block style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p data-motion-block class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><div class='organiser-row ${clubs ? 'with-club-logos' : ''}'><p data-motion-block class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p>${clubs}</div></section></div>`;
   }
   function waiting(s, context, label, names, currentSong, songCount, song, selectionNext = false) {
-    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中 <span>PREPARING</span></div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>${selectionNext ? '選曲前準備 · SONG SELECTION NEXT' : `接下來 · SONG ${currentSong + 1} / ${songCount}`}</span><h2>${selectionNext ? '即將開始選曲' : songText(song)}</h2></div></section>${visual('waiting-art')}</div>`;
+    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中</div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'>${selectionNext ? '' : `<span>SONG ${currentSong + 1} / ${songCount}</span>`}<h2>${selectionNext ? '即將開始選曲' : songText(song)}</h2></div></section>${visual('waiting-art')}</div>`;
   }
   function qualifierWaiting(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs;
     const tie = B.qualifierTiebreak(s);
-    return waiting(s, B.challengeQualifier(s) ? '課題模式 · CHALLENGE MODE' : '預選賽 · QUALIFIERS', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
+    return waiting(s, B.challengeQualifier(s) ? '課題模式' : '預選賽', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
   }
   function qualifierProcessing(s) {
-    return backdrop() + header(s, B.qualifierLabel(s)) + `<section data-motion-block class='qualifier-processing-panel'><h1>結果正在統計中</h1><p>RESULTS PROCESSING</p></section>`;
+    return backdrop() + header(s, B.qualifierLabel(s)) + `<section data-motion-block class='qualifier-processing-panel'><h1>結果正在統計中</h1></section>`;
   }
   function doubleWaiting(s) {
     const m = B.currentMatch(s);
-    if (!m) return backdrop() + header(s, '雙淘汰賽') + title('等待晉級選手', 'DOUBLE ELIMINATION') + visual('standby-art');
+    if (!m) return backdrop() + header(s, '雙淘汰賽') + title('等待晉級選手') + visual('standby-art');
     const tie = B.matchTiebreak(s);
     const finale = BroadcastFinalSequence.phase(m, previewNow());
     if (finale.enabled && ['sealed', 'video', 'revealed'].includes(finale.stage) && !tie) {
       const song = m.songs[2];
-      return backdrop() + header(s, '總決賽 · FINAL SONG') + `<div class='waiting-body finale-waiting ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中 <span>PREPARING</span></div><h1 data-motion-block>FINAL SONG</h1><div class='waiting-players'>${m.players.map(id => `<p data-motion-block>${entrantText(entrant(s, id))}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>接下來 · SONG 3 / 3</span><h2 class='finale-next-song'>${finale.concealed || song?.hidden ? `<span data-finale-garbled aria-label='決勝曲尚未公布'>▓▒ ERROR_0X ▒▓</span>` : songText(song)}</h2>${!finale.concealed && song && !song.hidden ? `<p class='finale-waiting-difficulty'>${e(song.difficulty)} ${e(Math.trunc(song.level))}</p>` : ''}</div></section>${visual('waiting-art')}</div>`;
+      return backdrop() + header(s, '總決賽') + `<div class='waiting-body finale-waiting ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中</div><h1 data-motion-block>FINAL SONG</h1><div class='waiting-players'>${m.players.map(id => `<p data-motion-block>${entrantText(entrant(s, id))}</p>`).join('')}</div><div data-motion-block class='waiting-song'><span>SONG 3 / 3</span><h2 class='finale-next-song'>${finale.concealed || song?.hidden ? `<span data-finale-garbled aria-label='決勝曲尚未公布'>▓▒ ERROR_0X ▒▓</span>` : songText(song)}</h2>${!finale.concealed && song && !song.hidden ? `<p class='finale-waiting-difficulty'>${e(song.difficulty)} ${e(Math.trunc(song.level))}</p>` : ''}</div></section>${visual('waiting-art')}</div>`;
     }
-    return waiting(s, m.id === 'GF' ? '總決賽 · GRAND FINALS' : '雙淘汰賽 · DOUBLE ELIMINATION', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong], !tie && !m.songs.length);
+    return waiting(s, m.id === 'GF' ? '總決賽' : '雙淘汰賽', `R${m.round} · ${m.id}${tie ? ` · TIEBREAK ${tie.index + 1}` : ''}`, m.players.map(id => entrant(s, id)), tie ? 0 : m.currentSong, tie ? 1 : B.matchSongCount(m), tie?.song || m.songs[m.currentSong], !tie && !m.songs.length);
   }
   function finalTwoTotals(s) {
     const match = B.currentMatch(s);
@@ -250,12 +247,12 @@
     const totals = match.scores.map(row => row.slice(0, 2).every(score => score !== null) ? B.total(row.slice(0, 2)) : null);
     const card = (id, pi) => {
       const songs = match.songs.slice(0, 2).map((song, si) => `<section class='finale-base-song' data-finale-base-song-index='${si}'><div class='finale-base-song-head'><span>SONG 0${si + 1}</span><h3>${e(song.title)}</h3></div><dl class='finale-base-judgements'><div class='finale-base-song-score'><dt>SCORE</dt><dd data-stat='score'>${B.score(match.scores[pi][si])}</dd></div>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}'>${B.score(match.judgements?.[pi]?.[si]?.[key])}</dd></div>`).join('')}</dl></section>`).join('');
-      return `<article data-motion-block class='finale-total-card' data-finale-total-player='${e(id || '')}'><header class='finale-total-header'><h2>${entrantText(entrant(s, id))}</h2><div class='finale-base-total'><span>前兩首總分<small>2-SONG TOTAL</small></span><strong data-finale-subtotal>${B.score(totals[pi])}</strong></div></header><div class='finale-base-songs'>${songs}</div></article>`;
+      return `<article data-motion-block class='finale-total-card' data-finale-total-player='${e(id || '')}'><header class='finale-total-header'><h2>${entrantText(entrant(s, id))}</h2><div class='finale-base-total'><span>前兩首總分</span><strong data-finale-subtotal>${B.score(totals[pi])}</strong></div></header><div class='finale-base-songs'>${songs}</div></article>`;
     };
-    return backdrop() + header(s, 'GRAND FINAL') + title('決賽階段成績', 'FIRST TWO SONGS · CUMULATIVE SCORES') + `<div class='finale-totals'>${match.players.map(card).join('')}</div>`;
+    return backdrop() + header(s, '總決賽') + title('決賽階段成績') + `<div class='finale-totals'>${match.players.map(card).join('')}</div>`;
   }
   function finalVideoScene(s) {
-    return backdrop() + header(s, 'GRAND FINAL') + `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
+    return backdrop() + header(s, '總決賽') + `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
   }
   function playerName(s, id, scores, songs, index, kind, directTotal) {
     const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
@@ -269,7 +266,7 @@
   }
   function handcam(rect, name, id) {
     const [x, y, width] = rect;
-    return `<span data-motion-block class='handcam-label' style='left:${x}px;top:${y - 44}px;width:${width}px'>手元 · HANDCAM</span>` + capture(rect, 'webcam', name, id);
+    return `<span data-motion-block class='handcam-label' style='left:${x}px;top:${y - 44}px;width:${width}px'>手元</span>` + capture(rect, 'webcam', name, id);
   }
   function songBand(song, current, count, kind = '', label = '') {
     return `<div data-motion-block class='song-band ${kind}'><span>${e(label || `SONG ${current + 1} / ${count}`)}</span><h2>${songText(song)}</h2>${song && !song.hidden ? `<span class='difficulty'>${e(song.difficulty)} ${e(song.level)}</span>` : ''}</div>`;
@@ -299,7 +296,7 @@
   function qualifierResults(s) {
     const ranks = ['A', 'B'].map(group => B.rankings(s, group));
     const compact = ranks.some(group => group.length > 4), challenge = B.challengeQualifier(s);
-    return backdrop() + header(s, challenge ? '課題模式 · CHALLENGE MODE' : '預選賽 · QUALIFIERS') + title('現在排名', challenge ? 'CHALLENGE TOTAL STANDINGS' : 'CURRENT RANKING') + `<div class='ranking-tables ${compact ? 'compact' : ''}'>${['A', 'B'].map((group, i) => {
+    return backdrop() + header(s, challenge ? '課題模式' : '預選賽') + title('現在排名') + `<div class='ranking-tables ${compact ? 'compact' : ''}'>${['A', 'B'].map((group, i) => {
       const players = ranks[i], pages = Math.max(1, Math.ceil(players.length / 8));
       const page = fixedRankPage ? Math.min(rankPage - 1, pages - 1) : rankingTick % pages;
       const from = page * 8, visible = players.slice(from, from + 8);
@@ -319,18 +316,18 @@
       }).join('');
       // The game's three-song total is authoritative. Do not infer it from
       // display evidence or replace an unrecorded result with a zero.
-      return `<article data-motion-block class='challenge-set-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='challenge-set-songs'>${rows}</div><div class='challenge-set-total'><span>課題總分 · CHALLENGE TOTAL</span><strong data-stat='challengeTotal'>${B.score(player?.challengeTotal)}</strong></div></article>`;
+      return `<article data-motion-block class='challenge-set-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='challenge-set-songs'>${rows}</div><div class='challenge-set-total'><span>課題總分</span><strong data-stat='challengeTotal'>${B.score(player?.challengeTotal)}</strong></div></article>`;
     };
-    return backdrop() + header(s, '課題模式 · CHALLENGE MODE') + `<section data-motion-block class='challenge-set-heading'><p>${e(B.qualifierLabel(s))} · 3 SONGS</p><h1>課題總成績 <span>CHALLENGE RESULTS</span></h1></section><div class='challenge-set-results' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>` + footer('遊戲結算總分 · OFFICIAL CHALLENGE TOTAL');
+    return backdrop() + header(s, B.qualifierLabel(s)) + `<section data-motion-block class='challenge-set-heading'><h1>課題總成績</h1></section><div class='challenge-set-results' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手</p>'}</div>`;
   }
   function songResult(s) {
     const qualifier = s.stage === 'qualifier', q = s.qualifier, m = B.currentMatch(s);
-    if (!qualifier && !m) return backdrop() + header(s, '單曲統計') + title('等待比賽成績', 'SONG STATISTICS');
+    if (!qualifier && !m) return backdrop() + header(s, '單曲統計') + title('等待比賽成績');
     const tie = qualifier ? B.qualifierTiebreak(s) : B.matchTiebreak(s);
     if (qualifier && B.challengeQualifier(s) && !tie) return challengeSetResult(s);
     const index = qualifier ? q.currentSong : m.currentSong, count = qualifier ? 3 : B.matchSongCount(m);
     const song = tie?.song || (qualifier ? B.song(s, q.groups[q.activeGroup].songs[index]) : m.songs[index]);
-    const context = qualifier ? B.qualifierLabel(s) : `R${m.round} · ${m.id} · ${m.label}`;
+    const context = qualifier ? B.qualifierLabel(s) : `R${m.round} · ${m.id}`;
     const entries = qualifier ? B.qualifierPlayers(s, q.activeGroup) : [];
     const players = (qualifier ? q.activePlayers.slice(0, 3) : m.players.slice(0, 2)).filter(Boolean);
     const card = (id, pi) => {
@@ -340,20 +337,20 @@
       const legacy = qualifier && !Array.isArray(player?.songStats);
       const judgements = tie ? qualifier ? tie.judgements?.[id] : tie.judgements?.[pi] : qualifier ? stored || (legacy ? player?.judgements?.[index] : null) : m.judgements?.[pi]?.[index];
       const score = tie ? qualifier ? tie.scores?.[id] : tie.scores?.[pi] : qualifier ? stored?.score ?? (legacy ? player?.scores?.[index] : null) : m.scores?.[pi]?.[index];
-      return `<article data-motion-block class='song-result-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='song-result-total'><span>單曲分數 · SONG SCORE</span><strong class='song-result-score' data-stat='score'>${B.score(score)}</strong></div><dl class='song-result-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(judgements?.[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' style='font-size:${Math.min(46, Math.floor(350 / value.length))}px'>${value}</dd></div>`; }).join('')}</dl></article>`;
+      return `<article data-motion-block class='song-result-card' data-player-id='${e(id)}'><h2>${entrantText(entrant(s, id))}</h2><div class='song-result-total'><span>單曲分數</span><strong class='song-result-score' data-stat='score'>${B.score(score)}</strong></div><dl class='song-result-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(judgements?.[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' style='font-size:${Math.min(46, Math.floor(350 / value.length))}px'>${value}</dd></div>`; }).join('')}</dl></article>`;
     };
-    return backdrop() + header(s, qualifier ? '預選賽 · 單曲統計' : '雙淘汰賽 · 單曲統計') + `<section data-motion-block class='song-result-heading'><p><span>${e(context)}</span><span>${tie ? `TIEBREAK ${tie.index + 1}` : `SONG ${index + 1} / ${count}`}</span>${song ? `<span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span>` : ''}</p><h1>${songText(song)}</h1></section><div class='song-result-cards' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手 · AWAITING PLAYERS</p>'}</div>`;
+    return backdrop() + header(s, qualifier ? '預選賽 · 單曲統計' : '雙淘汰賽 · 單曲統計') + `<section data-motion-block class='song-result-heading'><p><span>${e(context)}</span><span>${tie ? `TIEBREAK ${tie.index + 1}` : `SONG ${index + 1} / ${count}`}</span>${song ? `<span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span>` : ''}</p><h1>${songText(song)}</h1></section><div class='song-result-cards' data-count='${players.length}'>${players.map(card).join('') || '<p data-motion-block class="song-result-empty">等待選手</p>'}</div>`;
   }
   function result(s) {
     if (s.stage === 'qualifier') return qualifierResults(s);
     const r = s.result;
-    if (!r) return backdrop() + header(s, '比賽結果') + title('等待比賽結果', 'RESULTS');
+    if (!r) return backdrop() + header(s, '比賽結果') + title('等待比賽結果');
     const index = r.players.indexOf(r.winnerId), placement = r.placements[r.winnerId] || 'ADVANCES';
     const completed = s.tournament.matches.find(match => match.id === r.matchId);
     return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`) + `<div class='result-wrap'><section data-motion-block class='winner-panel'><div class='section-label'>${e(placement)}</div><h1>${r.winnerId ? entrantText(entrant(s, r.winnerId)) : '空缺場次'}</h1>${r.type === 'score' ? `<div class='winner-score'>${B.score(r.totals[index])}</div>${['accuracy', 'tiebreak'].includes(r.decisionReason) ? `<p class='result-note'>${r.decisionReason === 'accuracy' ? 'WIN ON ACCURACY' : 'TIEBREAK WINNER'}</p>` : ''}` : `<p class='result-note'>${e(r.type === 'forfeit' ? '對手取消資格 · FORFEIT' : r.type === 'draw' ? '抽籤晉級' : '輪空晉級')}</p>`}</section><section class='result-rows'>${r.players.filter(Boolean).map(id => { const i = r.players.indexOf(id); return `<div data-motion-block class='result-row result-${BroadcastBracket.destination(s, completed, id)?.kind || ''}'><h2>${id === r.winnerId ? e(B.name(s, id)) : entrantText(entrant(s, id))}</h2><strong>${r.type === 'score' ? B.score(r.totals[i]) : '—'}</strong>${r.type === 'score' && completed ? `<div class='result-song-scores'>${completed.songs.map((song, si) => `<span title='${e(song.title)}'>SONG ${si + 1}<b>${B.score(completed.scores?.[i]?.[si])}</b></span>`).join('')}</div>` : ''}<p>${e(BroadcastBracket.destination(s, completed, id)?.label || r.placements[id] || '—')}</p></div>`; }).join('')}</section></div>`;
   }
   function bracket(s) {
-    if (!s.tournament.seeded) return backdrop() + header(s, '賽程') + title('等待晉級選手', 'TOURNAMENT BRACKET');
+    if (!s.tournament.seeded) return backdrop() + header(s, '賽程') + title('等待晉級選手');
     return backdrop() + header(s, `賽程 · ${s.tournament.matches.filter(m => m.status === 'complete').length} / 14`) + BroadcastBracket.render(s, bracketMotion.round);
   }
   function selection(s) {
@@ -361,17 +358,17 @@
     if (!m) return doubleWaiting(s);
     if (m.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return grandFinalAnnouncement(s);
     const tie = B.matchTiebreak(s), focus = selectionFocus(s);
-    return backdrop() + header(s, `R${m.round} · ${m.id}`) + title(tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲', 'SONG SELECTION') + `<div class='selection'><div class='candidate-list ${m.id === 'GF' ? 'final-list' : ''}'>${(tie ? [tie.song] : m.candidates).map((song, i) => {
+    return backdrop() + header(s, `R${m.round} · ${m.id}`) + title(tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲') + `<div class='selection'><div class='candidate-list ${m.id === 'GF' ? 'final-list' : ''}'>${(tie ? [tie.song] : m.candidates).map((song, i) => {
       const banned = m.bans.indexOf(song.id), picked = m.songs.some(x => !x.hidden && x.id === song.id);
       return `<div data-motion-key='candidate-${e(song.id)}' class='candidate ${banned >= 0 ? 'banned' : ''} ${picked ? 'picked' : ''}'><span class='index'>${String(i + 1).padStart(2, '0')}</span><h3>${e(song.title)}</h3><span class='candidate-status'>${banned >= 0 ? 'BAN' : picked ? 'PICK' : e(song.difficulty + ' ' + song.level)}</span></div>`;
     }).join('') || `<p data-motion-block class='empty-copy'>選曲中</p>`}</div><section><div data-motion-key='selection-cover' class='selection-art'><img src='${e(art(focus))}' alt='${e(focus?.title || 'Song artwork')}'></div><div class='selection-detail'><h2>${songText(focus)}</h2><div data-motion-block class='picks'>${m.songs.map((song, i) => `<span>${i + 1} · ${e(song.title)}</span>`).join('')}</div></div><div data-motion-block class='selection-state'>${m.finalMode === 'fixed-two' ? `<span>加賽曲目 · TIEBREAK SONG</span>` : m.id === 'GF' ? `<span>AUDIENCE · ${m.audiencePicks.length}/2</span><span>MC · ${m.hostRevealed ? 'REVEALED' : 'SEALED'}</span>` : m.players.map((id, i) => `<span>${e(id ? B.name(s, id) : '待定')} · ${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</span>`).join('')}</div></section></div>`;
   }
   function grandFinalAnnouncement(s) {
     const songs = B.fixedFinalSongs(s);
-    if (songs.length !== 2) return backdrop() + header(s, 'GRAND FINAL') + title('等待總決賽曲目', 'GRAND FINAL');
+    if (songs.length !== 2) return backdrop() + header(s, '總決賽') + title('等待總決賽曲目');
     const phase = BroadcastFinalAnnouncement.phase(B.currentMatch(s), previewNow());
-    const heading = backdrop() + header(s, 'GRAND FINAL') + title('總決賽曲目', 'GRAND FINAL · SONG REVEAL');
-    if (!phase.started || phase.pending) return heading + `<section data-motion-block class='final-song-card final-announcement-pending'><h2>等待公布</h2><p>AWAITING REVEAL</p></section>`;
+    const heading = backdrop() + header(s, '總決賽') + title('總決賽曲目');
+    if (!phase.started || phase.pending) return heading + `<section data-motion-block class='final-song-card final-announcement-pending'><h2>等待公布</h2></section>`;
     const index = phase.index, song = songs[index];
     return heading + `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' data-final-index='${index}' class='final-song-card final-announcement-hero'><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><section class='final-song-info'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')} / 02</span></div><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></section></article>`;
   }

@@ -2,9 +2,10 @@ import os, json,shutil,subprocess,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent;OUT=Path(os.environ.get('BROADCAST_TEST_OUTPUT',ROOT/'test-results'/'proposal-control'));OUT.mkdir(parents=True,exist_ok=True)
-CODE="""// Keep fresh-default coverage for Plan B; historical GF modes use their original fixture.
+CODE="""// Plan B keeps the current catalog but exercises historical per-song draft editors.
 if(process.argv[2]!=='plan-B-DQ'){const fs=require('node:fs'),path=require('node:path');fs.writeFileSync(path.join(process.argv[1],'match-state.json'),JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));}
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'master-extra-fixture',scorekeeperPin:'score-extra-fixture'});
+if(process.argv[2]==='plan-B-DQ')s.store.commit({type:'set-qualifier-scoring-mode',payload:{mode:'legacy-score'}},s.store.state.revision);
 require('./test/helpers/song-library').expandSongLibrary(s.store.state);
 s.store.write(s.store.state);
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));process.on('SIGTERM',()=>s.close().then(()=>process.exit()));"""
@@ -24,7 +25,11 @@ with sync_playwright() as pw:
      except Exception:print('FAILED',mode,sel,page.locator('#toast').inner_text(),flush=True);raise
     if mode=='plan-B-DQ':
      page.click('.tabs [data-tab=qualifiers]');page.fill('#competition-roster','\n'.join(['Player '+str(i).zfill(2) for i in range(1,22)]));click('#competition-roster-form button');click('#plan-form button');assert st()['qualifier']['plan']=='B';assert len(st()['qualifier']['rounds']['A']['playerIds'])==11
-     assert 'Odd numbers' in page.locator('.page-heading').inner_text();click('[data-group=B]');assert 'Even numbers' in page.locator('.page-heading').inner_text();assert all(p['number']%2==0 for p in st()['qualifier']['players'] if p['id'] in st()['qualifier']['rounds']['B']['playerIds'])
+     assert 'selected' in page.locator('button[data-group=A]').get_attribute('class').split()
+     assert all(p['number']%2==1 for p in st()['qualifier']['players'] if p['id'] in st()['qualifier']['rounds']['A']['playerIds'])
+     click('[data-group=B]')
+     assert 'selected' in page.locator('button[data-group=B]').get_attribute('class').split()
+     assert all(p['number']%2==0 for p in st()['qualifier']['players'] if p['id'] in st()['qualifier']['rounds']['B']['playerIds'])
      # Tiebreak-aware active displays and round change draft isolation.
      click('[data-next-batch]');ids=st()['qualifier']['activePlayers'];assert len(ids)==3
      page.fill('#qs-p2-0','123456');click('[data-group=A]');assert not page.locator('#qs-p2-0').count();click('[data-group=B]');assert page.input_value('#qs-p2-0')=='123456';page.fill('#qs-p2-0','');assert not page.locator('.draft-notice').count()
