@@ -20,15 +20,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [20, 24]
+        node: ['24.22.1', '24']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+          check-latest: true
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm test
+      - name: Audit npm dependencies (the runtime floor is checked separately)
+        run: npm audit --audit-level=low --fetch-timeout=30000 --fetch-retries=1
 
   browser:
     name: Python and Chromium regressions
@@ -39,6 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          check-latest: true
           cache: npm
       - uses: actions/setup-python@v5
         with:

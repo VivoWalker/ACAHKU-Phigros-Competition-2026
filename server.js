@@ -1,3 +1,4 @@
+require('./scripts/check-node-version').assertSupportedNode();
 const express = require('express');
 const http = require('node:http');
 const path = require('node:path');
@@ -41,7 +42,8 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   const attempts = new PairingAttempts();
   const app = express(); const server = http.createServer(app);
   const io = new Server(server, { maxHttpBufferSize: 100000, cors: false });
-  app.disable('x-powered-by'); app.use(express.json({ limit: '100kb' }));
+  // Staff panels send plain JSON; keep request bodies out of native decompressors.
+  app.disable('x-powered-by'); app.use(express.json({ limit: '100kb', inflate: false }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
   const controls = io.of('/control'); const overlays = io.of('/overlay'); const scorekeepers = io.of('/scorekeeper');
   // A start cue belongs to the live connection, never to a saved match or backup.
