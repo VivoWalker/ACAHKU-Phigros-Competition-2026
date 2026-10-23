@@ -116,6 +116,39 @@ test('failed official write or failed backup leaves live memory and official sta
   assert.throws(() => venue(store, 'FAIL'), /Fixture backup failure/); assert.deepEqual(store.state, before); assert.equal(fs.readFileSync(store.file, 'utf8'), bytes);
 });
 
+for (const failedWrite of ['backup', 'official']) {
+  test(`${failedWrite} file-sync failure cannot publish or replace the saved tournament`, t => {
+    const { dir, store } = fixture(t), before = structuredClone(store.state), bytes = fs.readFileSync(store.file);
+    const sync = fs.fsyncSync;
+    let calls = 0;
+    t.mock.method(fs, 'fsyncSync', descriptor => {
+      calls++;
+      if (calls === (failedWrite === 'backup' ? 1 : 2)) {
+        const error = new Error('Fixture file synchronization failure'); error.code = 'EIO'; throw error;
+      }
+      return sync(descriptor);
+    });
+    assert.throws(() => venue(store, 'UNCONFIRMED SAVE'), error => error.code === 'EIO');
+    assert.deepEqual(store.state, before);
+    assert.deepEqual(fs.readFileSync(store.file), bytes);
+    assert.equal(store.listBackups().length, failedWrite === 'backup' ? 0 : 1);
+    for (const directory of [dir, store.backupDir]) assert.equal(fs.readdirSync(directory).some(name => name.endsWith('.tmp')), false);
+    t.mock.restoreAll();
+    venue(store, 'RETRIED SAVE');
+    assert.equal(new StateStore(dir).state.event.venue, 'RETRIED SAVE');
+  });
+}
+
+test('both snapshot files are synchronized before their atomic replacement', t => {
+  const { store } = fixture(t), sync = fs.fsyncSync, rename = fs.renameSync, operations = [];
+  t.mock.method(fs, 'fsyncSync', descriptor => { operations.push('sync'); return sync(descriptor); });
+  t.mock.method(fs, 'renameSync', (from, to) => {
+    operations.push(to === store.file ? 'replace official' : 'replace backup'); return rename(from, to);
+  });
+  venue(store, 'CONFIRMED SAVE');
+  assert.deepEqual(operations, ['sync', 'replace backup', 'sync', 'replace official']);
+});
+
 test('a damaged selected backup is rejected before touching the current tournament', t => {
   const { store } = fixture(t); venue(store, 'FIRST'); const backup = store.listBackups()[0];
   fs.writeFileSync(path.join(store.backupDir, backup.id), JSON.stringify({ schemaVersion: 1, tournament: { matches: [] } }));
