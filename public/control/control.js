@@ -1090,7 +1090,7 @@
       }
     }
     $('content').dataset.matchId = state.tournament.currentMatchId || '';
-    if (state.recovery?.message) { const notice = document.createElement('div'); notice.className = 'notice recovery-alert'; notice.setAttribute('role', 'alert'); notice.innerHTML = `<strong>赛事数据已自动恢复</strong><p>${e(state.recovery.message)}</p><p>请核对当前名单、分数及赛果。原文件已保留：${e(state.recovery.preservedFile || '')}</p>`; $('content').prepend(notice); }
+    if (state.recovery?.message) { const notice = document.createElement('div'); notice.className = 'notice recovery-alert'; notice.setAttribute('role', 'alert'); notice.innerHTML = `<strong>赛事数据已自动恢复</strong><p>${e(state.recovery.message)}</p><p>请核对当前名单、分数及赛果。${state.recovery.preservedFile ? `原文件已保留：${e(state.recovery.preservedFile)}` : ''}</p>`; $('content').prepend(notice); }
     refreshDraftNotice(); refreshConnections(); refreshCountdownControls(); refreshWaitControls(); syncFinalAnnouncementTimer(); syncFinalSequenceTimer();
   }
   listen(document, 'click', event => {

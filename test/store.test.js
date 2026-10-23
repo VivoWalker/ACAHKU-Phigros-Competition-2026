@@ -74,6 +74,37 @@ test('damaged state with no valid backup fails clearly without replacing the sav
   assert.throws(() => new StateStore(dir), /No valid automatic backup/); assert.equal(fs.readFileSync(store.file, 'utf8'), bytes);
 });
 
+test('a missing primary file recovers the latest valid snapshot instead of creating a new tournament', t => {
+  const { dir, store } = fixture(t);
+  store.commit({ type: 'set-qualifier-score', payload: { playerId: 'p1', songIndex: 0, score: 0 } }, store.state.revision);
+  venue(store, 'RECORDED VENUE'); venue(store, 'LATEST VENUE');
+  const backup = store.listBackups()[0], expected = store.readBackup(backup.id);
+  fs.writeFileSync(path.join(store.backupDir, 'revision-000000000099-1999999999999-deadbeef.json'), '{');
+  const snapshots = fs.readdirSync(store.backupDir);
+  fs.unlinkSync(store.file);
+  const recovered = new StateStore(dir);
+  assert.deepEqual(recovered.state.qualifier, expected.qualifier);
+  assert.equal(recovered.state.qualifier.players[0].scores[0], 0);
+  assert.equal(recovered.state.event.venue, 'RECORDED VENUE');
+  assert.ok(recovered.state.revision > store.state.revision);
+  assert.equal(recovered.state.recovery.backupId, backup.id);
+  assert.equal(recovered.state.recovery.preservedFile, undefined, 'A missing file cannot have a preserved copy.');
+  assert.match(recovered.state.recovery.message, /missing/);
+  assert.match(recovered.state.auditLog.at(-1).reason, /Missing/);
+  assert.deepEqual(fs.readdirSync(store.backupDir), snapshots);
+  assert.deepEqual(new StateStore(dir).state, recovered.state);
+  assert.equal(publicState(recovered.state).recovery, undefined);
+});
+
+test('missing primary with only damaged snapshots stops startup without writing a fresh event', t => {
+  const { dir, store } = fixture(t);
+  const file = path.join(store.backupDir, 'revision-000000000009-1999999999999-deadbeef.json');
+  fs.writeFileSync(file, '{damaged snapshot'); fs.unlinkSync(store.file);
+  assert.throws(() => new StateStore(dir), /No valid automatic backup/);
+  assert.equal(fs.existsSync(store.file), false);
+  assert.equal(fs.readFileSync(file, 'utf8'), '{damaged snapshot');
+});
+
 test('failed official write or failed backup leaves live memory and official state unchanged', t => {
   const { store } = fixture(t); venue(store, 'FIRST'); const before = structuredClone(store.state), bytes = fs.readFileSync(store.file, 'utf8');
   const rename = fs.renameSync;
