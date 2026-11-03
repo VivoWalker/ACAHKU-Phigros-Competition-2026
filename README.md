@@ -277,6 +277,22 @@ The main-only **裁判工具** records device/global-version/headphones/chart/st
 
 For a lost score screen, inspect the livestream recording first. A rematch requires an unintentional departure, all players' agreement and the recorded video check; otherwise record the appropriate ACA decision. Game-error rematches use the other incident reason. One allowance is shared across reasons per qualifier player/round/song, or per DE match/song for both opponents. Only that song's scores/metadata clear; invalidated tiebreak evidence is archived privately. Current unconfirmed tiebreaks have a separate single replay allowance; their replay clears only that extra song, preserving the original totals and earlier confirmed tiebreaks. Resets do not renew an allowance. Readiness, waiting, incident and detailed DQ notes remain staff-only.
 
+## Intermission and Arcaea trailer
+
+Open **休息時間**, between **Qualifiers** and **Bracket** in main control. Set an optional **預計繼續時間**, save, then select **開始休息**. The existing live OBS Browser Source follows the intermission automatically. `overlay/intermission.html?fixed=1` is also available as a dedicated source.
+
+Until a video is supplied, the broadcast shows **休息時間** and an **Arcaea 比賽預告** placeholder. Upload a local **MP4 or WebM, up to 250 MiB**, through this tab, then **保存設定**. Alternatively, put the file in `public/assets/intermission/` and save `assets/intermission/arcaea-trailer.mp4` as its path. Only local paths are accepted. **播放預告** starts or restarts the clip; **停止預告** returns to the standby screen. Looping is enabled by default. With looping disabled, the end of the clip returns to standby and keeps the intermission on air.
+
+**繼續雙淘汰賽** ends the break and shows the bracket when seeds exist, or the waiting screen while staff prepare the bracket. The displayed resume time does not trigger an automatic switch. Scores, qualifier results and seeding are retained. Refreshes and reconnects join the current playback clock; the staff preview is silent. For OBS audio, use the existing live source and **Control audio via OBS**. If a browser blocks autoplay, use its **Enable broadcast audio** button.
+
+The main-control upload endpoint is `POST /api/intermission/video`, with `Authorization: Bearer <control token>` and a raw `video/mp4` or `video/webm` body. It returns `{ videoPath, bytes }` without changing the on-air settings. Save the returned path using `configure-intermission` before issuing `start-intermission` or `play-intermission-video`. Uploaded files are streamed to `data/media/intermission/` and are excluded from Git; preserve this directory along with event data when moving the installation. JSON event exports contain paths, not video bytes.
+
+The intermission browser regression generates a temporary clip and checks upload, silent previews, loop/single playback, live updates, source reloads, mobile controls and return to DE:
+
+```sh
+python3 test/intermission-browser.py
+```
+
 ## Data, backups and local resources
 
 - Shared state is stored atomically after every successful command in `data/match-state.json`. Restarting the server or refreshing a browser preserves it. Failed and stale commands do not overwrite it.
@@ -372,7 +388,7 @@ npm run test:python
 npm run test:browser:smoke
 ```
 
-The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection and draft recovery. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
+The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection, draft recovery and intermission trailer playback. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
 
 The control and scorekeeper panels use concise headings and field labels; validation, draft conflicts and lock reasons appear when relevant. OBS scenes retain scores, chart details and advancement routes without duplicate subtitles. To check staff panels at laptop/mobile widths and every overlay scene, including capture transparency:
 

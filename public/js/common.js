@@ -1,6 +1,6 @@
 (function () {
   const scenes = [
-    ['start', 'Start screen', '開始界面'], ['qualifier-waiting', 'Qualifier waiting', '預選賽等候'],
+    ['start', 'Start screen', '開始界面'], ['intermission', '休息時間', '休息時間'], ['qualifier-waiting', 'Qualifier waiting', '預選賽等候'],
     ['double-elimination-waiting', 'Double elimination waiting', '雙淘汰賽等候'], ['qualifier-match', 'Qualifier match', '預選賽'],
     ['qualifier-processing', 'Qualifier results processing', '預選賽結果統計中'],
     ['double-elimination-match', 'Double elimination match', '雙淘汰賽'], ['song-result', 'Results statistics', '成績統計'], ['result', 'Result announcement', '結果公佈'],

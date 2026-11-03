@@ -8,6 +8,7 @@
   const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: lifecycle.signal });
   const exportURLs = new Map();
   let pageDisposed = false;
+  let intermissionFile = null, intermissionUploading = false, intermissionUploadedPath = '', intermissionUploadEvent = '';
   const displayMedia = BroadcastDisplayMedia.createClient();
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
@@ -103,7 +104,7 @@
         if (!d || !['q', 'qc', 'qd', 'qt', 'm', 'mt'].includes(d.kind) || !['A', 'B'].includes(d.group) || typeof d.id !== 'string' || !d.id
           || typeof d.prefix !== 'string' || !d.prefix || typeof d.context !== 'string' || !Array.isArray(JSON.parse(d.context))
           || ![d.pi, d.si, d.index].every(Number.isSafeInteger) || d.pi < 0 || d.pi > 63 || d.si < 0 || d.si > 2 || d.index < 0 || d.index > 1000) return false;
-      } else if (!['plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
+      } else if (!['plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'intermission', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
       if (saved.reader.kind === 'form') return saved.reader.scope === saved.scope && saved.reader.id === saved.id;
       if (['match-score', 'qualifier-score', 'tie'].includes(saved.reader.kind)) return saved.reader.kind === kind && saved.reader.id === entity
         && (kind === 'tie' || Number.isInteger(saved.reader.si) && saved.reader.si >= 0 && saved.reader.si < 3)
@@ -145,7 +146,7 @@
     if (form.id === 'readiness-form') return 'readiness:' + form.dataset.playerId;
     if (form.id === 'wait-form' || form.id === 'dq-form' || form.id === 'rematch-form') return `${form.id}:${encodeURIComponent(incidentContext())}`;
     if (form.dataset.renamePlayer) return `rename:${form.dataset.renamePlayer}`;
-    return ({ 'event-form': 'event', 'song-form': `song:${editingSongId || 'new'}`, 'group-songs-form': `group-songs:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`, 'roster-form': `roster:${group}`, 'seed-form': `seeds:${encodeURIComponent(seedContext(state))}`, 'result-form': `result:${match}:${signature}`, 'final-finale-form': `finale:${match}`, 'final-candidates-form': `candidates:${match}:${signature}`, 'final-picks-form': `picks:${match}:${signature}`, 'source-form': sourceScope(), 'restore-form': `restore:${selectedBackupId}`, 'correction-form': `correction:${correctionMatchId}`, 'plan-form': 'plan', 'competition-roster-form': 'competition-roster' })[form.id];
+    return ({ 'event-form': 'event', 'intermission-form': 'intermission', 'song-form': `song:${editingSongId || 'new'}`, 'group-songs-form': `group-songs:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`, 'roster-form': `roster:${group}`, 'seed-form': `seeds:${encodeURIComponent(seedContext(state))}`, 'result-form': `result:${match}:${signature}`, 'final-finale-form': `finale:${match}`, 'final-candidates-form': `candidates:${match}:${signature}`, 'final-picks-form': `picks:${match}:${signature}`, 'source-form': sourceScope(), 'restore-form': `restore:${selectedBackupId}`, 'correction-form': `correction:${correctionMatchId}`, 'plan-form': 'plan', 'competition-roster-form': 'competition-roster' })[form.id];
   }
   function formValues(scope, s = state) {
     const [kind, entity] = scope.split(':');
@@ -156,6 +157,10 @@
     if (kind === 'readiness') return Object.fromEntries(['device', 'globalVersion', 'headphones', 'charts', 'streamConsent'].map(key => [`ready-${key}`, s.qualifier.readiness?.[entity]?.[key] === true]));
     if (['wait-form', 'dq-form', 'rematch-form'].includes(kind)) return incidentDefaults(kind, s);
     const m = s.tournament.matches.find(match => match.id === entity);
+    if (kind === 'intermission') {
+      const value = s.broadcast?.intermission || BroadcastIntermission.defaults();
+      return { 'intermission-video-path': value.videoPath, 'intermission-loop': value.loop, 'intermission-resume-time': value.resumeTime };
+    }
     if (kind === 'event') return Object.fromEntries(Object.entries(s.event).map(([key, value]) => [`event-${key.replace('ZH', '-zh')}`, value]));
     if (kind === 'song') {
       const song = s.library.find(item => item.id === entity);
@@ -776,6 +781,7 @@
     return { label: `${m.id} · 等待選手準備`, cue: productionCue('double-elimination-waiting', 0) };
   }
   function productionToolbar() {
+    if (state.scene === 'intermission') return `<section class="production-workflow" data-phase="intermission"><div class="production-next-row"><h2>休息時間</h2>${button('繼續雙淘汰賽 →', 'data-intermission-command="end-intermission"', true)}</div></section>`;
     const i = productionInfo(), next = nextProductionAction(), phases = { standby: '尚未開始', waiting: '等待準備', selection: '抽選 / BAN 曲', match: '比賽中', 'song-result': '本曲統計', processing: '結果正在統計中', 'set-result': '三首總成績', ranking: '晉級排名', 'round-result': '整輪賽果', bracket: 'Bracket 現況', 'final-totals': '前兩首總成績', 'final-video': '最後一首公布視頻' };
     const announcement = !i.qualifier && fixedFinal(i.match) && i.phase === 'selection' ? finalAnnouncementPhase(i.match) : null;
     if (announcement) phases.selection = '決賽曲目逐首公布';
@@ -789,7 +795,7 @@
         + productionCueButton('三首總成績', 'song-result', 2, !allowed)
         + productionCueButton('目前晉級排名', 'result')
       : `${!i.qualifier && !i.match?.songs.length ? productionCueButton('抽選 / BAN 曲', 'song-selection', undefined, !i.match || ['pending', 'complete'].includes(i.match.status)) : ''}${productionCueButton('等待準備', i.qualifier ? 'qualifier-waiting' : 'double-elimination-waiting', i.songIndex, !i.active.length || !i.qualifier && (!i.match || ['pending', 'complete'].includes(i.match.status)))}${productionCueButton('比賽畫面', i.qualifier ? 'qualifier-match' : 'double-elimination-match', i.songIndex, !allowed)}${productionCueButton('本曲統計', 'song-result', i.songIndex, !allowed)}${i.qualifier ? productionCueButton('目前晉級排名', 'result') : productionCueButton('Bracket', 'bracket', undefined, !state.tournament.seeded)}`;
-    return `<section class="production-workflow" data-stage="${state.stage}" data-phase="${i.phase}"><div class="production-stage-buttons" role="group" aria-label="播出階段">${button('預選賽', `data-production-stage="qualifier" aria-pressed="${i.qualifier}" ${i.qualifier ? 'disabled' : ''}`)}${button('雙淘汰賽', `data-production-stage="double-elimination" aria-pressed="${!i.qualifier}" ${!i.qualifier || !state.tournament.seeded ? 'disabled' : ''}`)}</div><div class="production-next-row"><div><span class="micro">${e(title)}</span><h2>${e(heading)}</h2><p>${i.active.map(id => e(B.name(state, id))).join(' / ') || '請設定本批上場選手'}</p></div>${button(next.label + ' →', `data-production-next ${next.disabled ? 'disabled' : ''}`, true)}</div><div class="production-steps" role="group" aria-label="${i.challengeSet ? '本輪課題播出控制' : '本曲播出控制'}">${steps}</div></section>`;
+    return `<section class="production-workflow" data-stage="${state.stage}" data-phase="${i.phase}"><div class="production-stage-buttons" role="group" aria-label="播出階段">${button('預選賽', `data-production-stage="qualifier" aria-pressed="${i.qualifier}" ${i.qualifier ? 'disabled' : ''}`)}${button('休息時間', 'data-intermission-command="start-intermission"')}${button('雙淘汰賽', `data-production-stage="double-elimination" aria-pressed="${!i.qualifier}" ${!i.qualifier || !state.tournament.seeded ? 'disabled' : ''}`)}</div><div class="production-next-row"><div><span class="micro">${e(title)}</span><h2>${e(heading)}</h2><p>${i.active.map(id => e(B.name(state, id))).join(' / ') || '請設定本批上場選手'}</p></div>${button(next.label + ' →', `data-production-next ${next.disabled ? 'disabled' : ''}`, true)}</div><div class="production-steps" role="group" aria-label="${i.challengeSet ? '本輪課題播出控制' : '本曲播出控制'}">${steps}</div></section>`;
   }
   function productionStats(info) {
     const q = state.qualifier, m = info.match, locked = info.qualifier ? state.tournament.seeded || q.rounds?.[q.activeGroup]?.locked : ['complete', 'pending'].includes(m?.status);
@@ -834,10 +840,15 @@
     return `<section class="final-sequence-panel" data-final-sequence-panel data-finale-stage="${e(phase.stage)}"><div class="final-sequence-heading"><div><h2>決賽終章控制</h2></div><strong class="final-sequence-stage" data-finale-status>${e(stageLabels[phase.stage] || '決賽準備')}</strong></div><div class="final-sequence-actions" role="group" aria-label="決賽終章播出步驟">${commandButton('前兩首總成績', 'show-final-two-totals', !canContinue || ['video', 'revealed'].includes(phase.stage))}${commandButton('亂碼等待 · 錯誤侵入', 'start-final-finale', !canContinue || !['summary', 'sealed'].includes(phase.stage))}${commandButton('播放公布視頻', 'play-final-finale-video', locked || !song || !videoReady || !['sealed', 'video'].includes(phase.stage))}${commandButton('結束視頻並返回', 'finish-final-finale-video', locked || !song || match.finale?.stage !== 'video')}${commandButton('跳過視頻 · 公布最後一首', 'reveal-final-finale', !canContinue || !song || phase.stage !== 'sealed')}${phase.stage === 'revealed' ? productionCueButton('最後一首準備', 'double-elimination-waiting', 2, locked || !song) : ''}</div>${!song ? '<p class="notice warning" data-finale-missing-song>最後一首尚未設定。</p>' : `<p class="final-sequence-song" data-finale-song>最後一首：<strong>${e(song.title)}</strong> · ${e(song.difficulty)} ${e(Math.trunc(song.level))}${phase.stage !== 'revealed' ? ' · 尚未向觀眾公布' : ''}</p>`}${!videoReady ? '<p class="secondary" data-finale-missing-video>公布視頻未設定路徑或時長。</p>' : ''}<section class="final-sequence-effects"><h3>最後一首特效</h3><div class="final-effect-buttons" role="group" aria-label="決賽最後一首特效控制">${effectLabels.map((label, level) => button(label, `data-final-effect="${level}" aria-pressed="${!!match.finale && match.finale.effectLevel === level}" ${locked || phase.stage !== 'revealed' ? 'disabled' : ''}`)).join('')}</div></section><details id="final-finale-settings" ${!videoReady && !configLocked ? 'open' : ''}><summary>最後一首與公布視頻設定</summary><form id="final-finale-form"><label for="finale-song-id">從現有曲庫選擇（留空時使用下方手動資料）<select id="finale-song-id" ${configLocked ? 'disabled' : ''}>${songOptions(song?.id !== 'gf-finale' && state.library.some(item => item.id === song?.id) ? song.id : '', state.library)}</select></label><div class="field-grid finale-config-fields"><label for="finale-title">最後一首曲名<input id="finale-title" value="${e(song?.title || '')}" maxlength="100" ${configLocked ? 'disabled' : ''}></label><label for="finale-artist">作者<input id="finale-artist" value="${e(song?.artist || '')}" maxlength="100" ${configLocked ? 'disabled' : ''}></label><label for="finale-difficulty">譜面難度<select id="finale-difficulty" ${configLocked ? 'disabled' : ''}>${options(['EZ', 'HD', 'IN', 'AT'].map(value => [value, value]), song?.difficulty || 'IN', false)}</select></label><label for="finale-level">等級<input id="finale-level" value="${e(song?.level ?? '')}" type="number" min="1" max="20" step="1" ${configLocked ? 'disabled' : ''}></label><label class="wide" for="finale-art">曲繪本地路徑<input id="finale-art" value="${e(song?.art || '')}" maxlength="180" placeholder="assets/song/your-cover.webp" ${configLocked ? 'disabled' : ''}></label><label class="wide" for="finale-video-path">公布視頻本地路徑<input id="finale-video-path" value="${e(match.finale?.videoPath || '')}" maxlength="180" placeholder="assets/finale/announcement.mp4" ${configLocked ? 'disabled' : ''}></label><label for="finale-video-duration">視頻時長（秒）<input id="finale-video-duration" value="${e(match.finale?.videoDuration || '')}" type="number" min="0" max="3600" step="any" ${configLocked ? 'disabled' : ''}></label></div><div class="form-actions">${button('保存最後一首與視頻設定', `type="submit" ${configLocked ? 'disabled' : ''}`, true)}</div></form></details></section>`;
   }
   function productionContext() {
+    if (state.scene === 'intermission') return productionContextBody();
     const match = B.currentMatch(state);
     return (state.stage === 'double-elimination' && fixedFinal(match) && productionInfo().phase !== 'selection' ? finalSequencePanel(match) : '') + productionContextBody();
   }
   function productionContextBody() {
+    if (state.scene === 'intermission') {
+      const config = state.broadcast?.intermission;
+      return `<div class="production-context-head"><h2>Arcaea 比賽預告</h2>${config?.resumeTime ? `<p>雙淘汰賽 · ${e(config.resumeTime)}</p>` : ''}</div>${button('休息時間設定', 'data-tab="intermission"')}`;
+    }
     const info = productionInfo(), q = state.qualifier, m = info.match;
     if (info.qualifier) {
       if (info.phase === 'ranking') return productionRanking();
@@ -871,7 +882,7 @@
   function broadcast() {
     const legacy = document.createElement('template'); legacy.innerHTML = legacyBroadcast();
     const take = selector => legacy.content.querySelector(selector)?.outerHTML || '';
-    return heading('賽事操作台') + productionToolbar() + `<div class="production-grid"><section class="production-program">${take('.preview-panel')}<div class="production-countdown">${countdownPanel()}</div></section><section id="production-context" class="panel production-context">${productionContext()}</section></div><details id="production-advanced" class="production-advanced"><summary>其他播出設定</summary>${take('.broadcast-display-panel')}${take('.broadcast-sources-panel')}<section class="panel"><h2>手動畫面切換</h2>${take('.scene-list')}${take('.scene-section-note')}</section>${refereePanel()}</details>`;
+    return heading('賽事操作台') + productionToolbar() + `<div class="production-grid"><section class="production-program">${take('.preview-panel')}<div class="production-countdown" ${state.scene === 'intermission' ? 'hidden' : ''}>${countdownPanel()}</div></section><section id="production-context" class="panel production-context">${productionContext()}</section></div><details id="production-advanced" class="production-advanced"><summary>其他播出設定</summary>${take('.broadcast-display-panel')}${take('.broadcast-sources-panel')}<section class="panel"><h2>手動畫面切換</h2>${take('.scene-list')}${take('.scene-section-note')}</section>${refereePanel()}</details>`;
   }
   async function takeProductionCue(cue) {
     const signature = JSON.stringify([state.stage, state.scene, state.qualifier.activeGroup, state.qualifier.activePlayers, state.qualifier.currentSong, state.tournament.currentMatchId, matchContext(state, state.tournament.currentMatchId)]);
@@ -1022,7 +1033,34 @@
     return heading('Event & library', button('Export state backup ' + B.icon('folder'), 'data-export')) + competitionPresetPanel() + songPoolNotice() +
       `<div class="section-grid"><section class="panel"><div class="section-heading"><div><h2>Event information</h2></div></div><form id="event-form"><div class="field-grid"><label class="wide" for="event-title">Event name<input id="event-title" name="title" value="${e(state.event.title)}" maxlength="120" required></label><label class="wide" for="event-organiser">Organiser<input id="event-organiser" name="organiser" value="${e(state.event.organiser)}" maxlength="180"></label><label class="wide" for="event-organiser-zh">Organiser / 繁體中文<input id="event-organiser-zh" name="organiserZH" value="${e(state.event.organiserZH)}"></label><label for="event-date">Date<input id="event-date" name="date" type="date" value="${e(state.event.date)}" required></label><label for="event-time">Time<input id="event-time" name="time" value="${e(state.event.time)}"></label><label for="event-venue">Venue<input id="event-venue" name="venue" value="${e(state.event.venue)}" required></label><label for="event-message">Broadcast tagline<input id="event-message" name="message" value="${e(state.event.message)}"></label></div><div class="form-actions">${button('Save event information', 'type="submit"', true)}</div></form><label for="event-stage" style="margin-top:26px">Current stage<select id="event-stage" data-stage><option value="qualifier" ${state.stage === 'qualifier' ? 'selected' : ''}>Qualifiers</option><option value="double-elimination" ${state.stage === 'double-elimination' ? 'selected' : ''}>Double elimination</option></select></label></section><section class="panel"><div class="section-heading"><div><h2>Song library · ${state.library.length}</h2></div>${button('New song +', 'data-new-song')}</div><form id="song-form" style="margin-top:22px"><div class="field-grid"><label class="wide" for="song-title">Title<input id="song-title" value="${e(song?.title || '')}" required maxlength="100" ${chartLocked}></label><label class="wide" for="song-artist">Artist<input id="song-artist" value="${e(song?.artist || '')}" maxlength="100" ${chartLocked}></label><label for="song-difficulty">Difficulty<select id="song-difficulty" ${chartLocked}>${options(['EZ', 'HD', 'IN', 'AT'].map(x => [x, x]), song?.difficulty || 'IN', false)}</select></label><label for="song-level">Level<input id="song-level" type="number" min="1" max="20" step="1" value="${Math.trunc(song?.level ?? 15)}" required ${chartLocked}></label><label class="wide" for="song-constant">Chart constant · 原始定數（可選）<input id="song-constant" type="number" min="1" max="20" step="0.1" value="${e(songConstant(song) ?? '')}" placeholder="16.1" ${chartLocked}></label><label class="wide" for="song-art">Local artwork path <span>public/assets/song/</span><input id="song-art" value="${e(song?.art || 'assets/song/cover-1.svg')}" maxlength="180" required></label><label class="wide" for="song-preview-audio">Music preview path · optional <input id="song-preview-audio" value="${e(songPreviewPath(song))}" maxlength="180" placeholder="assets/song-preview/song-01.mp3"></label><label class="checkbox-label wide"><input id="song-eligible" type="checkbox" ${song?.eligible !== false ? 'checked' : ''}> Include in regular 6-song draws</label></div><div class="form-actions">${button(song ? 'Save song' : 'Add song', 'type="submit"', true)}${chartLocked ? '<span class="secondary">已用于预选赛，仅可更新曲绘与预览。</span>' : ''}</div></form><div class="library-list">${state.library.map(s => `<div class="library-row"><img class="library-art" src="../${e(displayArt(s.art))}" alt="" loading="lazy"><div>${e(s.title)}<div class="secondary">${e(s.difficulty)} ${e(Math.trunc(s.level))} · ${e(songCategory(s))}${songConstant(s) !== null ? ` · 定數 ${e(songConstant(s).toFixed(1))}` : ''}</div></div><button data-edit-song="${e(s.id)}" aria-label="Edit ${e(s.title)}">Edit ↗</button></div>`).join('')}</div></section></div>` + operationsPanel();
   }
-  const pages = { broadcast, qualifiers, bracket, songs: songSelection, event: eventSettings };
+  function intermissionPage() {
+    const config = state.broadcast?.intermission || BroadcastIntermission.defaults(), onAir = state.scene === 'intermission';
+    const selectedPath = drafts.get('intermission|intermission-video-path')?.value ?? config.videoPath;
+    const uploaded = intermissionUploadEvent === state.eventId && intermissionUploadedPath && intermissionUploadedPath !== selectedPath;
+    return heading('休息時間') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir ? '重新開始休息' : '開始休息', 'data-intermission-command="start-intermission"', true)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${onAir ? '' : 'disabled'}`)}${button(config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${onAir && config.videoPath ? '' : 'disabled'}`)}${button('停止預告', `data-intermission-command="stop-intermission-video" ${onAir && config.cue ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>Arcaea 比賽預告</h2><form id="intermission-form"><div class="field-grid"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><label for="intermission-resume-time">預計繼續時間<input id="intermission-resume-time" type="time" value="${e(config.resumeTime)}"></label></div><label class="checkbox-label"><input id="intermission-loop" type="checkbox" ${config.loop ? 'checked' : ''}>循環播放</label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
+  }
+  function useIntermissionUpload() {
+    const input = $('intermission-video-path');
+    if (!input || intermissionUploadEvent !== state.eventId || !intermissionUploadedPath) return;
+    input.value = intermissionUploadedPath; rememberDraft(input); render();
+  }
+  async function uploadIntermissionVideo() {
+    if (intermissionUploading || !intermissionFile) return;
+    if (!controlReady()) { toast('請等候連線同步後再上傳。', true); return; }
+    const file = intermissionFile, eventId = state.eventId, previousPath = $('intermission-video-path')?.value;
+    const type = /\.mp4$/i.test(file.name) ? 'video/mp4' : /\.webm$/i.test(file.name) ? 'video/webm' : '';
+    if (!type || file.size > 250 * 1024 * 1024) { toast('請選擇 250 MB 以內的 MP4 或 WebM 影片。', true); return; }
+    intermissionUploading = true; render();
+    try {
+      const result = await requestJSON('/api/intermission/video', { method: 'POST', headers: { 'Content-Type': type }, body: file });
+      if (pageDisposed || state.eventId !== eventId) return;
+      intermissionUploadedPath = result.videoPath; intermissionUploadEvent = eventId; intermissionFile = null;
+      if (activeTab === 'intermission' && $('intermission-video-path')?.value === previousPath) useIntermissionUpload();
+      toast('影片已上傳，保存設定後即可播出。');
+    } catch (error) { toast(error.message, true); }
+    finally { intermissionUploading = false; render(); }
+  }
+  const pages = { broadcast, qualifiers, intermission: intermissionPage, bracket, songs: songSelection, event: eventSettings };
   displayMedia.ready.then(() => render());
   mediaWarmup.prepareFonts();
   function disposePage(event) {
@@ -1034,7 +1072,7 @@
     mediaWarmup.dispose(); displayMedia.dispose();
     if (socket) { socket.removeAllListeners(); socket.disconnect(); socket = null; }
     for (const [url, timer] of exportURLs) { clearTimeout(timer); URL.revokeObjectURL(url); }
-    exportURLs.clear(); drafts.clear(); state = null;
+    exportURLs.clear(); drafts.clear(); intermissionFile = null; intermissionUploadedPath = ''; state = null;
   }
   listen(window, 'pagehide', disposePage);
   function render() {
@@ -1043,7 +1081,7 @@
     const visibleSongs = activeTab === 'songs' || activeTab === 'broadcast' && productionInfo().phase === 'selection' ? (fixedFinal(currentMatch) ? currentMatch.songs : currentMatch?.candidates) || [] : [];
     mediaWarmup.setImages(visibleSongs.filter(song => !song.hidden).map(song => '../' + displayArt(song.art)));
     const active = document.activeElement;
-    const focusAttributes = ['data-scene', 'data-focus-song', 'data-ban-song', 'data-ban-player', 'data-command', 'data-song-progress', 'data-broadcast-handcams', 'data-production-next', 'data-production-stage', 'data-production-cue', 'data-production-batch', 'data-production-group', 'data-production-match', 'data-final-announcement-index', 'data-final-sequence', 'data-final-effect'];
+    const focusAttributes = ['data-intermission-command', 'data-upload-intermission', 'data-use-intermission-upload', 'data-scene', 'data-focus-song', 'data-ban-song', 'data-ban-player', 'data-command', 'data-song-progress', 'data-broadcast-handcams', 'data-production-next', 'data-production-stage', 'data-production-cue', 'data-production-batch', 'data-production-group', 'data-production-match', 'data-final-announcement-index', 'data-final-sequence', 'data-final-effect'];
     const keyboardSelector = active?.tagName === 'BUTTON' ? focusAttributes.filter(key => active.hasAttribute(key)).map(key => `[${key}="${CSS.escape(active.getAttribute(key))}"]`).join('') : '';
     const focused = active && active.id && $('content').contains(active) && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) ? { id: active.id, scope: active.dataset.draftScope, start: active.selectionStart, end: active.selectionEnd } : null;
     const openDetails = [...$('content').querySelectorAll('details[open][id]')].map(el => el.id);
@@ -1062,12 +1100,22 @@
       for (const selector of ['.page-heading', '.production-workflow', '#production-context', '.production-countdown', '#production-advanced', '.status-strip', '.current-bar']) {
         $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
       }
+    } else if (activeTab === 'intermission' && $('intermission-preview')) {
+      for (const selector of ['.page-heading', '.intermission-preview .panel-header', '.intermission-controls', '.intermission-settings'])
+        $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
     } else {
       $('content').replaceChildren(...template.content.childNodes);
       if ($('preview-container')) {
         const iframe = document.createElement('iframe'); iframe.id = 'program-preview'; iframe.title = 'Live broadcast program preview';
         iframe.src = '../overlay/live.html?preview=1'; $('preview-container').append(iframe);
       }
+    }
+    if ($('intermission-preview-container') && !$('intermission-preview')) {
+      const iframe = document.createElement('iframe'); iframe.id = 'intermission-preview'; iframe.title = '休息時間預覽';
+      iframe.src = '../overlay/intermission.html?fixed=1&preview=1'; $('intermission-preview-container').append(iframe);
+    }
+    if (intermissionFile && $('intermission-upload-file')) {
+      try { const selection = new DataTransfer(); selection.items.add(intermissionFile); $('intermission-upload-file').files = selection.files; } catch (_) { /* Retain the selected File in memory on older browsers. */ }
     }
     for (const id of openDetails) if ($(id)) $(id).open = true;
     const artWindow = $('content').querySelector('.cover-window');
@@ -1095,6 +1143,15 @@
   }
   listen(document, 'click', event => {
     const target = event.target.closest('button,[data-focus-song]'); if (!target || target.disabled || !state) return;
+    if (target.hasAttribute('data-upload-intermission')) { uploadIntermissionVideo(); return; }
+    if (target.hasAttribute('data-use-intermission-upload')) { useIntermissionUpload(); return; }
+    if (target.dataset.intermissionCommand) {
+      const type = target.dataset.intermissionCommand;
+      send(type, {}, { expectedRevision: state.revision, guard() {
+        if (['start-intermission', 'play-intermission-video'].includes(type) && [...drafts.values()].some(record => record.scope === 'intermission'))
+          throw new Error('請先保存或放棄休息時間設定草稿。');
+      } }).catch(() => {}); return;
+    }
     if (target.hasAttribute('data-discard-drafts')) {
       if ([...drafts.values()].some(record => record.pending.size)) { toast('正在保存，請等候確認後再處理草稿。', true); return; }
       if (confirm(`放棄所有 ${drafts.size} 個未提交欄位？已保存的伺服器成績不會改動。`)) { drafts.clear(); render(); }
@@ -1177,6 +1234,7 @@
   listen(document, 'change', event => {
     const el = event.target; if (!state) return;
     rememberDraft(el);
+    if (el.id === 'intermission-upload-file') { intermissionFile = el.files?.[0] || null; render(); return; }
     if (el.id === 'readiness-player') { readinessPlayerId = el.value; render(); return; }
     if (el.form?.dataset.scoreEditor) {
       const kind = el.form.dataset.scoreEditor, legacy = kind === 'q' ? !proposal() : kind === 'm' && state.tournament.ruleset !== 'proposal-2026';
@@ -1203,6 +1261,9 @@
     const scope = form.dataset.draftScope, entity = scope?.split(':')[1];
     if (form.dataset.scoreEditor) { submitScore(form, scope).then(result => { if (result) toast(form.dataset.scoreEditor === 'qd' ? '本曲統計已保存' : form.dataset.scoreEditor === 'qc' ? 'Challenge 总分已保存' : form.dataset.scoreEditor === 'qt' && challenge() ? '加赛分数已保存' : '分数与 ACC 已保存'); }).catch(error => toast(error.message, true)); return; }
     if (form.dataset.numberPlayer) { draftForm(scope, 'set-player-number', values => ({ playerId: form.dataset.numberPlayer, number: Number(values[`number-${form.dataset.numberPlayer}`]) })).catch(() => {}); return; }
+    if (form.id === 'intermission-form') {
+      draftForm(scope, 'configure-intermission', values => ({ videoPath: values['intermission-video-path'].trim(), loop: values['intermission-loop'], resumeTime: values['intermission-resume-time'] })).then(() => toast('休息時間設定已保存')).catch(() => {}); return;
+    }
     if (form.id === 'plan-form') { if (confirm('按建议书比赛规则设置方案？已有比赛成绩时不能切换方案。')) draftForm(scope, 'set-qualifier-plan', values => ({ plan: values['qualifier-plan'] })).catch(() => {}); return; }
     if (form.id === 'competition-roster-form') { if (confirm('保存完整参赛名单？保留未改名选手的 ID，开赛后不可更改名单。')) draftForm(scope, 'set-competition-roster', values => ({ names: values['competition-roster'].split('\n') })).catch(() => {}); return; }
     if (['readiness-form', 'wait-form', 'dq-form', 'rematch-form'].includes(form.id)) { submitIncident(form, scope).catch(error => toast(error.message, true)); return; }

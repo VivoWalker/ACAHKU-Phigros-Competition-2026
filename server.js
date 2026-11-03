@@ -11,6 +11,7 @@ const { getBranding } = require('./lib/branding');
 const { createDisplayAssetsReader } = require('./lib/display-assets');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
+const { FILE_NAME: INTERMISSION_FILE, createIntermissionMedia } = require('./lib/intermission-media');
 const { context: countdownContext, DURATION: COUNTDOWN_CUE_DURATION } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
@@ -27,6 +28,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   const displayAssets = createDisplayAssetsReader({ publicDir });
   const store = new StateStore(dataDir, { assertWritable: () => dataLock.assertHeld() });
   const { pin, scorekeeperPin, sessionKey } = loadPairingCredentials(dataDir, options);
+  const intermissionMedia = createIntermissionMedia(dataDir, { assertWritable: () => dataLock.assertHeld() });
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
   const validToken = token => {
     if (typeof token !== 'string' || !/^[a-f0-9]{64}\.[a-f0-9]{64}$/.test(token)) return false;
@@ -85,6 +87,22 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     if (validToken(token)) return res.status(403).json({ error: 'Use the scorekeeper pairing code for this panel.', code: 'FORBIDDEN' });
     if (!validScorekeeperToken(token)) return res.status(401).json({ error: 'Scorekeeper pairing required.' }); next();
   }
+  app.post('/api/intermission/video', authenticated, async (req, res) => {
+    try { res.json(await intermissionMedia.upload(req)); }
+    catch (error) {
+      req.resume();
+      if (!res.destroyed) res.status(error.status || 400).json({ error: error.message });
+    }
+  });
+  app.get('/media/intermission/:file', (req, res) => {
+    if (!INTERMISSION_FILE.test(req.params.file)) return res.sendStatus(404);
+    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    res.sendFile(req.params.file, { root: intermissionMedia.directory, dotfiles: 'deny' }, error => {
+      if (!error) return;
+      if (res.headersSent) return res.destroy();
+      res.sendStatus(error.status || 500);
+    });
+  });
   app.get('/api/health', (req, res) => res.json({ ok: true, revision: store.state.revision }));
   app.get('/api/state', (req, res) => res.json(publicState(store.state)));
   app.get('/api/branding', (req, res) => res.json(getBranding()));
@@ -215,7 +233,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   let closing = null;
   function close() {
     if (closing) return closing;
-    attempts.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null;
+    attempts.close(); intermissionMedia.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null;
     closing = new Promise((resolve, reject) => io.close(() => server.close(() => {
       try { dataLock.release(); resolve(); } catch (error) { reject(error); }
     })));

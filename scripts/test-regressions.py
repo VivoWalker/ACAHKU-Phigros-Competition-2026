@@ -27,6 +27,7 @@ SUITES = {
         "challenge-qualifier-browser",
         "control-reconnect-browser",
         "draft-recovery-browser",
+        "intermission-browser",
     ],
 }
 
