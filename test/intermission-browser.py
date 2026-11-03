@@ -72,7 +72,6 @@ def main():
                     report['screenshots'].append(str(path))
 
                 before = state()
-                control.fill('#intermission-resume-time', '15:30'); save()
                 control.locator('[data-intermission-command=start-intermission]').click(); wait_scene('intermission')
                 assert state()['qualifier'] == before['qualifier']
                 assert state()['tournament'] == before['tournament']
@@ -82,18 +81,34 @@ def main():
                 overlay = context.new_page(); overlay.set_viewport_size({'width': 1920, 'height': 1080})
                 overlay.goto(base + '/overlay/live.html')
                 overlay.wait_for_selector('.intermission-copy')
-                assert '15:30' in overlay.locator('.intermission-copy').inner_text()
+                assert overlay.locator('.intermission-copy h1').inner_text() == '休息時間'
+                assert overlay.locator('.intermission-copy p').inner_text() == 'INTERMISSION'
+                overlay.wait_for_function("document.querySelector('.intermission-art img')?.naturalWidth>0")
+                assert overlay.locator('.intermission-art img').evaluate("v=>getComputedStyle(v).objectFit==='contain'")
+                assert 'ARCAEA' not in overlay.locator('#scene').inner_text()
                 assert overlay.locator('video[data-intermission-video]').count() == 0
                 screenshot(overlay, 'obs-intermission-standby')
 
+                fixed_rest = context.new_page(); fixed_rest.set_viewport_size({'width': 1920, 'height': 1080})
+                fixed_rest.goto(base + '/overlay/intermission.html?fixed=1&preview=1')
+                fixed_rest.wait_for_selector('.intermission-art img')
+                trailer_standby = context.new_page(); trailer_standby.set_viewport_size({'width': 1920, 'height': 1080})
+                trailer_standby.goto(base + '/overlay/arcaea-trailer.html?fixed=1&preview=1')
+                trailer_standby.wait_for_selector('.trailer-standby')
+                screenshot(trailer_standby, 'obs-arcaea-standby'); trailer_standby.close()
                 control.locator('#toast.visible').wait_for(state='hidden')
-                for width, height in [(1194, 834), (390, 844)]:
-                    control.set_viewport_size({'width': width, 'height': height})
-                    assert control.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
-                    for selector in ['[data-intermission-command]', '#intermission-form button', '[data-upload-intermission]']:
-                        assert control.locator(selector).evaluate_all('els=>els.every(e=>e.getBoundingClientRect().height>=44)')
-                    screenshot(control, 'control-intermission-' + str(width))
-                report['checks'].append('desktop/mobile controls and an empty intermission preserve the competition and show the resume time')
+                for tab in ['intermission', 'trailer']:
+                    control.locator('.tabs [data-tab=' + tab + ']').click()
+                    for width, height in [(1194, 834), (390, 844)]:
+                        control.set_viewport_size({'width': width, 'height': height})
+                        assert control.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+                        assert control.locator('[data-intermission-command]').evaluate_all('els=>els.every(e=>e.getBoundingClientRect().height>=44)')
+                        if tab == 'intermission':
+                            assert control.locator('#intermission-form').count() == 0
+                        else:
+                            assert control.locator('#intermission-form button').is_visible()
+                        screenshot(control, 'control-' + tab + '-' + str(width))
+                report['checks'].append('rest shows traditional Chinese/English and the supplied poster character; rest and trailer have separate responsive control tabs and OBS pages')
 
                 control.set_viewport_size({'width': 1194, 'height': 834})
                 control.set_input_files('#intermission-upload-file', str(video))
@@ -102,27 +117,41 @@ def main():
                 assert not state()['broadcast']['intermission']['videoPath'], 'An upload must not immediately change the live trailer'
                 save()
                 control.locator('[data-intermission-command=play-intermission-video]').click()
+                wait_scene('arcaea-trailer')
                 overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='playing'")
                 assert overlay.locator('video[data-intermission-video]').evaluate('v=>!v.muted&&v.loop')
+                assert overlay.locator('video[data-intermission-video]').bounding_box() == {'x': 0, 'y': 0, 'width': 1920, 'height': 1080}
+                assert fixed_rest.locator('video[data-intermission-video]').count() == 0
+                assert fixed_rest.locator('.intermission-copy p').inner_text() == 'INTERMISSION'
                 preview = control.frame_locator('#intermission-preview')
                 preview.locator('video[data-intermission-video]').wait_for()
                 assert preview.locator('video[data-intermission-video]').evaluate('v=>v.muted')
                 overlay.wait_for_timeout(2300)
                 assert overlay.locator('video[data-intermission-video]').evaluate('v=>!v.paused&&!v.ended&&v.currentTime<v.duration')
                 identity = overlay.locator('video[data-intermission-video]').evaluate("v=>{v.dataset.fixtureIdentity='stable';return v.dataset.fixtureIdentity}")
-                control.fill('#intermission-resume-time', '15:45'); save()
+                revision = control.evaluate('''async()=>{
+                  const socket=io('/control',{forceNew:true,auth:{token:sessionStorage.getItem('broadcast-token')}});
+                  const state=await new Promise(resolve=>socket.once('state',resolve));
+                  const result=await new Promise(resolve=>socket.emit('command',{expectedRevision:state.revision,action:{type:'set-event',payload:{title:'Arcaea trailer test event'}}},resolve));
+                  socket.disconnect(); if(!result.ok)throw Error(result.error); return result.revision;
+                }''')
+                overlay.wait_for_function('revision=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=revision', arg=revision)
                 assert overlay.locator('video[data-intermission-video]').get_attribute('data-fixture-identity') == identity
                 overlay.reload(); overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='playing'")
                 screenshot(overlay, 'obs-intermission-video-fixture')
                 report['checks'].append('uploaded MP4 loops with sound on OBS, stays muted in the control preview and survives updates/reload')
 
                 control.locator('[data-intermission-command=stop-intermission-video]').click()
+                wait_scene('intermission')
                 overlay.wait_for_function("!document.querySelector('video[data-intermission-video]')")
+                overlay.wait_for_selector('.intermission-art img')
                 control.uncheck('#intermission-loop'); save()
                 control.locator('[data-intermission-command=play-intermission-video]').click()
                 overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='ended'")
-                assert state()['scene'] == 'intermission'
+                assert state()['scene'] == 'arcaea-trailer'
                 assert overlay.locator('video[data-intermission-video]').count() == 0
+                control.locator('[data-intermission-command=stop-intermission-video]').click(); wait_scene('intermission')
+                overlay.wait_for_selector('.intermission-art img')
                 control.locator('[data-intermission-command=end-intermission]').click(); wait_scene('double-elimination-waiting')
                 overlay.wait_for_function("document.querySelector('#canvas').dataset.renderedScene==='double-elimination-waiting'")
                 assert overlay.locator('video[data-intermission-video]').count() == 0

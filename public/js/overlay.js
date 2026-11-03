@@ -125,7 +125,7 @@
     const scene = shownScene(), finale = finalAudioScene(scene);
     const onAir = previewEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected && scene === programScene();
     audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement' && !finale
-      || selectionStatus === 'blocked' && (scene === 'song-selection' || finale) || videoStatus === 'blocked' && scene === 'grand-final-video' || intermissionVideoStatus === 'blocked' && scene === 'intermission');
+      || selectionStatus === 'blocked' && (scene === 'song-selection' || finale) || videoStatus === 'blocked' && scene === 'grand-final-video' || intermissionVideoStatus === 'blocked' && scene === 'arcaea-trailer');
   }
   function syncBgm() {
     if (pageDisposed) return;
@@ -376,10 +376,12 @@
     return heading + `<article data-motion-key='final-song-${e(song.id)}' data-final-song='${e(song.id)}' data-final-index='${index}' class='final-song-card final-announcement-hero'><div data-motion-key='final-cover-${e(song.id)}' class='final-song-art'><img src='${e(art(song))}' alt='${e(song.title)}'></div><section class='final-song-info'><div class='final-song-top'><span>SONG ${String(index + 1).padStart(2, '0')} / 02</span></div><strong class='final-song-difficulty'>${e(song.difficulty)} <b>${e(Math.trunc(song.level))}</b></strong><div class='final-song-copy'><h2>${e(song.title)}</h2><p>${e(song.artist)}</p></div></section></article>`;
   }
   function intermission(s) {
-    const config = s.broadcast?.intermission || BroadcastIntermission.defaults();
-    return backdrop() + header(s) + `<div class="intermission-layout"><section data-motion-block class="intermission-copy"><h1>休息時間</h1><div class="intermission-next"><p>雙淘汰賽</p>${config.resumeTime ? `<strong>${e(config.resumeTime)}</strong>` : ''}</div></section><section data-motion-block class="intermission-screen"><div class="intermission-placeholder"><span>ARCAEA</span><h2>比賽預告</h2></div></section></div>`;
+    return backdrop() + header(s) + `<div class="intermission-layout ${branding.visual ? 'with-art' : 'without-art'}"><section data-motion-block class="intermission-copy"><h1>休息時間</h1><p>INTERMISSION</p></section>${visual('intermission-art')}</div>`;
   }
-  const renderers = { start, intermission, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
+  function arcaeaTrailer(s) {
+    return backdrop() + header(s, 'Arcaea 比賽預告') + `<section data-motion-block class="trailer-standby"><h1>ARCAEA</h1><p>比賽預告</p></section>`;
+  }
+  const renderers = { start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = shownScene();
@@ -389,7 +391,7 @@
     finaleVideo.update({ match: current, active: obsActive && obsVisible && !document.hidden && countdownClient?.connected === true
       && state.stage === 'double-elimination' && state.scene === 'grand-final-video' && rawScene() === state.scene });
     intermissionVideo.update({ config: state.broadcast?.intermission, active: obsActive && obsVisible && !document.hidden
-      && countdownClient?.connected === true && previewNow() > 0 && state.scene === 'intermission' && rawScene() === 'intermission' });
+      && countdownClient?.connected === true && previewNow() > 0 && state.scene === 'arcaea-trailer' && rawScene() === 'arcaea-trailer' });
     const finaleAudio = finalAudioScene(scene, current);
     const selectionScene = scene === 'song-selection' && current?.id !== 'GF';
     selectionAudio.update({ cue: finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue, songs: previewSongs(current),

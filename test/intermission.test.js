@@ -26,8 +26,11 @@ test('intermission preserves competition results, exposes the trailer, and retur
   assert.equal(state.scene, 'intermission'); assert.equal(state.stage, before.stage);
   assert.deepEqual(state.qualifier, before.qualifier); assert.deepEqual(state.tournament, before.tournament);
   const config = state.broadcast.intermission;
-  assert.equal(typeof config.cue.startedAt, 'number');
-  assert.deepEqual(publicState(state).broadcast.intermission, config);
+  assert.equal(config.cue, null, 'Entering the illustrated rest page must never auto-play a configured trailer.');
+  act(state, 'play-intermission-video');
+  assert.equal(state.scene, 'arcaea-trailer');
+  assert.equal(typeof state.broadcast.intermission.cue.startedAt, 'number');
+  assert.deepEqual(publicState(state).broadcast.intermission, state.broadcast.intermission);
   validateState(state);
   act(state, 'end-intermission');
   assert.equal(state.stage, 'double-elimination'); assert.equal(state.scene, 'double-elimination-waiting');
@@ -39,7 +42,7 @@ test('empty intermissions work before video delivery; restart, replay, stop and 
   const store = new StateStore(directory(t));
   const commit = (type, payload) => store.commit({ type, payload }, store.state.revision);
   commit('start-intermission'); assert.equal(store.state.broadcast.intermission.cue, null);
-  assert.throws(() => commit('play-intermission-video'), /configure a video/);
+  assert.throws(() => commit('play-intermission-video'), /[Cc]onfigure a video/);
   commit('configure-intermission', options); commit('play-intermission-video');
   const first = store.state.broadcast.intermission.cue;
   assert.deepEqual(new StateStore(path.dirname(store.file)).state.broadcast.intermission.cue, first);
@@ -49,13 +52,16 @@ test('empty intermissions work before video delivery; restart, replay, stop and 
   assert.ok(store.state.broadcast.intermission.cue, 'A stale stop cannot cancel a newer trailer.');
   const current = store.state.broadcast.intermission.cue;
   commit('configure-intermission', { ...options, resumeTime: '16:00' });
-  assert.deepEqual(store.state.broadcast.intermission.cue, current, 'Changing the displayed time does not restart playback.');
+  assert.deepEqual(store.state.broadcast.intermission.cue, current, 'Changing legacy timing metadata does not restart playback.');
   commit('stop-intermission-video'); assert.equal(store.state.broadcast.intermission.cue, null);
+  assert.equal(store.state.scene, 'intermission', 'Stopping the separate trailer returns to the illustrated rest page.');
   commit('play-intermission-video'); commit('set-scene', { scene: 'start' });
   assert.equal(store.state.broadcast.intermission.cue, null);
   assert.throws(() => commit('end-intermission'), /no longer on air/);
-  commit('set-scene', { scene: 'intermission' }); assert.ok(store.state.broadcast.intermission.cue);
+  commit('set-scene', { scene: 'intermission' }); assert.equal(store.state.broadcast.intermission.cue, null);
+  commit('set-scene', { scene: 'arcaea-trailer' }); assert.ok(store.state.broadcast.intermission.cue);
   commit('configure-intermission', { ...options, loop: false }); assert.equal(store.state.broadcast.intermission.cue, null);
+  assert.equal(store.state.scene, 'intermission');
 });
 
 test('seeded DE resumes on the bracket while older events remain valid without intermission settings', () => {

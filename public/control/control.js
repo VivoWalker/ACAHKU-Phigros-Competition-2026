@@ -158,6 +158,7 @@
     if (['wait-form', 'dq-form', 'rematch-form'].includes(kind)) return incidentDefaults(kind, s);
     const m = s.tournament.matches.find(match => match.id === entity);
     if (kind === 'intermission') {
+      // Preserve timing metadata from older events without showing it on the rest page.
       const value = s.broadcast?.intermission || BroadcastIntermission.defaults();
       return { 'intermission-video-path': value.videoPath, 'intermission-loop': value.loop, 'intermission-resume-time': value.resumeTime };
     }
@@ -781,7 +782,7 @@
     return { label: `${m.id} · 等待選手準備`, cue: productionCue('double-elimination-waiting', 0) };
   }
   function productionToolbar() {
-    if (state.scene === 'intermission') return `<section class="production-workflow" data-phase="intermission"><div class="production-next-row"><h2>休息時間</h2>${button('繼續雙淘汰賽 →', 'data-intermission-command="end-intermission"', true)}</div></section>`;
+    if (['intermission', 'arcaea-trailer'].includes(state.scene)) return `<section class="production-workflow" data-phase="intermission"><div class="production-next-row"><h2>${state.scene === 'arcaea-trailer' ? 'Arcaea 預告' : '休息時間'}</h2>${button('繼續雙淘汰賽 →', 'data-intermission-command="end-intermission"', true)}</div></section>`;
     const i = productionInfo(), next = nextProductionAction(), phases = { standby: '尚未開始', waiting: '等待準備', selection: '抽選 / BAN 曲', match: '比賽中', 'song-result': '本曲統計', processing: '結果正在統計中', 'set-result': '三首總成績', ranking: '晉級排名', 'round-result': '整輪賽果', bracket: 'Bracket 現況', 'final-totals': '前兩首總成績', 'final-video': '最後一首公布視頻' };
     const announcement = !i.qualifier && fixedFinal(i.match) && i.phase === 'selection' ? finalAnnouncementPhase(i.match) : null;
     if (announcement) phases.selection = '決賽曲目逐首公布';
@@ -840,14 +841,14 @@
     return `<section class="final-sequence-panel" data-final-sequence-panel data-finale-stage="${e(phase.stage)}"><div class="final-sequence-heading"><div><h2>決賽終章控制</h2></div><strong class="final-sequence-stage" data-finale-status>${e(stageLabels[phase.stage] || '決賽準備')}</strong></div><div class="final-sequence-actions" role="group" aria-label="決賽終章播出步驟">${commandButton('前兩首總成績', 'show-final-two-totals', !canContinue || ['video', 'revealed'].includes(phase.stage))}${commandButton('亂碼等待 · 錯誤侵入', 'start-final-finale', !canContinue || !['summary', 'sealed'].includes(phase.stage))}${commandButton('播放公布視頻', 'play-final-finale-video', locked || !song || !videoReady || !['sealed', 'video'].includes(phase.stage))}${commandButton('結束視頻並返回', 'finish-final-finale-video', locked || !song || match.finale?.stage !== 'video')}${commandButton('跳過視頻 · 公布最後一首', 'reveal-final-finale', !canContinue || !song || phase.stage !== 'sealed')}${phase.stage === 'revealed' ? productionCueButton('最後一首準備', 'double-elimination-waiting', 2, locked || !song) : ''}</div>${!song ? '<p class="notice warning" data-finale-missing-song>最後一首尚未設定。</p>' : `<p class="final-sequence-song" data-finale-song>最後一首：<strong>${e(song.title)}</strong> · ${e(song.difficulty)} ${e(Math.trunc(song.level))}${phase.stage !== 'revealed' ? ' · 尚未向觀眾公布' : ''}</p>`}${!videoReady ? '<p class="secondary" data-finale-missing-video>公布視頻未設定路徑或時長。</p>' : ''}<section class="final-sequence-effects"><h3>最後一首特效</h3><div class="final-effect-buttons" role="group" aria-label="決賽最後一首特效控制">${effectLabels.map((label, level) => button(label, `data-final-effect="${level}" aria-pressed="${!!match.finale && match.finale.effectLevel === level}" ${locked || phase.stage !== 'revealed' ? 'disabled' : ''}`)).join('')}</div></section><details id="final-finale-settings" ${!videoReady && !configLocked ? 'open' : ''}><summary>最後一首與公布視頻設定</summary><form id="final-finale-form"><label for="finale-song-id">從現有曲庫選擇（留空時使用下方手動資料）<select id="finale-song-id" ${configLocked ? 'disabled' : ''}>${songOptions(song?.id !== 'gf-finale' && state.library.some(item => item.id === song?.id) ? song.id : '', state.library)}</select></label><div class="field-grid finale-config-fields"><label for="finale-title">最後一首曲名<input id="finale-title" value="${e(song?.title || '')}" maxlength="100" ${configLocked ? 'disabled' : ''}></label><label for="finale-artist">作者<input id="finale-artist" value="${e(song?.artist || '')}" maxlength="100" ${configLocked ? 'disabled' : ''}></label><label for="finale-difficulty">譜面難度<select id="finale-difficulty" ${configLocked ? 'disabled' : ''}>${options(['EZ', 'HD', 'IN', 'AT'].map(value => [value, value]), song?.difficulty || 'IN', false)}</select></label><label for="finale-level">等級<input id="finale-level" value="${e(song?.level ?? '')}" type="number" min="1" max="20" step="1" ${configLocked ? 'disabled' : ''}></label><label class="wide" for="finale-art">曲繪本地路徑<input id="finale-art" value="${e(song?.art || '')}" maxlength="180" placeholder="assets/song/your-cover.webp" ${configLocked ? 'disabled' : ''}></label><label class="wide" for="finale-video-path">公布視頻本地路徑<input id="finale-video-path" value="${e(match.finale?.videoPath || '')}" maxlength="180" placeholder="assets/finale/announcement.mp4" ${configLocked ? 'disabled' : ''}></label><label for="finale-video-duration">視頻時長（秒）<input id="finale-video-duration" value="${e(match.finale?.videoDuration || '')}" type="number" min="0" max="3600" step="any" ${configLocked ? 'disabled' : ''}></label></div><div class="form-actions">${button('保存最後一首與視頻設定', `type="submit" ${configLocked ? 'disabled' : ''}`, true)}</div></form></details></section>`;
   }
   function productionContext() {
-    if (state.scene === 'intermission') return productionContextBody();
+    if (['intermission', 'arcaea-trailer'].includes(state.scene)) return productionContextBody();
     const match = B.currentMatch(state);
     return (state.stage === 'double-elimination' && fixedFinal(match) && productionInfo().phase !== 'selection' ? finalSequencePanel(match) : '') + productionContextBody();
   }
   function productionContextBody() {
-    if (state.scene === 'intermission') {
-      const config = state.broadcast?.intermission;
-      return `<div class="production-context-head"><h2>Arcaea 比賽預告</h2>${config?.resumeTime ? `<p>雙淘汰賽 · ${e(config.resumeTime)}</p>` : ''}</div>${button('休息時間設定', 'data-tab="intermission"')}`;
+    if (['intermission', 'arcaea-trailer'].includes(state.scene)) {
+      const trailer = state.scene === 'arcaea-trailer';
+      return `<div class="production-context-head"><h2>${trailer ? 'Arcaea 比賽預告' : '休息時間'}</h2></div>${button(trailer ? '預告影片控制' : '休息畫面控制', `data-tab="${trailer ? 'trailer' : 'intermission'}"`)}`;
     }
     const info = productionInfo(), q = state.qualifier, m = info.match;
     if (info.qualifier) {
@@ -882,7 +883,7 @@
   function broadcast() {
     const legacy = document.createElement('template'); legacy.innerHTML = legacyBroadcast();
     const take = selector => legacy.content.querySelector(selector)?.outerHTML || '';
-    return heading('賽事操作台') + productionToolbar() + `<div class="production-grid"><section class="production-program">${take('.preview-panel')}<div class="production-countdown" ${state.scene === 'intermission' ? 'hidden' : ''}>${countdownPanel()}</div></section><section id="production-context" class="panel production-context">${productionContext()}</section></div><details id="production-advanced" class="production-advanced"><summary>其他播出設定</summary>${take('.broadcast-display-panel')}${take('.broadcast-sources-panel')}<section class="panel"><h2>手動畫面切換</h2>${take('.scene-list')}${take('.scene-section-note')}</section>${refereePanel()}</details>`;
+    return heading('賽事操作台') + productionToolbar() + `<div class="production-grid"><section class="production-program">${take('.preview-panel')}<div class="production-countdown" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? 'hidden' : ''}>${countdownPanel()}</div></section><section id="production-context" class="panel production-context">${productionContext()}</section></div><details id="production-advanced" class="production-advanced"><summary>其他播出設定</summary>${take('.broadcast-display-panel')}${take('.broadcast-sources-panel')}<section class="panel"><h2>手動畫面切換</h2>${take('.scene-list')}${take('.scene-section-note')}</section>${refereePanel()}</details>`;
   }
   async function takeProductionCue(cue) {
     const signature = JSON.stringify([state.stage, state.scene, state.qualifier.activeGroup, state.qualifier.activePlayers, state.qualifier.currentSong, state.tournament.currentMatchId, matchContext(state, state.tournament.currentMatchId)]);
@@ -1034,10 +1035,14 @@
       `<div class="section-grid"><section class="panel"><div class="section-heading"><div><h2>Event information</h2></div></div><form id="event-form"><div class="field-grid"><label class="wide" for="event-title">Event name<input id="event-title" name="title" value="${e(state.event.title)}" maxlength="120" required></label><label class="wide" for="event-organiser">Organiser<input id="event-organiser" name="organiser" value="${e(state.event.organiser)}" maxlength="180"></label><label class="wide" for="event-organiser-zh">Organiser / 繁體中文<input id="event-organiser-zh" name="organiserZH" value="${e(state.event.organiserZH)}"></label><label for="event-date">Date<input id="event-date" name="date" type="date" value="${e(state.event.date)}" required></label><label for="event-time">Time<input id="event-time" name="time" value="${e(state.event.time)}"></label><label for="event-venue">Venue<input id="event-venue" name="venue" value="${e(state.event.venue)}" required></label><label for="event-message">Broadcast tagline<input id="event-message" name="message" value="${e(state.event.message)}"></label></div><div class="form-actions">${button('Save event information', 'type="submit"', true)}</div></form><label for="event-stage" style="margin-top:26px">Current stage<select id="event-stage" data-stage><option value="qualifier" ${state.stage === 'qualifier' ? 'selected' : ''}>Qualifiers</option><option value="double-elimination" ${state.stage === 'double-elimination' ? 'selected' : ''}>Double elimination</option></select></label></section><section class="panel"><div class="section-heading"><div><h2>Song library · ${state.library.length}</h2></div>${button('New song +', 'data-new-song')}</div><form id="song-form" style="margin-top:22px"><div class="field-grid"><label class="wide" for="song-title">Title<input id="song-title" value="${e(song?.title || '')}" required maxlength="100" ${chartLocked}></label><label class="wide" for="song-artist">Artist<input id="song-artist" value="${e(song?.artist || '')}" maxlength="100" ${chartLocked}></label><label for="song-difficulty">Difficulty<select id="song-difficulty" ${chartLocked}>${options(['EZ', 'HD', 'IN', 'AT'].map(x => [x, x]), song?.difficulty || 'IN', false)}</select></label><label for="song-level">Level<input id="song-level" type="number" min="1" max="20" step="1" value="${Math.trunc(song?.level ?? 15)}" required ${chartLocked}></label><label class="wide" for="song-constant">Chart constant · 原始定數（可選）<input id="song-constant" type="number" min="1" max="20" step="0.1" value="${e(songConstant(song) ?? '')}" placeholder="16.1" ${chartLocked}></label><label class="wide" for="song-art">Local artwork path <span>public/assets/song/</span><input id="song-art" value="${e(song?.art || 'assets/song/cover-1.svg')}" maxlength="180" required></label><label class="wide" for="song-preview-audio">Music preview path · optional <input id="song-preview-audio" value="${e(songPreviewPath(song))}" maxlength="180" placeholder="assets/song-preview/song-01.mp3"></label><label class="checkbox-label wide"><input id="song-eligible" type="checkbox" ${song?.eligible !== false ? 'checked' : ''}> Include in regular 6-song draws</label></div><div class="form-actions">${button(song ? 'Save song' : 'Add song', 'type="submit"', true)}${chartLocked ? '<span class="secondary">已用于预选赛，仅可更新曲绘与预览。</span>' : ''}</div></form><div class="library-list">${state.library.map(s => `<div class="library-row"><img class="library-art" src="../${e(displayArt(s.art))}" alt="" loading="lazy"><div>${e(s.title)}<div class="secondary">${e(s.difficulty)} ${e(Math.trunc(s.level))} · ${e(songCategory(s))}${songConstant(s) !== null ? ` · 定數 ${e(songConstant(s).toFixed(1))}` : ''}</div></div><button data-edit-song="${e(s.id)}" aria-label="Edit ${e(s.title)}">Edit ↗</button></div>`).join('')}</div></section></div>` + operationsPanel();
   }
   function intermissionPage() {
-    const config = state.broadcast?.intermission || BroadcastIntermission.defaults(), onAir = state.scene === 'intermission';
+    const onAir = state.scene === 'intermission', activeBreak = ['intermission', 'arcaea-trailer'].includes(state.scene);
+    return heading('休息時間') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button('顯示休息畫面', `data-intermission-command="start-intermission" ${onAir ? 'disabled' : ''}`, true)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${activeBreak ? '' : 'disabled'}`)}${button('Arcaea 預告 →', 'data-tab="trailer"')}</div></section></div>`;
+  }
+  function arcaeaPage() {
+    const config = state.broadcast?.intermission || BroadcastIntermission.defaults(), onAir = state.scene === 'arcaea-trailer';
     const selectedPath = drafts.get('intermission|intermission-video-path')?.value ?? config.videoPath;
     const uploaded = intermissionUploadEvent === state.eventId && intermissionUploadedPath && intermissionUploadedPath !== selectedPath;
-    return heading('休息時間') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir ? '重新開始休息' : '開始休息', 'data-intermission-command="start-intermission"', true)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${onAir ? '' : 'disabled'}`)}${button(config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${onAir && config.videoPath ? '' : 'disabled'}`)}${button('停止預告', `data-intermission-command="stop-intermission-video" ${onAir && config.cue ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>Arcaea 比賽預告</h2><form id="intermission-form"><div class="field-grid"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><label for="intermission-resume-time">預計繼續時間<input id="intermission-resume-time" type="time" value="${e(config.resumeTime)}"></label></div><label class="checkbox-label"><input id="intermission-loop" type="checkbox" ${config.loop ? 'checked' : ''}>循環播放</label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
+    return heading('Arcaea 預告') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir && config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${config.videoPath ? '' : 'disabled'}`, true)}${button('返回休息畫面', `data-intermission-command="stop-intermission-video" ${onAir ? '' : 'disabled'}`)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>影片設定</h2><form id="intermission-form"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><label class="checkbox-label"><input id="intermission-loop" type="checkbox" ${config.loop ? 'checked' : ''}>循環播放</label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
   }
   function useIntermissionUpload() {
     const input = $('intermission-video-path');
@@ -1055,12 +1060,12 @@
       const result = await requestJSON('/api/intermission/video', { method: 'POST', headers: { 'Content-Type': type }, body: file });
       if (pageDisposed || state.eventId !== eventId) return;
       intermissionUploadedPath = result.videoPath; intermissionUploadEvent = eventId; intermissionFile = null;
-      if (activeTab === 'intermission' && $('intermission-video-path')?.value === previousPath) useIntermissionUpload();
+      if (activeTab === 'trailer' && $('intermission-video-path')?.value === previousPath) useIntermissionUpload();
       toast('影片已上傳，保存設定後即可播出。');
     } catch (error) { toast(error.message, true); }
     finally { intermissionUploading = false; render(); }
   }
-  const pages = { broadcast, qualifiers, intermission: intermissionPage, bracket, songs: songSelection, event: eventSettings };
+  const pages = { broadcast, qualifiers, intermission: intermissionPage, trailer: arcaeaPage, bracket, songs: songSelection, event: eventSettings };
   displayMedia.ready.then(() => render());
   mediaWarmup.prepareFonts();
   function disposePage(event) {
@@ -1100,9 +1105,11 @@
       for (const selector of ['.page-heading', '.production-workflow', '#production-context', '.production-countdown', '#production-advanced', '.status-strip', '.current-bar']) {
         $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
       }
-    } else if (activeTab === 'intermission' && $('intermission-preview')) {
-      for (const selector of ['.page-heading', '.intermission-preview .panel-header', '.intermission-controls', '.intermission-settings'])
-        $('content').querySelector(selector).replaceWith(template.content.querySelector(selector));
+    } else if (['intermission', 'trailer'].includes(activeTab) && lastRenderedTab === activeTab && $('intermission-preview')) {
+      for (const selector of ['.page-heading', '.intermission-preview .panel-header', '.intermission-controls', '.intermission-settings']) {
+        const previous = $('content').querySelector(selector), next = template.content.querySelector(selector);
+        if (previous && next) previous.replaceWith(next);
+      }
     } else {
       $('content').replaceChildren(...template.content.childNodes);
       if ($('preview-container')) {
@@ -1112,7 +1119,7 @@
     }
     if ($('intermission-preview-container') && !$('intermission-preview')) {
       const iframe = document.createElement('iframe'); iframe.id = 'intermission-preview'; iframe.title = '休息時間預覽';
-      iframe.src = '../overlay/intermission.html?fixed=1&preview=1'; $('intermission-preview-container').append(iframe);
+      iframe.src = `../overlay/${activeTab === 'trailer' ? 'arcaea-trailer' : 'intermission'}.html?fixed=1&preview=1`; $('intermission-preview-container').append(iframe);
     }
     if (intermissionFile && $('intermission-upload-file')) {
       try { const selection = new DataTransfer(); selection.items.add(intermissionFile); $('intermission-upload-file').files = selection.files; } catch (_) { /* Retain the selected File in memory on older browsers. */ }
@@ -1148,8 +1155,8 @@
     if (target.dataset.intermissionCommand) {
       const type = target.dataset.intermissionCommand;
       send(type, {}, { expectedRevision: state.revision, guard() {
-        if (['start-intermission', 'play-intermission-video'].includes(type) && [...drafts.values()].some(record => record.scope === 'intermission'))
-          throw new Error('請先保存或放棄休息時間設定草稿。');
+        if (type === 'play-intermission-video' && [...drafts.values()].some(record => record.scope === 'intermission'))
+          throw new Error('請先保存或放棄預告影片設定草稿。');
       } }).catch(() => {}); return;
     }
     if (target.hasAttribute('data-discard-drafts')) {
@@ -1262,7 +1269,7 @@
     if (form.dataset.scoreEditor) { submitScore(form, scope).then(result => { if (result) toast(form.dataset.scoreEditor === 'qd' ? '本曲統計已保存' : form.dataset.scoreEditor === 'qc' ? 'Challenge 总分已保存' : form.dataset.scoreEditor === 'qt' && challenge() ? '加赛分数已保存' : '分数与 ACC 已保存'); }).catch(error => toast(error.message, true)); return; }
     if (form.dataset.numberPlayer) { draftForm(scope, 'set-player-number', values => ({ playerId: form.dataset.numberPlayer, number: Number(values[`number-${form.dataset.numberPlayer}`]) })).catch(() => {}); return; }
     if (form.id === 'intermission-form') {
-      draftForm(scope, 'configure-intermission', values => ({ videoPath: values['intermission-video-path'].trim(), loop: values['intermission-loop'], resumeTime: values['intermission-resume-time'] })).then(() => toast('休息時間設定已保存')).catch(() => {}); return;
+      draftForm(scope, 'configure-intermission', values => ({ videoPath: values['intermission-video-path'].trim(), loop: values['intermission-loop'], resumeTime: values['intermission-resume-time'] })).then(() => toast('預告影片設定已保存')).catch(() => {}); return;
     }
     if (form.id === 'plan-form') { if (confirm('按建议书比赛规则设置方案？已有比赛成绩时不能切换方案。')) draftForm(scope, 'set-qualifier-plan', values => ({ plan: values['qualifier-plan'] })).catch(() => {}); return; }
     if (form.id === 'competition-roster-form') { if (confirm('保存完整参赛名单？保留未改名选手的 ID，开赛后不可更改名单。')) draftForm(scope, 'set-competition-roster', values => ({ names: values['competition-roster'].split('\n') })).catch(() => {}); return; }

@@ -279,15 +279,17 @@ For a lost score screen, inspect the livestream recording first. A rematch requi
 
 ## Intermission and Arcaea trailer
 
-Open **休息時間**, between **Qualifiers** and **Bracket** in main control. Set an optional **預計繼續時間**, save, then select **開始休息**. The existing live OBS Browser Source follows the intermission automatically. `overlay/intermission.html?fixed=1` is also available as a dedicated source.
+Main control has two separate tabs: **休息時間** for the illustrated rest page and **Arcaea 預告** for video configuration and playback. **顯示休息畫面** puts **休息時間 / INTERMISSION** on the left and the supplied poster character on the right. A saved trailer never starts automatically when entering this page.
 
-Until a video is supplied, the broadcast shows **休息時間** and an **Arcaea 比賽預告** placeholder. Upload a local **MP4 or WebM, up to 250 MiB**, through this tab, then **保存設定**. Alternatively, put the file in `public/assets/intermission/` and save `assets/intermission/arcaea-trailer.mp4` as its path. Only local paths are accepted. **播放預告** starts or restarts the clip; **停止預告** returns to the standby screen. Looping is enabled by default. With looping disabled, the end of the clip returns to standby and keeps the intermission on air.
+The live OBS Browser Source follows both scenes. Dedicated sources are available at `overlay/intermission.html?fixed=1` and `overlay/arcaea-trailer.html?fixed=1`. The illustrated rest page stays free of video, including when the trailer is playing on the separate scene.
 
-**繼續雙淘汰賽** ends the break and shows the bracket when seeds exist, or the waiting screen while staff prepare the bracket. The displayed resume time does not trigger an automatic switch. Scores, qualifier results and seeding are retained. Refreshes and reconnects join the current playback clock; the staff preview is silent. For OBS audio, use the existing live source and **Control audio via OBS**. If a browser blocks autoplay, use its **Enable broadcast audio** button.
+In **Arcaea 預告**, upload a local **MP4 or WebM, up to 250 MiB**, then **保存設定**. Alternatively, put the file in `public/assets/intermission/` and save `assets/intermission/arcaea-trailer.mp4` as its path. Only local paths are accepted. **播放預告** switches to the separate full-screen trailer scene; **返回休息畫面** stops the video and returns to the character layout. Looping is enabled by default. With looping disabled, the clip ends on the trailer page's standby view until staff select another scene.
 
-The main-control upload endpoint is `POST /api/intermission/video`, with `Authorization: Bearer <control token>` and a raw `video/mp4` or `video/webm` body. It returns `{ videoPath, bytes }` without changing the on-air settings. Save the returned path using `configure-intermission` before issuing `start-intermission` or `play-intermission-video`. Uploaded files are streamed to `data/media/intermission/` and are excluded from Git; preserve this directory along with event data when moving the installation. JSON event exports contain paths, not video bytes.
+**繼續雙淘汰賽** ends the break and shows the bracket when seeds exist, or the waiting screen while staff prepare the bracket. Scores, qualifier results and seeding are retained. Refreshes and reconnects join the current playback clock; the staff preview is silent. For OBS audio, use the existing live source and **Control audio via OBS**. If a browser blocks autoplay, use its **Enable broadcast audio** button.
 
-The intermission browser regression generates a temporary clip and checks upload, silent previews, loop/single playback, live updates, source reloads, mobile controls and return to DE:
+The main-control upload endpoint is `POST /api/intermission/video`, with `Authorization: Bearer <control token>` and a raw `video/mp4` or `video/webm` body. It returns `{ videoPath, bytes }` without changing the on-air settings. Save the returned path using `configure-intermission` before issuing `play-intermission-video`. Uploaded files are streamed to `data/media/intermission/` and are excluded from Git; preserve this directory along with event data when moving the installation. JSON event exports contain paths, not video bytes.
+
+The intermission browser regression generates a temporary clip and checks the separate rest/trailer pages, upload, silent previews, loop/single playback, live updates, source reloads, mobile controls and return to DE:
 
 ```sh
 python3 test/intermission-browser.py

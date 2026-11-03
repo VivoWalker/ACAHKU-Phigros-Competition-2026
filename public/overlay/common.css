@@ -216,19 +216,18 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .finale-video-layer[hidden]{display:none}.finale-video-layer video{display:block;width:100%;height:100%;object-fit:contain;background:#03030a}
 .finale-video-message{position:absolute;left:160px;right:160px;top:480px;margin:0;font-size:44px;font-weight:700;text-align:center;line-height:1.5;color:#f2d9e4}
 
-/* The intermission trailer keeps its aspect ratio within the broadcast safe area. */
-.intermission-layout{position:absolute;left:96px;right:96px;top:228px;bottom:120px;display:grid;grid-template-columns:380px minmax(0,1fr);gap:64px;align-items:center}
-.intermission-copy{min-width:0;border-left:4px solid #c4dbe4;padding-left:36px}
-.intermission-copy h1{max-width:260px;font-size:116px;font-weight:500;line-height:1.16;letter-spacing:.04em}
-.intermission-next{margin-top:52px;color:#cfdae4}
-.intermission-next p{font-size:30px;line-height:1.5}
-.intermission-next strong{font-size:60px;line-height:1.2;display:block;margin-top:12px;font-weight:500}
-.intermission-screen{aspect-ratio:16/9;background:linear-gradient(130deg,#19232e,#0c111b);border-top:2px solid #8397ac;position:relative;overflow:hidden}
-.intermission-screen::before{content:'';position:absolute;inset:-80px 12%;transform:skewX(-15deg);background:linear-gradient(90deg,#a9c5d809,transparent);border-left:1px solid #b0cce218;border-right:1px solid #b0cce218}
-.intermission-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px}
-.intermission-placeholder span{font-size:92px;font-weight:400;letter-spacing:.12em}
-.intermission-placeholder h2{font-size:32px;font-weight:400;color:#b9cadb}
-.intermission-media-layer{position:absolute;left:540px;right:96px;top:232.875px;aspect-ratio:16/9;z-index:2;background:#080d14;overflow:hidden;pointer-events:none}
+/* Rest and the Arcaea trailer have separate broadcast compositions. */
+.intermission-layout{position:absolute;left:128px;right:96px;top:192px;bottom:72px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:64px;align-items:center}
+.intermission-copy{min-width:0;border-left:4px solid #c4dbe4;padding:18px 0 18px 40px}
+.intermission-copy h1{font-size:120px;font-weight:500;line-height:1.4;letter-spacing:.03em;white-space:nowrap}
+.intermission-copy p{font-size:46px;font-weight:400;line-height:1.6;letter-spacing:.12em;color:#d0dce8;margin-top:22px}
+.intermission-art{height:780px;width:100%;min-width:0}
+.intermission-layout.without-art{grid-template-columns:minmax(0,1fr)}
+.intermission-layout.without-art .intermission-copy{justify-self:center}
+.trailer-standby{position:absolute;inset:220px 96px 96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px}
+.trailer-standby h1{font-size:116px;letter-spacing:.14em;font-weight:400;line-height:1.4}
+.trailer-standby p{font-size:36px;color:#c7d7e7;line-height:1.6}
+.intermission-media-layer{position:absolute;inset:0;width:1920px;height:1080px;z-index:1100;background:#050910;overflow:hidden;pointer-events:none}
 .intermission-media-layer[hidden]{display:none}.intermission-media-layer video{width:100%;height:100%;display:block;object-fit:contain}
 .intermission-video-message{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:#101721;font-size:34px;color:#d4dde6}
 .intermission-video-message[hidden]{display:none}
