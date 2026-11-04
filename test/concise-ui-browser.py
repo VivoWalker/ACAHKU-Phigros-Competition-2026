@@ -202,7 +202,7 @@ def overlay_checks(context, base):
         name = f'overlay-{fixture}-{scene}'
         geometry(page, name)
         text = page.locator('#scene').inner_text()
-        for removed in ['RESULTS PROCESSING', 'CHALLENGE RESULTS', 'FIRST TWO SONGS · CUMULATIVE SCORES', 'OFFICIAL CHALLENGE TOTAL']:
+        for removed in ['CHALLENGE RESULTS', 'FIRST TWO SONGS · CUMULATIVE SCORES', 'OFFICIAL CHALLENGE TOTAL']:
             assert removed not in text, (name, 'duplicate subtitle', removed)
         image = Image.open(io.BytesIO(screenshot(page, name))).convert('RGBA')
         for box in page.locator('[data-capture]').all():

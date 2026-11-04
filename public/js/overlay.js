@@ -231,7 +231,7 @@
     return waiting(s, B.challengeQualifier(s) ? '課題模式' : '預選賽', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
   }
   function qualifierProcessing(s) {
-    return backdrop() + header(s, B.qualifierLabel(s)) + `<section data-motion-block class='qualifier-processing-panel'><h1>結果正在統計中</h1></section>`;
+    return backdrop() + header(s, B.qualifierLabel(s)) + `<div class="intermission-layout qualifier-processing-layout ${branding.visual ? 'with-art' : 'without-art'}"><section data-motion-block class="qualifier-processing-panel"><h1>統計中</h1><p>RESULTS PROCESSING</p></section>${visual('intermission-art qualifier-processing-art')}</div>`;
   }
   function doubleWaiting(s) {
     const m = B.currentMatch(s);
