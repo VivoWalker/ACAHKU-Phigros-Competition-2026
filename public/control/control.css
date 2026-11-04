@@ -34,6 +34,8 @@ details{margin-top:22px;border-top:1px solid #2d3b49;padding-top:18px}summary{cu
 .tabs.phi-tabs>.phi-surface{font-weight:700}.scene-button .scene-name{font-size:18px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
 
 .score-table th{font-size:12px;font-weight:600}.score-table .player-name{font-size:17px;font-weight:700}.song-caption{font-weight:400}
+.production-summary tbody tr.is-qualifying,.score-table tbody tr.is-qualifying{background:linear-gradient(100deg,#9fe8cf30,#9fe8cf12)}
+.production-summary tr.is-qualifying td:first-child,.score-table tr.is-qualifying td:first-child{color:#d3ffec;box-shadow:inset 3px 0 #a9e7cc}
 .score-table .rank{font-size:26px;font-weight:700}.score-table .total{font-size:24px;font-weight:700}.score-table input{font-size:17px;font-weight:600}
 summary{font-size:18px;font-weight:700;flex-wrap:wrap}.secondary,summary .secondary{font-weight:400}
 .match-row .match-id{font-size:26px;font-weight:700}.match-row h3{font-size:20px;font-weight:700;line-height:1.25}.match-row .versus-text{font-size:16px;font-weight:600}

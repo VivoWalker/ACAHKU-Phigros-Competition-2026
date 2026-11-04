@@ -86,6 +86,12 @@ def ranking(page, ranges, labels=None):
         assert section.locator('h2').inner_text().startswith(label)
         assert section.locator('.rank-range').inner_text() == visible_range
         assert section.locator('tbody tr').count() <= 8
+        for row in section.locator('tbody tr').all():
+            rank = row.locator('td').first.inner_text().split()[0]
+            qualifies = rank.isdigit() and int(rank) <= 4
+            assert ('is-qualifying' in (row.get_attribute('class') or '')) == qualifies
+            if qualifies:
+                assert 'linear-gradient' in row.evaluate('row=>getComputedStyle(row).backgroundImage')
     if len(labels) == 1:
         assert 'Revival Round' not in page.locator('#scene').inner_text()
         assert page.locator('.ranking-tables.single-group').count() == 1
@@ -141,6 +147,7 @@ def run(browser, directory):
         tick(live, ['17–20 / 20'])
         tick(live, ['1–8 / 20'])
         screenshot(live, 'plan-a-round-1')
+        assert main.locator('#production-rankings tr.is-qualifying').count() == 4
         tick(live, ['9–16 / 20'])
         check('control preview and OBS start at page one, hide the future revival round and cycle every 12 seconds')
 
@@ -171,6 +178,7 @@ def run(browser, directory):
             ranking(page, ['1–8 / 20'])
             assert pending(page) == fresh, 'An old queued callback advanced a new visit'
         screenshot(live, 'ranking-reentered-first-page')
+        screenshot(main, 'control-qualifying-rankings')
         check('returning from processing resets page and clock; canceled callbacks cannot advance a new visit')
 
         for event, field in [('obsSourceActiveChanged', 'active'), ('obsSourceVisibleChanged', 'visible')]:
@@ -208,6 +216,11 @@ def run(browser, directory):
         live.reload()
         ranking(live, ['1–8 / 20', '1–8 / 16'], labels)
         check('switching rounds and reloading start at page one while keeping the available revival table')
+        main.click('.tabs [data-tab="qualifiers"]')
+        assert main.locator('.score-table tbody tr.is-qualifying').count() == 4
+        for row in main.locator('.score-table tbody tr.is-qualifying').all():
+            assert 'linear-gradient' in row.evaluate('row=>getComputedStyle(row).backgroundImage')
+        check('only the four eligible entrants receive the same background marking in both control ranking views and OBS')
         assert not REPORT['browser_errors'], REPORT['browser_errors']
     finally:
         if context:

@@ -34,8 +34,14 @@
   const challengeQualifier = state => window.QualifierRules?.isChallenge(state) === true;
   const qualifierTotal = (state, entry) => entry ? window.QualifierRules ? QualifierRules.total(state, entry) : total(entry.scores) : null;
   const rankings = (state, group) => (state.qualifier.plan || challengeQualifier(state)) && window.QualifierRules ? QualifierRules.rankings(state, group) : legacyRankings(state, group);
+  const qualifierAdvancing = (state, group, entry) => {
+    if (entry.disqualification) return false;
+    const round = state.qualifier.plan && state.qualifier.rounds?.[group];
+    return round?.locked ? round.qualifiedIds.includes(entry.id) : entry.rank <= 4 &&
+      (window.QualifierRules ? QualifierRules.complete(state, entry) : entry.scores.every(value => value !== null));
+  };
   const qualifierLabel = (state, group = state.qualifier.activeGroup) => state.qualifier.plan === 'A' ? group === 'A' ? 'Qualifier Round 1' : 'Revival Round' : `Group ${group}${state.qualifier.plan === 'B' ? group === 'A' ? ' · Odd numbers' : ' · Even numbers' : ''}`;
   const qualifierTiebreak = state => { const rounds = state.qualifier.rounds?.[state.qualifier.activeGroup]?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
   const matchTiebreak = state => { const rounds = currentMatch(state)?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
-  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, date, icon };
+  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, date, icon };
 })();
