@@ -187,6 +187,10 @@ def run(browser, directory, tone):
             assert float(card.locator('h2').evaluate('node=>getComputedStyle(node).fontSize').removesuffix('px')) >= 44
             assert float(card.locator(':scope>strong').evaluate('node=>getComputedStyle(node).fontSize').removesuffix('px')) >= 80
         assert '勝者組' in live.locator('.round-result-card.is-winner .round-result-route').inner_text()
+        assert live.locator('.result-song-scores small').evaluate_all('''nodes=>nodes.every(node=>{
+          const title=node.getBoundingClientRect(),column=node.parentElement.getBoundingClientRect();
+          return title.left>=column.left-.5&&title.right<=column.right+.5;
+        })'''), 'Long song titles escaped their individual score columns'
         assert main.locator('.production-result-card').count() == 2
         screenshot(live, 'round-result-readable-totals')
         P.geometry(main, 'round-result-control')
