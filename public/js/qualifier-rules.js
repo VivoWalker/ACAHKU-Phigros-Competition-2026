@@ -125,18 +125,23 @@
   }
   function tiedSets(state, group) {
     const players = rankings(state, group), visited = new Set(), sets = [];
+    const legacy = !configured(state) && !isChallenge(state);
+    const unresolved = (a, b) => legacy ? a.total === b.total &&
+      (a.tiePriority === null || b.tiePriority === null || a.tiePriority === b.tiePriority) : decision(state, group, a, b).winnerIndex === null;
     for (const player of players) {
       if (visited.has(player.id) || !player.complete || !player.tied) continue;
       const connected = new Set([player.id]);
       let expanded = true;
       while (expanded) {
         expanded = false;
-        for (const other of players) if (other.complete && !connected.has(other.id) && players.some(member => connected.has(member.id) && decision(state, group, member, other).winnerIndex === null)) {
+        for (const other of players) if (other.complete && !connected.has(other.id) && players.some(member => connected.has(member.id) && unresolved(member, other))) {
           connected.add(other.id); expanded = true;
         }
       }
       connected.forEach(id => visited.add(id));
-      if (connected.size > 1 && players.slice(0, 4).some(member => connected.has(member.id))) sets.push(players.filter(member => connected.has(member.id)).map(member => member.id));
+      // Only a tie spanning the qualification cutoff can change who advances.
+      if (connected.size > 1 && players.slice(0, 4).some(member => connected.has(member.id)) &&
+        players.slice(4).some(member => connected.has(member.id))) sets.push(players.filter(member => connected.has(member.id)).map(member => member.id));
     }
     return sets;
   }
@@ -183,8 +188,7 @@
     assert(q.plan !== 'A' || group !== 'B' || q.rounds.A.locked, 'Finalize the first qualifier round before the revival round.');
     const ranked = rankings(state, group);
     assert(ranked.length >= 4 && ranked.every(player => player.complete), 'Enter all eligible qualifier scores, with at least four players in the round.');
-    assert(!ranked.slice(0, 4).some(player => player.tied), 'Compare accuracy and complete the remaining qualifier tiebreaks before qualification.');
-    assert(!round.tiebreaks.some(tie => !tie.confirmed), 'Confirm the current qualifier tiebreak first.');
+    assert(!tiedSets(state, group).length, 'Compare accuracy and complete the remaining qualifier tiebreaks before qualification.');
     round.qualifiedIds = ranked.slice(0, 4).map(player => player.id); round.locked = true;
     if (q.plan === 'A' && group === 'A') {
       const remaining = q.rounds.A.playerIds.filter(id => !round.qualifiedIds.includes(id));
@@ -433,7 +437,7 @@
         for (const key of groups) if (!q.rounds[key].locked) {
           const ranked = rankings(state, key);
           assert(ranked.length >= 4 && ranked.every(player => player.complete), 'Enter all eligible qualifier scores, with at least four players in the round.');
-          assert(!ranked.slice(0, 4).some(player => player.tied) && !q.rounds[key].tiebreaks.some(tie => !tie.confirmed), 'Compare accuracy and complete the remaining qualifier tiebreaks before qualification.');
+          assert(!tiedSets(state, key).length, 'Compare accuracy and complete the remaining qualifier tiebreaks before qualification.');
         }
         assert(typeof helpers.createBracket === 'function', 'The tournament bracket helper is unavailable.');
         for (const key of groups) if (!q.rounds[key].locked) finalize(state, key, assert);

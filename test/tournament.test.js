@@ -67,8 +67,11 @@ test('qualifiers rank full three-song totals, resolve ties, and alternate group 
   assert.equal(s.tournament.matches.length, 14);
   assert.throws(() => act(s, 'set-qualifier-score', { playerId: 'p1', songIndex: 0, score: 0 }), /locked/);
   const tied = createDefaultState(); tied.qualifier.players.forEach(p => { p.scores = [0, 0, 0]; });
+  act(structuredClone(tied), 'qualify'); // Exactly four per group: every entrant advances, including ties.
+  for (const [index, group] of ['A', 'B'].entries()) tied.qualifier.players.push({
+    id: `p${index + 9}`, name: `Extra ${group}`, group, scores: [0, 0, 0], tiePriority: null });
   assert.throws(() => act(tied, 'qualify'), /tied/);
-  tied.qualifier.players.forEach((p, i) => act(tied, 'set-tie-priority', { playerId: p.id, priority: i % 4 + 1 }));
+  tied.qualifier.players.forEach((p, i) => act(tied, 'set-tie-priority', { playerId: p.id, priority: i + 1 }));
   act(tied, 'qualify'); assert.equal(tied.tournament.seeded, true);
 });
 test('missing scores differ from zero; invalid scores and overlapping group songs are rejected', () => {

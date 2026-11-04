@@ -130,6 +130,20 @@ test('missing accuracy remains unresolved and cannot be treated as zero or bypas
   assert.equal(state.qualifier.rounds.A.tiebreaks.length, 0);
 });
 
+test('same totals without accuracy within either side of the cutoff do not block a legacy-score round', () => {
+  const state = fixture(); configure(state);
+  fill(state, 'A', player => ({ p1: 990000, p2: 990000, p3: 970000, p4: 900000,
+    p5: 800000, p6: 800000, p7: 700000, p8: 600000 })[player.id], () => null);
+  assert.ok(QualifierRules.rankings(state, 'A').some(player => player.tied));
+  assert.deepEqual(QualifierRules.tiedSets(state, 'A'), []);
+  assert.throws(() => act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p1', 'p2'] }), /affecting the top four/);
+  act(state, 'finalize-qualifier-round', { group: 'A', verified: true });
+  assert.deepEqual(state.qualifier.rounds.A.qualifiedIds, ['p1', 'p2', 'p3', 'p4']);
+  fill(state, 'B', () => 900000, () => null);
+  act(state, 'qualify', { verified: true });
+  assert.equal(state.stage, 'double-elimination');
+});
+
 test('full-library qualifier tiebreaks can repeat without adding extra songs to base totals', () => {
   const state = boundaryTie();
   act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p4', 'p5'] });
