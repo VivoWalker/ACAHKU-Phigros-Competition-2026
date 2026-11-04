@@ -71,7 +71,8 @@ def check(name, detail=None):
 
 def processing_idle(page):
     C.idle(page, 'qualifier-processing')
-    assert page.locator('.qualifier-processing-panel h1').inner_text() == '結果正在統計中'
+    assert page.locator('.qualifier-processing-panel h1').inner_text() == '統計中'
+    assert page.locator('.qualifier-processing-panel p').inner_text() == 'RESULTS PROCESSING'
 
 
 def assert_geometry(page, label):

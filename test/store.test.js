@@ -74,6 +74,37 @@ test('damaged state with no valid backup fails clearly without replacing the sav
   assert.throws(() => new StateStore(dir), /No valid automatic backup/); assert.equal(fs.readFileSync(store.file, 'utf8'), bytes);
 });
 
+test('a missing primary file recovers the latest valid snapshot instead of creating a new tournament', t => {
+  const { dir, store } = fixture(t);
+  store.commit({ type: 'set-qualifier-score', payload: { playerId: 'p1', songIndex: 0, score: 0 } }, store.state.revision);
+  venue(store, 'RECORDED VENUE'); venue(store, 'LATEST VENUE');
+  const backup = store.listBackups()[0], expected = store.readBackup(backup.id);
+  fs.writeFileSync(path.join(store.backupDir, 'revision-000000000099-1999999999999-deadbeef.json'), '{');
+  const snapshots = fs.readdirSync(store.backupDir);
+  fs.unlinkSync(store.file);
+  const recovered = new StateStore(dir);
+  assert.deepEqual(recovered.state.qualifier, expected.qualifier);
+  assert.equal(recovered.state.qualifier.players[0].scores[0], 0);
+  assert.equal(recovered.state.event.venue, 'RECORDED VENUE');
+  assert.ok(recovered.state.revision > store.state.revision);
+  assert.equal(recovered.state.recovery.backupId, backup.id);
+  assert.equal(recovered.state.recovery.preservedFile, undefined, 'A missing file cannot have a preserved copy.');
+  assert.match(recovered.state.recovery.message, /missing/);
+  assert.match(recovered.state.auditLog.at(-1).reason, /Missing/);
+  assert.deepEqual(fs.readdirSync(store.backupDir), snapshots);
+  assert.deepEqual(new StateStore(dir).state, recovered.state);
+  assert.equal(publicState(recovered.state).recovery, undefined);
+});
+
+test('missing primary with only damaged snapshots stops startup without writing a fresh event', t => {
+  const { dir, store } = fixture(t);
+  const file = path.join(store.backupDir, 'revision-000000000009-1999999999999-deadbeef.json');
+  fs.writeFileSync(file, '{damaged snapshot'); fs.unlinkSync(store.file);
+  assert.throws(() => new StateStore(dir), /No valid automatic backup/);
+  assert.equal(fs.existsSync(store.file), false);
+  assert.equal(fs.readFileSync(file, 'utf8'), '{damaged snapshot');
+});
+
 test('failed official write or failed backup leaves live memory and official state unchanged', t => {
   const { store } = fixture(t); venue(store, 'FIRST'); const before = structuredClone(store.state), bytes = fs.readFileSync(store.file, 'utf8');
   const rename = fs.renameSync;
@@ -83,6 +114,39 @@ test('failed official write or failed backup leaves live memory and official sta
   t.mock.restoreAll();
   t.mock.method(store, 'saveBackup', () => { throw new Error('Fixture backup failure'); });
   assert.throws(() => venue(store, 'FAIL'), /Fixture backup failure/); assert.deepEqual(store.state, before); assert.equal(fs.readFileSync(store.file, 'utf8'), bytes);
+});
+
+for (const failedWrite of ['backup', 'official']) {
+  test(`${failedWrite} file-sync failure cannot publish or replace the saved tournament`, t => {
+    const { dir, store } = fixture(t), before = structuredClone(store.state), bytes = fs.readFileSync(store.file);
+    const sync = fs.fsyncSync;
+    let calls = 0;
+    t.mock.method(fs, 'fsyncSync', descriptor => {
+      calls++;
+      if (calls === (failedWrite === 'backup' ? 1 : 2)) {
+        const error = new Error('Fixture file synchronization failure'); error.code = 'EIO'; throw error;
+      }
+      return sync(descriptor);
+    });
+    assert.throws(() => venue(store, 'UNCONFIRMED SAVE'), error => error.code === 'EIO');
+    assert.deepEqual(store.state, before);
+    assert.deepEqual(fs.readFileSync(store.file), bytes);
+    assert.equal(store.listBackups().length, failedWrite === 'backup' ? 0 : 1);
+    for (const directory of [dir, store.backupDir]) assert.equal(fs.readdirSync(directory).some(name => name.endsWith('.tmp')), false);
+    t.mock.restoreAll();
+    venue(store, 'RETRIED SAVE');
+    assert.equal(new StateStore(dir).state.event.venue, 'RETRIED SAVE');
+  });
+}
+
+test('both snapshot files are synchronized before their atomic replacement', t => {
+  const { store } = fixture(t), sync = fs.fsyncSync, rename = fs.renameSync, operations = [];
+  t.mock.method(fs, 'fsyncSync', descriptor => { operations.push('sync'); return sync(descriptor); });
+  t.mock.method(fs, 'renameSync', (from, to) => {
+    operations.push(to === store.file ? 'replace official' : 'replace backup'); return rename(from, to);
+  });
+  venue(store, 'CONFIRMED SAVE');
+  assert.deepEqual(operations, ['sync', 'replace backup', 'sync', 'replace official']);
 });
 
 test('a damaged selected backup is rejected before touching the current tournament', t => {

@@ -148,7 +148,7 @@ def staff_checks(context, base):
     control = context.new_page(); pair(control, base, 'control')
     for width, height in [(1194, 834), (390, 844)]:
         control.set_viewport_size({'width': width, 'height': height})
-        for name in ['broadcast', 'qualifiers', 'bracket', 'songs', 'event']:
+        for name in ['broadcast', 'qualifiers', 'intermission', 'trailer', 'bracket', 'songs', 'event']:
             tab(control, name)
             assert control.locator('#content h1').count() == 1, (name, 'missing page title')
             if name == 'broadcast':
@@ -168,7 +168,7 @@ def staff_checks(context, base):
     assert 'Server title changed' in control.locator('.draft-notice').inner_text()
     assert control.locator('[data-draft-resolution=review]').is_visible()
     screenshot(control, 'control-draft-conflict')
-    check('all five control tabs retain navigation, labelled forms, preview and conflict decisions at laptop/mobile sizes')
+    check('all seven control tabs retain navigation, labelled forms, preview and conflict decisions at laptop/mobile sizes')
 
     scorer = context.new_page(); pair(scorer, base, 'scorekeeper')
     for width, height in [(1194, 834), (390, 844)]:
@@ -191,7 +191,7 @@ def staff_checks(context, base):
 
 
 def overlay_checks(context, base):
-    views = [('qualifier', scene) for scene in ['start', 'qualifier-waiting', 'qualifier-match', 'qualifier-processing', 'song-result', 'result']]
+    views = [('qualifier', scene) for scene in ['start', 'intermission', 'arcaea-trailer', 'qualifier-waiting', 'qualifier-match', 'qualifier-processing', 'song-result', 'result']]
     views += [('regular', scene) for scene in ['double-elimination-waiting', 'double-elimination-match', 'song-result', 'result', 'bracket', 'song-selection']]
     views += [('announcement', 'grand-final-announcement'), ('final', 'grand-final-totals'), ('final', 'grand-final-video')]
     page = context.new_page(); page.set_viewport_size({'width': 1920, 'height': 1080})
@@ -202,7 +202,7 @@ def overlay_checks(context, base):
         name = f'overlay-{fixture}-{scene}'
         geometry(page, name)
         text = page.locator('#scene').inner_text()
-        for removed in ['RESULTS PROCESSING', 'CHALLENGE RESULTS', 'FIRST TWO SONGS · CUMULATIVE SCORES', 'OFFICIAL CHALLENGE TOTAL']:
+        for removed in ['CHALLENGE RESULTS', 'FIRST TWO SONGS · CUMULATIVE SCORES', 'OFFICIAL CHALLENGE TOTAL']:
             assert removed not in text, (name, 'duplicate subtitle', removed)
         image = Image.open(io.BytesIO(screenshot(page, name))).convert('RGBA')
         for box in page.locator('[data-capture]').all():
@@ -217,7 +217,7 @@ def overlay_checks(context, base):
         if fixture == 'regular' and scene == 'result':
             assert 'ACCURACY' in text, 'retain the reason for a tied-total result'
     page.close()
-    check('all thirteen overlay scenes and both result/statistics modes retain data, readable geometry and transparent capture windows')
+    check('all fifteen overlay scenes and both result/statistics modes retain data, readable geometry and transparent capture windows')
 
 
 def main():

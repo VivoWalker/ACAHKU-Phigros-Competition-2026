@@ -115,6 +115,49 @@ test('Plan B ranks the odd and even groups by their direct totals and preserves 
   assert.deepEqual(state.tournament.matches.slice(0, 4).map(match => match.players), [[a[0], b[3]], [b[1], a[3]], [b[0], a[2]], [a[1], b[2]]]);
 });
 
+test('only Challenge ties spanning the top-four cutoff block Plan A qualification', () => {
+  const state = configured();
+  fill(state, 'A', player => ({ p1: 2990000, p2: 2990000, p3: 2900000, p4: 2800000,
+    p5: 2700000, p6: 2700000, p7: 2600000, p8: 2500000 })[player.id]);
+  assert.ok(Q.rankings(state, 'A').some(player => player.tied));
+  assert.deepEqual(Q.tiedSets(state, 'A'), []);
+  assert.throws(() => act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ['p1', 'p2'] }), /affecting the top four/);
+  act(state, 'finalize-qualifier-round', { group: 'A', verified: true });
+  fill(state, 'B', () => 2700000);
+  assert.deepEqual(Q.tiedSets(state, 'B'), [], 'All four revival entrants advance despite equal totals.');
+  act(state, 'qualify', { verified: true });
+  assert.deepEqual(state.tournament.seeds, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']);
+});
+
+test('Plan B advances both groups with ties among qualifiers or eliminated entrants', () => {
+  const state = configured(22);
+  for (const group of ['A', 'B']) {
+    const ids = Q.entries(state, group).map(player => player.id);
+    fill(state, group, player => {
+      const index = ids.indexOf(player.id);
+      return index < 2 ? 2900000 : index > 4 ? 2000000 : 2800000 - index*1000;
+    });
+    assert.deepEqual(Q.tiedSets(state, group), []);
+  }
+  act(state, 'qualify', { verified: true });
+  assert.equal(state.tournament.seeds.filter(Boolean).length, 8);
+  assert.equal(state.stage, 'double-elimination');
+});
+
+test('a boundary tiebreak can finish with ties entirely above and below the cutoff', () => {
+  const state = configured();
+  fill(state, 'A', player => ['p3', 'p4', 'p5', 'p6'].includes(player.id) ? 2700000 :
+    player.number < 3 ? 3000000 - player.number*1000 : 2000000);
+  const ids = ['p3', 'p4', 'p5', 'p6'];
+  assert.deepEqual(Q.tiedSets(state, 'A'), [ids]);
+  act(state, 'draw-qualifier-tiebreak', { group: 'A', playerIds: ids });
+  for (const id of ids) tieScore(state, 0, id, ['p3', 'p4'].includes(id) ? 950000 : 900000);
+  act(state, 'confirm-qualifier-tiebreak', { group: 'A', index: 0, verified: true });
+  assert.deepEqual(Q.tiedSets(state, 'A'), []);
+  act(state, 'finalize-qualifier-round', { group: 'A', verified: true });
+  assert.deepEqual(state.qualifier.rounds.A.qualifiedIds, ['p1', 'p2', 'p3', 'p4']);
+});
+
 test('equal Challenge totals draw single-song tiebreaks without average accuracy and repeated equal scores remain tied', () => {
   const state = boundaryTie();
   assert.deepEqual(Q.tiedSets(state, 'A'), [['p4', 'p5']]);

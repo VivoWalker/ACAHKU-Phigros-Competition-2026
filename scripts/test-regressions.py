@@ -25,8 +25,10 @@ SUITES = {
     "browser-smoke": [
         "browser-smoke",
         "challenge-qualifier-browser",
+        "qualifier-ranking-browser",
         "control-reconnect-browser",
         "draft-recovery-browser",
+        "intermission-browser",
     ],
 }
 

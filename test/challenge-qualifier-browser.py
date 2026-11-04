@@ -553,21 +553,39 @@ def exercise_new(browser, base, data_dir):
         geometry(scorer, f'challenge-scorekeeper-{width}x{height}', width, height, 'scorekeeper')
     check('desktop, landscape tablet, portrait tablet and phone sheets have no overlapping controls or text and retain 48px touch targets')
 
-    # The existing Challenge tiebreak is intentionally a separate score-only sheet.
-    for player, value in [('p4', 2800000), ('p5', 2800000), ('p6', 2700000), ('p7', 2600000), ('p8', 2500000)]:
+    # Extra songs have their own score and P/G/B/M, without requiring Challenge ACC.
+    for player, value in [('p4', 2800000), ('p5', 2800000), ('p6', 2900000), ('p7', 2600000), ('p8', 2500000)]:
         command(main, 'set-qualifier-total', {'group': 'A', 'playerId': player, 'total': value})
     command(main, 'draw-qualifier-tiebreak', {'group': 'A', 'playerIds': ['p4', 'p5']})
     wait_batch(scorer, ['p4', 'p5'])
     assert scorer.locator('input[data-score-key]').count() == 2
-    assert scorer.locator('input[data-judgement-key]').count() == 0
+    assert scorer.locator('input[data-judgement-key]').count() == 8
+    assert scorer.locator('input[data-judgement-name="accuracy"]').count() == 0
     for player, value in [('p4', 900000), ('p5', 800000)]:
         form = score_form(scorer, player)
         form.locator('[data-score-key]').fill(str(value))
+        for name, count in [('perfect', 900), ('good', 12), ('bad', 1), ('miss', 0)]:
+            form.locator(f'[data-judgement-name="{name}"]').fill(str(count))
         form.locator('[data-save-player]').click()
         main.wait_for_function('''async data=>{
           const current=await fetch('/api/state').then(response=>response.json());
-          return current.qualifier.rounds.A.tiebreaks[0].scores[data.player]===data.score;
+          const tie=current.qualifier.rounds.A.tiebreaks[0];
+          return tie.scores[data.player]===data.score&&tie.judgements[data.player]?.perfect===900&&tie.judgements[data.player]?.miss===0;
         }''', arg={'player': player, 'score': value})
+    scorer.reload()
+    wait_batch(scorer, ['p4', 'p5'])
+    assert score_form(scorer, 'p4').locator('[data-judgement-name="perfect"]').input_value() == '900'
+    tie_form = main.locator('form[data-score-editor="qt"][data-entity="p4"]')
+    tie_form.wait_for()
+    for name in ['perfect', 'good', 'bad', 'miss']:
+        assert tie_form.locator(f'[data-judgement="{name}"] input').is_visible()
+    tie_form.locator('[data-judgement="perfect"] input').fill('901')
+    tie_form.locator('[data-judgement="good"] input').fill('11')
+    tie_form.locator('button[type="submit"]').click()
+    scorer.wait_for_function('''()=>document.querySelector('form[data-player-key="p4"] [data-judgement-name="perfect"]')?.value==='901' ''')
+    for width, height in [(1194, 834), (390, 844)]:
+        geometry(scorer, f'qualifier-tiebreak-judgements-{width}', width, height, 'scorekeeper')
+    check('qualifier tiebreak P/G/B/M save without ACC, survive reload and synchronize main-control corrections')
     command(main, 'confirm-qualifier-tiebreak', {'group': 'A', 'index': 0, 'verified': True})
     assert state(main)['qualifier']['rounds']['A']['results']['p4']['challengeTotal'] == 2800000
     command(main, 'finalize-qualifier-round', {'group': 'A', 'verified': True})
@@ -580,7 +598,7 @@ def exercise_new(browser, base, data_dir):
     command(main, 'seed-bracket', {'ids': current['qualifier']['rounds']['A']['qualifiedIds'] + current['qualifier']['rounds']['B']['qualifiedIds'], 'verified': True})
     command(main, 'set-stage', {'stage': 'qualifier'})
     scorer.wait_for_function('document.querySelectorAll("input[data-score-key]:not(:disabled)").length===0')
-    check('qualifier tiebreak scoring remains score-only and completed qualification locks the result sheets')
+    check('completed qualification locks tiebreak scores and their judgement counts')
 
     command(main, 'select-match', {'matchId': 'W1'})
     command(main, 'draw-candidates', {'matchId': 'W1'})
@@ -601,6 +619,35 @@ def exercise_new(browser, base, data_dir):
       return match.scores[0][0]===999999&&match.judgements[0][0].accuracy===98.7654;
     }''')
     check('Double Elimination retains its existing per-song score and Accuracy entry')
+    for pi in range(2):
+        for si in range(2):
+            command(main, 'set-match-score', {'matchId': 'W1', 'playerIndex': pi, 'songIndex': si,
+                    'score': 990000, 'judgements': {'accuracy': 99}})
+    command(main, 'draw-match-tiebreak', {'matchId': 'W1'})
+    scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===2')
+    assert scorer.locator('input[data-judgement-name="perfect"]').count() == 2
+    form = score_form(scorer, '0')
+    form.locator('[data-score-key]').fill('995000')
+    for name, value in [('accuracy', 99.5), ('perfect', 995), ('good', 5), ('bad', 0), ('miss', 0)]:
+        form.locator(f'[data-judgement-name="{name}"]').fill(str(value))
+    form.locator('[data-save-player]').click()
+    main.wait_for_function('''async()=>{
+      const current=await fetch('/api/state').then(response=>response.json());
+      return current.tournament.matches.find(item=>item.id==='W1').tiebreaks[0].judgements[0]?.perfect===995;
+    }''')
+    main.click('[data-tab="broadcast"]')
+    mt = main.locator('form[data-score-editor="mt"][data-player-index="0"]')
+    for name in ['perfect', 'good', 'bad', 'miss']:
+        assert mt.locator(f'[data-judgement="{name}"] input').is_visible()
+    mt.locator('[data-judgement="good"] input').fill('6')
+    mt.locator('button[type="submit"]').click()
+    scorer.wait_for_function('''()=>document.querySelector('form[data-player-key="0"] [data-judgement-name="good"]')?.value==='6' ''')
+    scorer.reload()
+    scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===2')
+    assert score_form(scorer, '0').locator('[data-judgement-name="good"]').input_value() == '6'
+    for width, height in [(1194, 834), (390, 844)]:
+        geometry(scorer, f'de-tiebreak-judgements-{width}', width, height, 'scorekeeper')
+    check('DE tiebreak score, ACC and all four judgement counts save, refresh and synchronize both staff panels')
     score_context.close()
     main_context.close()
 

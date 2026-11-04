@@ -75,3 +75,11 @@ test('invalid event identities fail validation while schema-1 events remain supp
   const legacy = createLegacyState();
   assert.equal(validateState(legacy), legacy);
 });
+
+test('recovery of a missing primary retains the snapshot event identity across restart', t => {
+  const dir = directory(t), store = new StateStore(dir), eventId = store.state.eventId;
+  store.commit({ type: 'set-event', payload: { venue: 'Updated venue' } }, store.state.revision);
+  fs.unlinkSync(store.file);
+  assert.equal(new StateStore(dir).state.eventId, eventId);
+  assert.equal(new StateStore(dir).state.eventId, eventId);
+});

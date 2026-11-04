@@ -1,6 +1,6 @@
 (function () {
   const scenes = [
-    ['start', 'Start screen', '開始界面'], ['qualifier-waiting', 'Qualifier waiting', '預選賽等候'],
+    ['start', 'Start screen', '開始界面'], ['intermission', '休息時間', '休息時間'], ['arcaea-trailer', 'Arcaea 預告', 'Arcaea 比賽預告'], ['qualifier-waiting', 'Qualifier waiting', '預選賽等候'],
     ['double-elimination-waiting', 'Double elimination waiting', '雙淘汰賽等候'], ['qualifier-match', 'Qualifier match', '預選賽'],
     ['qualifier-processing', 'Qualifier results processing', '預選賽結果統計中'],
     ['double-elimination-match', 'Double elimination match', '雙淘汰賽'], ['song-result', 'Results statistics', '成績統計'], ['result', 'Result announcement', '結果公佈'],
@@ -34,8 +34,19 @@
   const challengeQualifier = state => window.QualifierRules?.isChallenge(state) === true;
   const qualifierTotal = (state, entry) => entry ? window.QualifierRules ? QualifierRules.total(state, entry) : total(entry.scores) : null;
   const rankings = (state, group) => (state.qualifier.plan || challengeQualifier(state)) && window.QualifierRules ? QualifierRules.rankings(state, group) : legacyRankings(state, group);
+  const qualifierAdvancing = (state, group, entry) => {
+    if (entry.disqualification) return false;
+    const round = state.qualifier.plan && state.qualifier.rounds?.[group];
+    return round?.locked ? round.qualifiedIds.includes(entry.id) : entry.rank <= 4 &&
+      (window.QualifierRules ? QualifierRules.complete(state, entry) : entry.scores.every(value => value !== null));
+  };
+  const qualifierHighlight = (state, group) => {
+    const round = state.qualifier.plan && state.qualifier.rounds?.[group];
+    const pending = new Set(!round?.locked && window.QualifierRules ? QualifierRules.tiedSets(state, group).flat() : []);
+    return entry => pending.has(entry.id) ? 'is-qualification-tie' : qualifierAdvancing(state, group, entry) ? 'is-qualifying' : '';
+  };
   const qualifierLabel = (state, group = state.qualifier.activeGroup) => state.qualifier.plan === 'A' ? group === 'A' ? 'Qualifier Round 1' : 'Revival Round' : `Group ${group}${state.qualifier.plan === 'B' ? group === 'A' ? ' · Odd numbers' : ' · Even numbers' : ''}`;
   const qualifierTiebreak = state => { const rounds = state.qualifier.rounds?.[state.qualifier.activeGroup]?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
   const matchTiebreak = state => { const rounds = currentMatch(state)?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
-  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, date, icon };
+  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierHighlight, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, date, icon };
 })();
