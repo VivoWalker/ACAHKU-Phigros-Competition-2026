@@ -55,7 +55,7 @@
     + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .waiting-song, '
     + '.player-name > h2, .player-total, .song-scores, .handcam-label, .song-band, .scene-head, '
     + '.ranking-tables > section, .qualifier-processing-panel, .song-result-heading, .song-result-card, .finale-total-card, .challenge-set-heading, .challenge-set-card, .song-result-empty, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
-    + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-detail > h2, .picks, .selection-state, .empty-copy, .final-song-card';
+    + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-focus-card, .round-result-heading, .picks, .selection-state, .empty-copy, .final-song-card';
   function entryNodes(root) {
     const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits], [data-motion-ghost]'));
     const selected = new Set(nodes);

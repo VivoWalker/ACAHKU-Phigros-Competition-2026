@@ -278,7 +278,8 @@
 .production-embedded .song-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .production-embedded .song-grid > * { min-width: 0; }
 .production-embedded .selection-progress { flex-wrap: wrap; padding: 15px 17px; gap: 8px 14px; }
-.production-embedded .candidate-row { padding-inline: 16px; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 9px; }
+.production-embedded .candidate-row { padding-inline: 16px; grid-template-columns: 28px minmax(0, 1fr) 88px; gap: 9px; }
+.production-embedded .candidate-row .ban-actions { grid-column: 2 / 4; justify-content: flex-end; }
 .production-embedded .song-preview-button { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
 .production-embedded .candidate-row h3 { white-space: normal; overflow: visible; }
 .production-embedded .candidate-row .song-info { white-space: normal; overflow-wrap: anywhere; }
@@ -288,7 +289,7 @@
 .production-embedded .song-focus-title > div { min-width: 0; }
 .production-embedded .song-focus-title h2 { font-size: 28px; }
 .production-embedded .difficulty-block { padding: 10px 15px; }
-.production-embedded .selected-track { padding-inline: 5px; flex-wrap: wrap; }
+.production-embedded .selected-track { padding-inline: 5px; flex-wrap: nowrap; }
 .production-embedded .selected-track > div { flex: 1 1 120px; }
 .production-embedded .locked-label { margin-left: 0; }
 .production-embedded .fixed-final-song-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
@@ -299,6 +300,19 @@
 .production-summary th { color: #acc3d1; font-size: 12px; font-weight: 600; }
 .production-summary td { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .production-summary .score-table { min-width: 0; }
+.production-result-cards { display: grid; gap: 20px; margin: 20px 0; }
+.production-result-card { min-width: 0; padding: 20px; background: #0b1520; border-top: 3px solid #aab5c2; }
+.production-result-card.is-winner { background: linear-gradient(120deg, #21473c, #11202a); border-color: #a9e7cc; }
+.production-result-card header span { font-size: 18px; color: #c8d5db; }
+.production-result-card.is-winner header span { color: #b4f3d5; }
+.production-result-card h3 { font-size: 28px; overflow-wrap: anywhere; }
+.production-result-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 15px; flex-wrap: wrap; }
+.production-result-total span { font-size: 15px; color: #c2d0d8; }.production-result-total strong { font-size: 42px; line-height: 1.2; }
+.production-result-songs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 15px; margin-top: 16px; }
+.production-result-songs>div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.production-result-songs span { display: block; color: #a8c0cf; font-size: 13px; line-height: 1.3; }.production-result-songs b { font-size: 22px; line-height: 1.4; }
+.production-result-card dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin: 18px 0 0; }
+.production-result-card dt { font-size: 11px; font-weight: 600; }.production-result-card dd { margin: 4px 0 0; font-size: 24px; overflow-wrap: anywhere; }
 .production-result-confirm { margin-top: 24px; padding-top: 22px; border-top: 1px solid #486071; }
 .production-context #result-form { margin-top: 22px; }
 .production-context #result-form > label { margin-top: 18px; }
@@ -350,8 +364,8 @@
   .production-countdown .countdown-actions > button { flex: 1 1 170px; }
   .production-embedded .song-pool-metrics { grid-template-columns: minmax(0, 1fr); }
   .production-embedded .song-pool-metrics > div { display: flex; justify-content: space-between; align-items: center; gap: 15px; }
-  .production-embedded .candidate-row { padding: 12px 10px; gap: 7px; grid-template-columns: 23px minmax(0, 1fr); }
-  .production-embedded .candidate-row .ban-actions { grid-column: 2; flex-wrap: wrap; }
+  .production-embedded .candidate-row { padding: 12px 10px; gap: 7px; grid-template-columns: 23px minmax(0, 1fr) 80px; }
+  .production-embedded .candidate-row .ban-actions { grid-column: 2 / 4; flex-wrap: wrap; }
   .production-embedded .candidate-row .index { grid-row: 1 / 3; align-self: start; padding-top: 4px; }
   .production-embedded .candidate-row .song-preview-button { font-size: 19px; }
   .production-embedded .cover-window { --cover-edge-offset: 53.59px; height: 200px; }

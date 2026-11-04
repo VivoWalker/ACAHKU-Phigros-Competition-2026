@@ -66,6 +66,18 @@ test('preview source paths reject remote media, traversal and line breaks', () =
   assert.equal(safePath('assets/song-preview/track_01.MP3'), true);
 });
 
+test('waiting previews loop the next song with a reused decoder and fade out before gameplay', async t => {
+  const f = fixture(t), waiting = cue('waiting-a', 'waiting', ['a']);
+  f.update(waiting); f.advance(500); await flush();
+  f.advance(12000); await flush();
+  assert.equal(f.audios.length, 1); assert.equal(f.audios[0].playCalls, 2);
+  assert.equal(f.audios[0].sourceAssignments, 1);
+  const at = phase(waiting, songs, 26500);
+  assert.equal(at.songId, 'a'); assert.equal(at.cycle, 2); assert.equal(at.offset, 1);
+  f.update(waiting, { active: false }); f.advance(500); await flush();
+  assert.equal(f.player.hasMedia, false); assert.equal(f.audios[0].source, '');
+});
+
 test('candidate draws create no media, and a ban fades nonlinearly then loops without refocusing the cover', async t => {
   const f = fixture(t);
   f.update(null); f.advance(20000); assert.equal(f.audios.length, 0);

@@ -43,6 +43,8 @@ function fixture(kind){
   }
   if(kind==='qualifier-tie'){
    act('set-qualifier-total',{group:'A',playerId:'p2',total:2999001});
+   for(let number=3;number<=8;number++)act('set-qualifier-total',{group:'A',playerId:'p'+number,
+     total:number<=5?3000000-number:1000000});
    act('draw-qualifier-tiebreak',{group:'A',playerIds:['p1','p2']});
    act('set-qualifier-tiebreak-score',{group:'A',index:0,playerId:'p1',score:987654});
   }

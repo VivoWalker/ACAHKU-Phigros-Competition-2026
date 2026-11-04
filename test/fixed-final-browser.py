@@ -506,7 +506,7 @@ def main():
                 labels = live.locator('.selection-state').inner_text().upper()
                 assert 'TIEBREAK SONG' in labels
                 assert not any(label in labels for label in ['AUDIENCE', 'MC', 'SEALED', 'BAN'])
-                assert live.locator('.candidate-status').inner_text() == f"{extra['difficulty']} {extra['level']}"
+                assert live.locator('.candidate .song-difficulty').get_attribute('aria-label') == f"{extra['difficulty']} {int(extra['level'])}"
                 scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===2')
                 assert not navigations, navigations
                 snapshot(live, 'grand-final-tiebreak-song-selection.png', overlay=True)

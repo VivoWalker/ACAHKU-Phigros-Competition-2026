@@ -1,6 +1,7 @@
 @import url('../assets/ui/fonts.css');
 @import url('../assets/ui/phi-ui.css');
 @import url('../assets/ui/judgements.css');
+@import url('../assets/ui/song-card.css');
 :root{color-scheme:dark}body.phi-app{margin:0;--phi-font:var(--broadcast-font);background:#101319;min-height:100vh;font-size:16px;font-weight:400;overflow-x:hidden}
 [hidden]{display:none!important}button,input,select,textarea{font-family:inherit}a{text-decoration:none}button{touch-action:manipulation}button:disabled{opacity:.42}button,a,input,select,textarea{outline-offset:3px}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #83def4!important}
 .ambient{position:fixed;inset:0;z-index:-1;background:linear-gradient(110deg,rgba(11,16,23,.98),rgba(19,26,38,.96)),url('../assets/song/cover-2.svg') center/cover;pointer-events:none}.ambient:after{content:'';position:absolute;inset:0;background:url('../assets/ui/triangle-mesh.svg') center/cover;opacity:.22}
@@ -103,3 +104,13 @@ summary{font-size:18px;font-weight:700;flex-wrap:wrap}.secondary,summary .second
 .intermission-upload .secondary{margin-top:12px;overflow-wrap:anywhere}
 @media(max-width:850px){.intermission-grid{grid-template-columns:minmax(0,1fr)}.intermission-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.intermission-actions{grid-template-columns:minmax(0,1fr)}.intermission-settings .field-grid{grid-template-columns:minmax(0,1fr)}}
+.candidate-row{grid-template-columns:30px minmax(0,1fr) 96px auto;padding:10px 18px;gap:10px}
+.candidate-copy{min-width:0}.candidate-row .song-preview-button{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.candidate-state{display:block;font-size:13px;font-weight:600;line-height:1.3;margin-top:3px;color:#c6d8e5}
+.candidate-row.picked .candidate-state{color:#17222d}.candidate-row.banned .song-preview-button{text-decoration:line-through}
+.song-focus-title{position:relative;isolation:isolate;min-height:84px;margin:17px 0 0;padding-left:24px}
+.song-focus-title:before{content:'';position:absolute;inset:0 12px;background:#04060bcc;transform:skewX(-15deg);z-index:-1}
+.song-focus-title .song-difficulty{--song-difficulty-h:84px;--song-difficulty-w:104px;--song-difficulty-size:38px}
+.selected-track>div{flex:1;min-width:0}.selected-track .song-difficulty{--song-difficulty-h:64px;--song-difficulty-w:82px;--song-difficulty-size:30px;--song-difficulty-label:13px;--song-difficulty-gap:8px;margin-left:auto}
+@media(max-width:1100px){.candidate-row{grid-template-columns:28px minmax(0,1fr) 88px}.candidate-row .ban-actions{grid-column:2 / 4;justify-content:flex-end}.candidate-row .song-difficulty{--song-difficulty-w:88px}}
+@media(max-width:520px){.candidate-row{grid-template-columns:26px minmax(0,1fr) 80px;padding-inline:12px;gap:8px}.candidate-row .song-difficulty{--song-difficulty-w:80px;--song-difficulty-size:30px}}

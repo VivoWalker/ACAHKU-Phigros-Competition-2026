@@ -3,6 +3,7 @@
     ['start', 'Start screen', '開始界面'], ['intermission', '休息時間', '休息時間'], ['arcaea-trailer', 'Arcaea 預告', 'Arcaea 比賽預告'], ['qualifier-waiting', 'Qualifier waiting', '預選賽等候'],
     ['double-elimination-waiting', 'Double elimination waiting', '雙淘汰賽等候'], ['qualifier-match', 'Qualifier match', '預選賽'],
     ['qualifier-processing', 'Qualifier results processing', '預選賽結果統計中'],
+    ['double-elimination-processing', 'Double elimination results processing', '雙淘汰賽結果統計中'],
     ['double-elimination-match', 'Double elimination match', '雙淘汰賽'], ['song-result', 'Results statistics', '成績統計'], ['result', 'Result announcement', '結果公佈'],
     ['bracket', 'Bracket progress', '雙淘汰賽進度'], ['song-selection', 'Song selection', '選曲'],
     ['grand-final-announcement', 'Grand Final songs', '總決賽曲目公佈'],
@@ -29,6 +30,7 @@
     .sort((a, b) => b.total - a.total || (a.tiePriority ?? 999) - (b.tiePriority ?? 999) || a.id.localeCompare(b.id))
     .map((p, i) => ({ ...p, rank: i + 1, tied: state.qualifier.players.some(q => !q.disqualification && q.group === group && q.id !== p.id && total(q.scores) === p.total && (p.tiePriority === null || q.tiePriority === null || p.tiePriority === q.tiePriority)) }));
   const song = (state, id) => state.library.find(s => s.id === id);
+  const songDifficulty = song => song && !song.hidden ? `<span class="song-difficulty" aria-label="${escape(song.difficulty)} ${escape(Math.trunc(song.level))}"><b>${escape(Math.trunc(song.level))}</b><span>${escape(song.difficulty)}</span></span>` : '';
   const date = value => new Date(value + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'short' });
   const icon = id => `<svg class="phi-icon" aria-hidden="true"><use href="../assets/icons/icons.svg#phi-${id}"></use></svg>`;
   const challengeQualifier = state => window.QualifierRules?.isChallenge(state) === true;
@@ -48,5 +50,5 @@
   const qualifierLabel = (state, group = state.qualifier.activeGroup) => state.qualifier.plan === 'A' ? group === 'A' ? 'Qualifier Round 1' : 'Revival Round' : `Group ${group}${state.qualifier.plan === 'B' ? group === 'A' ? ' · Odd numbers' : ' · Even numbers' : ''}`;
   const qualifierTiebreak = state => { const rounds = state.qualifier.rounds?.[state.qualifier.activeGroup]?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
   const matchTiebreak = state => { const rounds = currentMatch(state)?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
-  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierHighlight, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, date, icon };
+  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierHighlight, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, songDifficulty, date, icon };
 })();
