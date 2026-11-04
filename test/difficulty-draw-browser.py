@@ -173,7 +173,7 @@ def draw_and_ban(page, overlay):
     geometry(page, f'r{match["round"]}-production-selection')
     idle_overlay(overlay)
     assert overlay.locator('.candidate').count() == 6
-    displayed = overlay.locator('.candidate-status').all_inner_texts()
+    displayed = overlay.locator('.candidate .song-difficulty').evaluate_all('nodes=>nodes.map(node=>node.getAttribute("aria-label"))')
     assert displayed == [f'{song["difficulty"]} {int(song["constant"])}' for song in match['candidates']], displayed
     assert all(float(song['level']).is_integer() for song in match['candidates'])
     for player in [0, 1]:

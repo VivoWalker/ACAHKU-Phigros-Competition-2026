@@ -112,7 +112,8 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | --- | --- |
 | Start screen / default source that follows scene controls | `/overlay/start.html` |
 | Qualifier waiting | `/overlay/qualifier-waiting.html` |
-| Double elimination waiting | `/overlay/double-elimination-waiting.html` |
+| Double elimination waiting / next-song preview loop | `/overlay/double-elimination-waiting.html` |
+| Double elimination results processing, before each single-song reveal | `/overlay/double-elimination-processing.html` |
 | Three-player qualifier match | `/overlay/qualifier-match.html` |
 | Qualifier results are being collated, before the operator reveals the scores | `/overlay/qualifier-processing.html` |
 | Two-player double elimination match, including the three-song final | `/overlay/double-elimination-match.html` |
@@ -124,7 +125,7 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | Grand Final last-song reveal video (the live source returns to waiting automatically) | `/overlay/grand-final-video.html` |
 | Fixed Grand Final song announcement | `/overlay/grand-final-announcement.html` |
 
-`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are eleven scenes, including qualifier result processing, score statistics, selection and the Grand Final announcement. Descriptive bottom-left notes are omitted from the broadcast; ranking pages continue to rotate automatically.
+`/overlay/live.html` is an alias for the source following the control panel; it is not an extra tournament scene. The start document follows the shared scene by default. Other named documents show their named screen and still update live data. Append `?follow=1` to make any document follow scene controls, or `?fixed=1` to pin a preview (including the start screen). There are sixteen scenes, including qualifier and double-elimination result processing, score statistics, selection and the Grand Final sequence. Descriptive bottom-left notes are omitted from the broadcast; ranking pages continue to rotate automatically.
 
 Capture-card source rectangles in the 1920×1080 canvas, in player order. These positions are identical in single and dual view:
 
@@ -177,9 +178,11 @@ Refresh the OBS Browser Source after copying or replacing a file. The API checks
 **Live production / 賽事操作台** is the default main-control page. It keeps the live preview, current entrants/song, the next broadcast action, countdown and phase-specific controls together. The preview stays connected during edits. The existing qualifier, bracket, selection and event tabs remain available for setup, corrections and advanced operations; manual scene switching, camera modes, source checks and referee tools are also available under **其他播出設定**.
 
 - **Challenge qualifier:** preparation → song 1 → song 2 → song 3 → results processing → complete three-song results → current ranking. The second and third song buttons update only the current-song indicator: the match scene, capture windows and preview remain live, with no intervening waiting/statistics screen or repeated start cue. Advance the indicator when the game moves to the next song; the broadcast server does not detect gameplay progress automatically. After the final game settlement, show **統計中 / RESULTS PROCESSING**, with the event character on the right, while staff record each song's score and P/G/B/M plus its official Challenge total. The scorekeeper sheet and main-control correction tools remain available; saving scores does not reveal them automatically. When ready, the main operator selects **顯示本輪總成績** to show all three songs together for the current batch. After ranking, advance to the next batch of up to three entrants, or explicitly move to the next group/round. The last batch does not wrap to the first. Plan A still requires verified Round 1 qualification before the revival round. Historical individual-score qualifiers and single-song tiebreaks keep their original waiting/match/statistics controls.
-- **Double elimination:** preselection waiting → six candidates / bans / two picks → song 1 waiting → match → statistics → song 2 waiting → match → statistics → verified round result → bracket → the next ready match. Enter scores and original ACC/judgements on the same page; result confirmation still enforces all score and tiebreak rules. The fixed Grand Final has its own announcement and bypasses bans; historical finals retain their audience/MC controls.
+- **Double elimination:** preselection waiting → six candidates / bans / two picks → song 1 waiting / preview loop → match → results processing → statistics → song 2 waiting / preview loop → match → results processing → statistics → verified round result → bracket → the next ready match. Each processing screen shows 統計中 / RESULTS PROCESSING with the event character, covers the capture feeds and keeps both staff scoring sheets available. Saving never reveals scores automatically; the operator selects the next action to show that song’s statistics. Enter scores and original ACC/judgements on the same page; result confirmation still enforces all score and tiebreak rules. The fixed Grand Final has its own announcement and bypasses bans; historical finals retain their audience/MC controls.
 
 The statistics page shows **本輪總成績** for ordinary Challenge qualifiers: every current entrant has three song scores, each song's four judgement counts, and the game's official three-song total. Other matches and single-song tiebreaks retain **本曲統計**. Unrecorded values appear as `—`, while recorded zero remains `0`. Per-song statistics never supply, average or replace the official `challengeTotal`. Main control groups all three songs' correction tools and the total in the final-results phase; scorekeepers save the complete sheet for their current batch only.
+
+The verified round-result screen gives each player an equal-width card with a large combined score, both individual song scores and summed Perfect / Good / Bad / Miss counts. The confirmed winner and actual bracket destination are highlighted; transfers to the losers’ bracket and elimination remain distinct. Missing judgement evidence displays `—`, while recorded zero remains `0`. Totals and judgement sums use base songs only; ACC/tiebreak decisions retain their recorded reason and never infer a winner from the displayed totals alone. Main control shows the same combined summary.
 
 Workflow changes use one validated `set-broadcast-cue` command, so the scene, entrants and song cursor change in the same revision. Unsaved score/statistic drafts prevent advancing the workflow; normal state refreshes preserve those drafts. If another operator changes songs, the pending earlier-song editor remains available without changing the live cue. Discarding drafts requires explicit confirmation. Completed batches are skipped, including after a tiebreak. Existing event files need no manual migration. Restart the server after updating, then refresh the main control and OBS source.
 
@@ -321,7 +324,7 @@ Artwork: assets/song/song-01.webp
 Preview: assets/song-preview/song-01.mp3
 ```
 
-Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. A normal state refresh does not restart playback. Redraw, scene exit, tiebreaks and match completion stop it. The fixed Grand Final uses its sequential announcement described above.
+Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Candidate, focus and picked-song cards use a white slanted difficulty block, with the level above EZ/HD/IN/AT. BAN/PICK has its own slot and never replaces difficulty. Composer names stay in the library and are omitted from these cards. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. After selection, the waiting screen loops only the upcoming song’s preview. Moving to the next waiting song changes the loop; score saves, ordinary state updates, reloads and server restarts retain the saved waiting cue. Gameplay, processing, statistics and other scene exits stop and unload it. Hidden/inactive OBS sources stay silent, staff previews remain muted, and sealed final-song previews are withheld until reveal. A normal state refresh does not restart playback. Redraw, leaving selection, tiebreaks and match completion stop selection previews. The fixed Grand Final uses its sequential announcement described above.
 
 The control panel's embedded program preview is silent. Use one OBS Browser Source for program audio, enable **Control audio via OBS** to mix it, and add `audio=0` to any additional overlay source URLs to avoid duplicate audio. Browsers that block autoplay show an **Enable broadcast audio / 啟用直播音訊** button; use OBS **Interact** if needed. The organiser's audio is bundled as **48 real MP3 previews, covering all 50 charts**, each 10–12 seconds before encoder padding. IN/AT charts of the same song share a file. Both Grand Final previews now play during the dedicated announcement. See [preview preparation and playback details](public/assets/song-preview/README.md) and [the cut timestamp table](public/assets/song-preview/preview-map.csv).
 
@@ -333,7 +336,7 @@ Four complete Phigros 4.0.1 interface loops are bundled locally, separately from
 
 | Broadcast scene | Background music |
 | --- | --- |
-| Main / both waiting screens / qualifier results processing | `ChapterSelect0` · chapter selection |
+| Main / qualifier waiting / DE waiting before song selection / both results-processing screens | `ChapterSelect0` · chapter selection |
 | Score statistics, including the Challenge qualifier's complete three-song results | `LevelOver2` · IN results |
 | Overall results / qualifier ranking | `LevelOver3` · AT results |
 | Bracket | Chapter 9 inner-pack ambience |
@@ -371,6 +374,7 @@ Song preview checks use generated temporary tones to exercise actual Chromium de
 
 ```sh
 python3 test/selection-audio-browser.py
+python3 test/double-elimination-flow-browser.py
 python3 test/song-preview-preparation.py
 python3 test/bundled-song-previews.py
 ```

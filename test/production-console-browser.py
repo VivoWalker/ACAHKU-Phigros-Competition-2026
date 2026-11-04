@@ -233,6 +233,9 @@ def assert_console(page):
 
 def next_step(page, next_phase):
     click_saved(page, '[data-production-next]')
+    if next_phase == 'song-result' and page.locator('.production-workflow[data-stage="double-elimination"][data-phase="processing"]').count():
+        phase(page, 'processing')
+        click_saved(page, '[data-production-next]')
     phase(page, next_phase)
 
 

@@ -9,7 +9,7 @@
   const ease = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
   const duration = song => Number.isFinite(song?.previewDuration) && song.previewDuration > 0 && song.previewDuration <= 600 ? song.previewDuration : DEFAULT_DURATION;
   const safePath = path => typeof path === 'string' && path.length <= 180 && /^assets\/song-preview\/[A-Za-z0-9_./-]+\.(mp3|ogg|wav|m4a)$/i.test(path) && !/[\r\n]/.test(path) && !path.includes('..');
-  const validCue = cue => cue && typeof cue.id === 'string' && cue.id.length > 0 && ['ban', 'picks'].includes(cue.kind) && Number.isFinite(cue.startedAt) && Array.isArray(cue.songIds) && cue.songIds.length === (cue.kind === 'ban' ? 1 : 2) && cue.songIds.every(id => typeof id === 'string' && id.length > 0)
+  const validCue = cue => cue && typeof cue.id === 'string' && cue.id.length > 0 && ['ban', 'picks', 'waiting'].includes(cue.kind) && Number.isFinite(cue.startedAt) && Array.isArray(cue.songIds) && cue.songIds.length === (cue.kind === 'picks' ? 2 : 1) && cue.songIds.every(id => typeof id === 'string' && id.length > 0)
     && (cue.durations === undefined || Array.isArray(cue.durations) && cue.durations.length === cue.songIds.length
       && Array.from(cue.durations).every(seconds => Number.isFinite(seconds) && seconds > 0 && seconds <= 600));
 
@@ -23,7 +23,7 @@
     const lengths = cue.songIds.map((id, index) => (cue.durations?.[index] ?? duration(catalog.get(id))) * 1000);
     let elapsed = now - cue.startedAt - fadeMs;
     if (elapsed < 0) return { pending: true, songId: cue.songIds[0], index: 0, offset: 0, duration: lengths[0] / 1000, cycle: 0 };
-    if (cue.kind === 'ban') {
+    if (cue.kind !== 'picks') {
       const cycle = Math.floor(elapsed / lengths[0]);
       return { songId: cue.songIds[0], index: 0, offset: (elapsed % lengths[0]) / 1000, duration: lengths[0] / 1000, cycle };
     }
@@ -163,7 +163,7 @@
       const path = safePath(song?.previewAudio) ? song.previewAudio : '';
       // A ban loop can seek the same warmed decoder rather than fetching and
       // rebuilding a media element every twelve seconds.
-      if (context.cue.kind === 'ban' && current?.audio && current.path === path && current.cueKey === key && !current.failed) {
+      if (context.cue.kind !== 'picks' && current?.audio && current.path === path && current.cueKey === key && !current.failed) {
         current.segmentKey = segmentKey; current.playing = false; current.ended = false;
         start(current, currentPhase); return;
       }

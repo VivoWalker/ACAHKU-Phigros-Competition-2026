@@ -34,6 +34,13 @@
     const sum = values.reduce((value, judgement) => value + normaliseJudgements(judgement).accuracy, 0);
     return Math.round((sum / values.length + Number.EPSILON) * 10000) / 10000;
   }
+  function sumJudgements(values) {
+    return Object.fromEntries(COUNTERS.map(key => {
+      if (!Array.isArray(values) || !values.length || values.some(value => !Number.isSafeInteger(value?.[key]) || value[key] < 0)) return [key, null];
+      const count = values.reduce((sum, value) => sum + value[key], 0);
+      return [key, Number.isSafeInteger(count) ? count : null];
+    }));
+  }
   function compare(scoresA, scoresB, judgementsA, judgementsB) {
     assert(Array.isArray(scoresA) && Array.isArray(scoresB) && scoresA.length === scoresB.length && scoresA.length > 0,
       'Both players must have the same number of score slots.');
@@ -58,5 +65,5 @@
     }
     return base;
   }
-  return { normaliseJudgements, meanAccuracy, total, compare, matchDecision };
+  return { normaliseJudgements, meanAccuracy, sumJudgements, total, compare, matchDecision };
 });

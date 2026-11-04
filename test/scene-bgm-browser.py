@@ -280,10 +280,12 @@ def main():
                 live.wait_for_function("document.querySelector('audio[data-selection-audio-retiring]')!==null", timeout=3000)
                 no_bgm(live)
                 idle(live, 'double-elimination-waiting')
-                bgm_playing(live, MANIFEST['scenes']['double-elimination-waiting'])
-                assert not live.locator('audio[data-selection-audio],audio[data-selection-audio-retiring],audio[data-selection-audio-prepared]').count()
+                live.wait_for_function("id=>document.querySelector('audio[data-selection-audio]')?.dataset.songId===id&&!document.querySelector('audio[data-selection-audio-retiring]')", arg=live.evaluate("__fixtureState.tournament.matches.find(m=>m.id===__fixtureState.tournament.currentMatchId).songs[0].id"), timeout=8000)
+                no_bgm(live)
                 assert not media(live)['overlaps'], media(live)
-                check('six-candidate draw is silent; bans and picks retain previews; menu BGM waits until the outgoing preview is fully released')
+                check('six-candidate draw is silent; bans/picks preview and waiting loops the next song without overlapping menu BGM')
+                scene(live, 'start')
+                bgm_playing(live, MANIFEST['scenes']['start'])
 
                 for event, detail in [('obsSourceVisibleChanged', {'visible': False}), ('obsSourceActiveChanged', {'active': False})]:
                     live.evaluate('event=>dispatchEvent(new CustomEvent(event.type,{detail:event.detail}))', {'type': event, 'detail': detail})

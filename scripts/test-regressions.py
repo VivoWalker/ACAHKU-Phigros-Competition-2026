@@ -26,6 +26,7 @@ SUITES = {
         "browser-smoke",
         "challenge-qualifier-browser",
         "qualifier-ranking-browser",
+        "double-elimination-flow-browser",
         "control-reconnect-browser",
         "draft-recovery-browser",
         "intermission-browser",

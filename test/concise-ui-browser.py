@@ -192,7 +192,7 @@ def staff_checks(context, base):
 
 def overlay_checks(context, base):
     views = [('qualifier', scene) for scene in ['start', 'intermission', 'arcaea-trailer', 'qualifier-waiting', 'qualifier-match', 'qualifier-processing', 'song-result', 'result']]
-    views += [('regular', scene) for scene in ['double-elimination-waiting', 'double-elimination-match', 'song-result', 'result', 'bracket', 'song-selection']]
+    views += [('regular', scene) for scene in ['double-elimination-waiting', 'double-elimination-match', 'double-elimination-processing', 'song-result', 'result', 'bracket', 'song-selection']]
     views += [('announcement', 'grand-final-announcement'), ('final', 'grand-final-totals'), ('final', 'grand-final-video')]
     page = context.new_page(); page.set_viewport_size({'width': 1920, 'height': 1080})
     for fixture, scene in views:
@@ -217,7 +217,7 @@ def overlay_checks(context, base):
         if fixture == 'regular' and scene == 'result':
             assert 'ACCURACY' in text, 'retain the reason for a tied-total result'
     page.close()
-    check('all fifteen overlay scenes and both result/statistics modes retain data, readable geometry and transparent capture windows')
+    check('all sixteen overlay scenes and both result/statistics modes retain data, readable geometry and transparent capture windows')
 
 
 def main():
