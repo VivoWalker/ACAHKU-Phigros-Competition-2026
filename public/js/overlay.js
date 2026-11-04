@@ -322,10 +322,10 @@
     const groups = rankingGroups(s), ranks = groups.map(group => B.rankings(s, group));
     const compact = ranks.some(group => group.length > 4), challenge = B.challengeQualifier(s);
     return backdrop() + header(s, challenge ? '課題模式' : '預選賽') + title('現在排名') + `<div class='ranking-tables ${compact ? 'compact' : ''} ${groups.length === 1 ? 'single-group' : ''}'>${groups.map((group, i) => {
-      const players = ranks[i], pages = Math.max(1, Math.ceil(players.length / 8));
+      const players = ranks[i], pages = Math.max(1, Math.ceil(players.length / 8)), highlight = B.qualifierHighlight(s, group);
       const page = fixedRankPage ? Math.min(rankPage - 1, pages - 1) : rankingTick % pages;
       const from = page * 8, visible = players.slice(from, from + 8);
-      return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr class='${B.qualifierAdvancing(s, group, p) ? 'is-qualifying' : ''}'><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
+      return `<section data-motion-block><h2>${e(B.qualifierLabel(s, group))}${pages > 1 ? `<span class='rank-range'>${from + 1}–${Math.min(from + 8, players.length)} / ${players.length}</span>` : ''}</h2><table><thead><tr><th>#</th><th>Player</th><th>${challenge ? '課題總分' : 'Total'}</th></tr></thead><tbody>${visible.map(p => `<tr class='${highlight(p)}'><td>${challenge && p.total === null ? '—' : `${p.rank}${p.tied ? ' =' : ''}`}</td><td>${e(p.name)}</td><td>${challenge ? B.score(p.total) : p.scores.some(n => n !== null) ? B.score(p.total) : '—'}</td></tr>`).join('')}</tbody></table></section>`;
     }).join('')}</div>`;
   }
   function challengeSetResult(s) {

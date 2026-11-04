@@ -117,6 +117,72 @@ def screenshot(page, name):
     REPORT['screenshots'].append(str(file))
 
 
+def cutoff_highlights(context, base, main, live, preview):
+    current = P.state(main)
+    players = {player['number']: player for player in current['qualifier']['players']}
+    totals = {number: current['qualifier']['rounds']['A']['results'][player['id']]['challengeTotal']
+              for number, player in players.items()}
+    standings = context.new_page()
+    standings.goto(base + '/control/')
+    standings.fill('#pin', P.PIN)
+    standings.click('#pair-form button')
+    standings.wait_for_selector('.production-workflow')
+    standings.click('.tabs [data-tab="qualifiers"]')
+
+    def total(number, value, **extra):
+        return P.command(main, 'set-qualifier-total', {'group': 'A', 'playerId': players[number]['id'],
+                                                      'total': value, **extra})
+
+    def colors(response, yellow, green):
+        for page in [live, preview]:
+            idle(page, 'result', response['revision'])
+        standings.wait_for_function("revision=>document.querySelector('#sync-status')?.textContent.endsWith('revision '+revision)",
+                                    arg=response['revision'], polling=100)
+        for page, selector in [(live, '.ranking-tables'), (preview, '.ranking-tables'),
+                               (main, '#production-rankings'), (standings, '.score-table')]:
+            for class_name, numbers in [('is-qualification-tie', yellow), ('is-qualifying', green)]:
+                rows = page.locator(f'{selector} tbody tr.{class_name}')
+                assert rows.count() == len(numbers), (selector, class_name, rows.all_inner_texts())
+                names = [row.locator('td').nth(1).inner_text() for row in rows.all()]
+                assert all(any(players[number]['name'] in name for name in names) for number in numbers), names
+                for row in rows.all():
+                    assert 'linear-gradient' in row.evaluate('row=>getComputedStyle(row).backgroundImage')
+            assert page.locator(f'{selector} tr.is-qualification-tie.is-qualifying').count() == 0
+
+    try:
+        response = total(5, totals[4])
+        colors(response, [4, 5], [1, 2, 3])
+        screenshot(live, 'qualification-cutoff-tie')
+        screenshot(main, 'control-cutoff-tie')
+        check('fourth/fifth-place ties mark both entrants yellow in OBS, preview and both control ranking views')
+
+        P.command(main, 'draw-qualifier-tiebreak', {'group': 'A', 'playerIds': [players[4]['id'], players[5]['id']]})
+        for number, score in [(4, 900000), (5, 910000)]:
+            P.command(main, 'set-qualifier-tiebreak-score', {'group': 'A', 'index': 0,
+                      'playerId': players[number]['id'], 'score': score})
+        response = P.command(main, 'confirm-qualifier-tiebreak', {'group': 'A', 'index': 0, 'verified': True})
+        colors(response, [], [1, 2, 3, 5])
+        check('confirming the tiebreak removes yellow and marks the actual advancing entrant green')
+
+        total(5, totals[5], verified=True, confirmClearTiebreaks=True,
+              reason='Restore unique totals in the temporary ranking fixture.')
+        for number in [3, 5, 6]:
+            response = total(number, totals[4])
+        colors(response, [3, 4, 5, 6], [1, 2])
+        check('multi-player ties spanning the cutoff mark every unresolved entrant yellow')
+        for number in [3, 5, 6]:
+            total(number, totals[number])
+        total(2, totals[1])
+        response = total(7, totals[6])
+        colors(response, [], [1, 2, 3, 4])
+        check('ties entirely among qualifiers or eliminated entrants do not receive yellow markings')
+        total(2, totals[2])
+        response = total(7, totals[7])
+        colors(response, [], [1, 2, 3, 4])
+    finally:
+        standings.close()
+
+
 def run(browser, directory):
     process, base = P.start_server(directory, 'ranking')
     context = None
@@ -180,6 +246,7 @@ def run(browser, directory):
         screenshot(live, 'ranking-reentered-first-page')
         screenshot(main, 'control-qualifying-rankings')
         check('returning from processing resets page and clock; canceled callbacks cannot advance a new visit')
+        cutoff_highlights(context, base, main, live, preview)
 
         for event, field in [('obsSourceActiveChanged', 'active'), ('obsSourceVisibleChanged', 'visible')]:
             tick(live, ['9–16 / 20'])
