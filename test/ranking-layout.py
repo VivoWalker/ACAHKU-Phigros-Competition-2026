@@ -15,8 +15,8 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'test-results'
-OUT.mkdir(exist_ok=True)
+OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results' / 'ranking-layout'))
+OUT.mkdir(parents=True, exist_ok=True)
 
 
 def player_name(group, rank):
@@ -29,7 +29,7 @@ def check_page(page, first, last, screenshot=None):
     observed = []
     for index, group in enumerate(['A', 'B']):
         section = sections.nth(index)
-        assert f'GROUP {group}' in section.locator('h2').inner_text()
+        assert f'GROUP {group}' in section.locator('h2').inner_text().upper()
         assert re.fullmatch(rf'{first}[–-]{last}\s*/\s*32', section.locator('.rank-range').inner_text().strip())
         rows = section.locator('tbody tr')
         assert rows.count() == last - first + 1 == 8
@@ -95,7 +95,9 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             # Only the ranking timer is accelerated; Socket.IO and other timers retain their normal delays.
             accelerate_ranking = """
 const rankingInterval = window.setInterval.bind(window);
+const rankingTimeout = window.setTimeout.bind(window);
 window.setInterval = (handler, delay, ...args) => rankingInterval(handler, delay === 12000 ? 1500 : delay, ...args);
+window.setTimeout = (handler, delay, ...args) => rankingTimeout(handler, delay === 12000 ? 1500 : delay, ...args);
 """
             pinned = context.new_page()
             pinned.add_init_script(accelerate_ranking)

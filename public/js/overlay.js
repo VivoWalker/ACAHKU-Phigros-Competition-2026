@@ -12,7 +12,7 @@
   canvas.classList.toggle('show-details', details);
   const rankPage = Number.parseInt(query.get('rankPage'), 10);
   const fixedRankPage = Number.isInteger(rankPage) && rankPage > 0;
-  let rankingTick = 0;
+  let rankingTick = 0, rankingTimer = null, rankingContext = '';
   let state, committedCover, branding = { logo: null, visual: null, socLogo: null, kiramekiLogo: null };
   let bootReady = false, resolveInitialState;
   const initialState = new Promise(resolve => { resolveInitialState = resolve; });
@@ -296,10 +296,32 @@
     const tie = B.matchTiebreak(s);
     return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : ''}'>${m.players.map((id, i) => playerName(s, id, tie ? [tie.scores[i]] : m.scores[i], tie ? [tie.song] : songs, i, 'double-player') + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定', id) + (cams[i] ? handcam(cams[i], id ? B.name(s, id) : '待定', id) : '')).join('')}${songBand(tie?.song || m.songs[m.currentSong], m.currentSong, count, 'double-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
   }
+  function rankingGroups(s) {
+    return s.qualifier.plan === 'A' && !s.qualifier.rounds?.A?.locked ? ['A'] : ['A', 'B'];
+  }
+  function syncRankingRotation(scene) {
+    const visible = scene === 'result' && state.stage === 'qualifier' && obsActive && obsVisible && !document.hidden;
+    const groups = visible ? rankingGroups(state) : [];
+    const context = visible ? JSON.stringify([state.eventId, state.qualifier.plan, state.qualifier.activeGroup, groups]) : '';
+    // A new visit or round gets a full first page; score updates keep its clock.
+    if (context !== rankingContext) {
+      clearTimeout(rankingTimer); rankingTimer = null;
+      rankingTick = 0; rankingContext = context;
+    }
+    if (fixedRankPage || !groups.some(group => B.rankings(state, group).length > 8)) {
+      clearTimeout(rankingTimer); rankingTimer = null; return;
+    }
+    if (rankingTimer !== null) return;
+    const timer = setTimeout(() => {
+      if (rankingTimer !== timer || pageDisposed) return;
+      rankingTimer = null; rankingTick++; render();
+    }, 12000);
+    rankingTimer = timer;
+  }
   function qualifierResults(s) {
-    const ranks = ['A', 'B'].map(group => B.rankings(s, group));
+    const groups = rankingGroups(s), ranks = groups.map(group => B.rankings(s, group));
     const compact = ranks.some(group => group.length > 4), challenge = B.challengeQualifier(s);
-    return backdrop() + header(s, challenge ? '課題模式' : '預選賽') + title('現在排名') + `<div class='ranking-tables ${compact ? 'compact' : ''}'>${['A', 'B'].map((group, i) => {
+    return backdrop() + header(s, challenge ? '課題模式' : '預選賽') + title('現在排名') + `<div class='ranking-tables ${compact ? 'compact' : ''} ${groups.length === 1 ? 'single-group' : ''}'>${groups.map((group, i) => {
       const players = ranks[i], pages = Math.max(1, Math.ceil(players.length / 8));
       const page = fixedRankPage ? Math.min(rankPage - 1, pages - 1) : rankingTick % pages;
       const from = page * 8, visible = players.slice(from, from + 8);
@@ -385,6 +407,7 @@
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = shownScene();
+    syncRankingRotation(scene);
     warmImages(state, scene);
     const current = B.currentMatch(state);
     refreshFinaleProjection();
@@ -421,11 +444,6 @@
       syncFinaleEffects();
     } });
   }
-  const rankingTimer = setInterval(() => {
-    if (!fixedRankPage && state?.stage === 'qualifier' && canvas.dataset.renderedScene === 'result' && ['A', 'B'].some(group => B.rankings(state, group).length > 8)) {
-      rankingTick++; render();
-    }
-  }, 12000);
   async function prepareBranding() {
     brandingTimer = setTimeout(() => brandingRequest.abort(), 1800);
     try {
@@ -462,7 +480,7 @@
     if (event.persisted || pageDisposed) return;
     pageDisposed = true;
     lifecycle.abort(); brandingRequest.abort(); clearTimeout(brandingTimer);
-    clearInterval(rankingTimer); resolveInitialState();
+    clearTimeout(rankingTimer); resolveInitialState();
     clearTimeout(finaleProjection?.timer); finaleProjection = null;
     countdownClient?.dispose(); countdownLayer.dispose();
     selectionAudio.dispose(); sceneBgm.dispose(); finaleVideo.dispose(); intermissionVideo.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
