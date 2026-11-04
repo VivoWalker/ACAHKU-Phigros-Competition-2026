@@ -9,14 +9,16 @@
   function validScore(value) {
     return value === null || Number.isSafeInteger(value) && value >= 0 && value <= 1000000;
   }
-  function normaliseJudgements(raw) {
+  function normaliseJudgements(raw, { allowMissingAccuracy = false } = {}) {
     if (raw === null || raw === undefined) return null;
     assert(typeof raw === 'object' && !Array.isArray(raw), 'Judgements must contain the accuracy shown on the score screen.');
-    assert(typeof raw.accuracy === 'number' && Number.isFinite(raw.accuracy) && raw.accuracy >= 0 && raw.accuracy <= 100,
+    const hasAccuracy = Object.prototype.hasOwnProperty.call(raw, 'accuracy');
+    assert(allowMissingAccuracy && !hasAccuracy || typeof raw.accuracy === 'number' && Number.isFinite(raw.accuracy) && raw.accuracy >= 0 && raw.accuracy <= 100,
       'Accuracy must be a number from 0 to 100.');
     const supplied = COUNTERS.filter(key => Object.prototype.hasOwnProperty.call(raw, key));
     assert(supplied.length === 0 || supplied.length === COUNTERS.length, 'Enter all four judgement counts, or leave all four empty.');
-    const result = { accuracy: raw.accuracy };
+    assert(hasAccuracy || supplied.length === COUNTERS.length, 'Enter all four judgement counts when accuracy is omitted.');
+    const result = hasAccuracy ? { accuracy: raw.accuracy } : {};
     for (const key of supplied) {
       assert(Number.isSafeInteger(raw[key]) && raw[key] >= 0, 'Judgement counts must be nonnegative safe integers.');
       result[key] = raw[key];

@@ -210,7 +210,7 @@
     };
     const slotMetadata = (value, oldScore) => {
       if (value === null) return null;
-      return Object.hasOwn(p, 'judgements') ? ScoreRules.normaliseJudgements(p.judgements) : value !== oldScore ? null : undefined;
+      return Object.hasOwn(p, 'judgements') ? ScoreRules.normaliseJudgements(p.judgements, { allowMissingAccuracy: isChallenge(state) }) : value !== oldScore ? null : undefined;
     };
     switch (action.type) {
       case 'set-qualifier-scoring-mode': setScoringMode(state, p.mode); return true;
