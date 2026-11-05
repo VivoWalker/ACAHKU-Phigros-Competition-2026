@@ -66,7 +66,10 @@ test('first two totals attach the confirmed AT17 finale without manual entry, an
   assert.equal(state.scene, 'double-elimination-waiting');
   assert.ok(!JSON.stringify(publicState(state)).includes(CompetitionConfig.FINALE_SONG.title));
   assert.ok(!JSON.stringify(scorekeeperState(state)).includes(CompetitionConfig.FINALE_SONG.title));
-  assert.throws(() => act(state, 'play-final-finale-video'), /local reveal video/);
+  act(state, 'play-final-finale-video');
+  assert.equal(match(state).finale.videoPath, 'assets/finale/final-song-reveal.mp4');
+  assert.equal(match(state).finale.videoCue.duration, require('../public/js/broadcast-videos').clips.finale.videoDuration);
+  assert.ok(!JSON.stringify(publicState(state)).includes(CompetitionConfig.FINALE_SONG.title));
   act(state, 'reveal-final-finale');
   assert.equal(match(publicState(state)).songs[2].title, 'What do you want more than a Happy ending?');
   assert.equal(match(publicState(state)).songs[2].difficulty, 'AT');
