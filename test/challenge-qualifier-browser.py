@@ -557,6 +557,8 @@ def exercise_new(browser, base, data_dir):
     for player, value in [('p4', 2800000), ('p5', 2800000), ('p6', 2900000), ('p7', 2600000), ('p8', 2500000)]:
         command(main, 'set-qualifier-total', {'group': 'A', 'playerId': player, 'total': value})
     command(main, 'draw-qualifier-tiebreak', {'group': 'A', 'playerIds': ['p4', 'p5']})
+    command(main, 'set-scene', {'scene': 'qualifier-tiebreak-announcement'})
+    command(main, 'set-scene', {'scene': 'qualifier-match'})
     wait_batch(scorer, ['p4', 'p5'])
     assert scorer.locator('input[data-score-key]').count() == 2
     assert scorer.locator('input[data-judgement-key]').count() == 8
