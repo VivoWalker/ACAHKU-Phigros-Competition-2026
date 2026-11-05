@@ -2,6 +2,7 @@
 @import url('../assets/ui/song-selection.css');
 @import url('../assets/ui/judgements.css');
 @import url('../assets/ui/song-card.css');
+@import url('./final-standings.css');
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent!important;overflow:hidden}
 body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-variant-numeric:tabular-nums}
 #canvas.phi-app{width:1920px;height:1080px;position:absolute;transform-origin:top left;font-size:28px;isolation:isolate;background:transparent;overflow:hidden}

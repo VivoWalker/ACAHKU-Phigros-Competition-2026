@@ -247,8 +247,17 @@
   .song-grid.phi-song-select .selected-track { padding: 8px 12px; gap: 10px; }
   .song-grid.phi-song-select .selected-track h3 { font-size: 19px; }
 }
-.qualifier-tiebreak-stage .tiebreak-contestants{min-height:612px;display:flex;flex-direction:column;justify-content:center;gap:32px;padding-left:80px;overflow-wrap:anywhere}
-.qualifier-tiebreak-stage .tiebreak-contestants p{font-size:48px;line-height:1.3;margin:0}
-.tiebreak-versus{font-size:26px;letter-spacing:.14em;color:#c7cdd5}
+.qualifier-tiebreak-stage .tiebreak-heading{left:112px;top:224px;max-width:680px}
+.qualifier-tiebreak-stage .tiebreak-heading h1{font-size:80px;font-weight:500;line-height:1.3;letter-spacing:.01em}
+.qualifier-tiebreak-stage .tiebreak-heading>p{font-size:30px;line-height:1.6;letter-spacing:.08em;margin-top:14px;color:#e1e5ed}
+.qualifier-tiebreak-stage .selection{left:112px;right:80px;top:316px;bottom:80px;grid-template-columns:648px minmax(0,1fr);gap:56px}
+.qualifier-tiebreak-stage .tiebreak-contestants{min-height:0;display:flex;flex-direction:column;gap:20px;padding:224px 32px 0 0;overflow-wrap:anywhere}
+.qualifier-tiebreak-stage .tiebreak-contestants p{font-size:48px;font-weight:500;line-height:1.35;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.qualifier-tiebreak-stage .selection-art{height:480px;--cover-edge-offset:128.616px}
+.qualifier-tiebreak-stage .selection-detail{margin-top:24px}
+.qualifier-tiebreak-stage .selection-focus-card{min-height:140px;padding-left:40px;gap:24px}
+.qualifier-tiebreak-stage .selection-focus-card h2{font-size:54px;line-height:1.3;font-weight:500}
+.qualifier-tiebreak-stage .selection-focus-card .song-difficulty{--song-difficulty-h:140px;--song-difficulty-w:164px}
+.tiebreak-versus{font-size:24px;line-height:1;letter-spacing:.14em;color:#c7cdd5}
 .waiting-song .waiting-chart{font-size:30px;margin-top:12px;line-height:1.2}
 @media (prefers-reduced-motion: reduce) { .selection-ambience { transition: none; } }

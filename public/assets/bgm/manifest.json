@@ -125,6 +125,7 @@
     "double-elimination-waiting": "chapter-select",
     "song-result": "result-in",
     "result": "result-at",
+    "final-standings": "result-at",
     "bracket": "chapter9-ambience",
     "grand-final-announcement": "chapter9-ambience"
   }

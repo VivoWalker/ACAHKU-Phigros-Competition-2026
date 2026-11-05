@@ -82,6 +82,13 @@ def run(browser, directory, group):
         step(main, live, 'selection', 'qualifier-tiebreak-announcement')
         assert live.locator('.selection-focus-card h2').inner_text() == expected_title
         assert live.locator('.selection-focus-card .song-difficulty').get_attribute('aria-label') == 'IN ' + expected_level
+        assert live.locator('.tiebreak-heading p').inner_text() == 'TIEBREAKER SONG REVEAL'
+        assert live.locator('.tiebreak-heading h1').evaluate('node=>parseFloat(getComputedStyle(node).fontSize)') >= 72
+        assert live.evaluate('''()=>{
+          const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+          const heading=rect('.tiebreak-heading'),players=rect('.tiebreak-contestants p'),cover=rect('.selection-art'),detail=rect('.selection-detail');
+          return heading.bottom<players.top && heading.right<cover.left && cover.bottom<detail.top && detail.bottom<1030;
+        }'''), 'Bilingual title, contestants, artwork and song details must occupy separate areas'
         live.wait_for_function('''()=>document.querySelector('#canvas').dataset.selectionAudio==='playing'
           &&window.__tieAudio.some(audio=>!audio.paused&&audio.currentTime>.05&&audio.volume>0)''')
         live.wait_for_function("()=>document.querySelector('.selection-art img').complete&&document.querySelector('.selection-art img').naturalWidth>0")

@@ -27,6 +27,7 @@ SUITES = {
         "challenge-qualifier-browser",
         "qualifier-ranking-browser",
         "qualifier-tiebreak-flow-browser",
+        "final-standings-browser",
         "double-elimination-flow-browser",
         "selection-motion-browser",
         "control-reconnect-browser",
