@@ -31,9 +31,7 @@
   let previewCatalog = new Map(), previewFocus = null, previewRenderPending = false, obsActive = true, obsVisible = true;
   const previewEnabled = query.get('preview') !== '1' && query.get('audio') !== '0';
   const bgmScenes = new Map(), bgmTracks = new Map();
-  const bgmVolume = query.has('bgmVolume') && Number.isFinite(Number(query.get('bgmVolume')))
-    ? Math.max(0, Math.min(1, Number(query.get('bgmVolume')))) : .25;
-  const bgmEnabled = previewEnabled && query.get('bgm') !== '0' && bgmVolume > 0;
+  const bgmEnabled = previewEnabled && query.get('bgm') !== '0';
   const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'qualifier-processing', 'double-elimination-processing', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
   let bgmStatus = 'silent', selectionStatus = 'silent', intermissionVideoStatus = 'silent', videoStatus = 'silent', audioSyncPending = false;
   const audioPrompt = document.createElement('button');
@@ -48,7 +46,7 @@
     // synchronized clock until the new sample arrives, never the wall clock.
     return previewClockAnchor ? previewClockAnchor.serverNow + localNow - previewClockAnchor.localNow : 0;
   };
-  const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, now: previewNow,
+  const selectionAudio = BroadcastSelectionAudio.createPlayer({ enabled: previewEnabled, gain: 1, now: previewNow,
     onFocus(songId) {
       if (pageDisposed) return;
       if (previewFocus === songId) return;
@@ -71,7 +69,7 @@
       }
     }
   });
-  const sceneBgm = BroadcastSceneBgm.createPlayer({ enabled: bgmEnabled, gain: bgmVolume,
+  const sceneBgm = BroadcastSceneBgm.createPlayer({ enabled: bgmEnabled, gain: 1,
     onStatus(status) {
       if (pageDisposed) return;
       bgmStatus = status.state;
@@ -146,7 +144,7 @@
     const active = bootReady && bgmEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected
       && scene === programScene() && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement'
       && !finalAudioScene(scene) && !selectionAudio.hasMedia && !finaleVideo.hasMedia && !intermissionVideo.hasMedia;
-    sceneBgm.update({ track: bgmTracks.get(bgmScenes.get(scene)) || null, active: !!active });
+    sceneBgm.update({ track: bgmTracks.get(bgmScenes.get(scene)) || null, active: !!active, volume: B.audioVolume(state) });
     refreshAudioPrompt();
   }
   listen(document, 'visibilitychange', () => { render(); syncBgm(); });
@@ -472,14 +470,14 @@
     warmImages(state, scene);
     const current = B.currentMatch(state);
     refreshFinaleProjection();
-    finaleVideo.update({ match: current, active: obsActive && obsVisible && !document.hidden && countdownClient?.connected === true
+    finaleVideo.update({ match: current, volume: B.audioVolume(state), active: obsActive && obsVisible && !document.hidden && countdownClient?.connected === true
       && state.stage === 'double-elimination' && state.scene === 'grand-final-video' && rawScene() === state.scene });
-    intermissionVideo.update({ config: state.broadcast?.intermission, active: obsActive && obsVisible && !document.hidden
+    intermissionVideo.update({ config: state.broadcast?.intermission, volume: B.audioVolume(state), active: obsActive && obsVisible && !document.hidden
       && countdownClient?.connected === true && previewNow() > 0 && state.scene === 'arcaea-trailer' && rawScene() === 'arcaea-trailer' });
     const finaleAudio = finalAudioScene(scene, current);
     const selectionScene = scene === 'song-selection' && current?.id !== 'GF';
     const waitingCue = waitingAudioCue(scene);
-    selectionAudio.update({ cue: waitingCue || (finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue), songs: previewSongs(current),
+    selectionAudio.update({ cue: waitingCue || (finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue), songs: previewSongs(current), volume: B.audioVolume(state),
       active: obsActive && obsVisible && !document.hidden && countdownClient?.connected && countdownClient.now() > 0
         && scene === programScene() && state.stage === 'double-elimination' && current?.status !== 'complete'
         && (waitingCue || !B.matchTiebreak(state) && (selectionScene || finaleAudio)) });

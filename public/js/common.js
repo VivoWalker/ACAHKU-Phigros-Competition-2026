@@ -12,6 +12,10 @@
   ];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const total = values => (values || []).reduce((s, n) => s + (n ?? 0), 0);
+  const audioVolume = state => {
+    const value = state?.broadcast?.audioVolume;
+    return Number.isFinite(value) && value >= 0 && value <= 1 ? value : .25;
+  };
   const score = n => n === null || n === undefined ? '—' : n.toLocaleString('en-US');
   const qualifierPlayers = (state, group) => window.QualifierRules ? QualifierRules.entries(state, group) : state.qualifier.players.filter(p => p.group === group);
   const player = (state, id) => state.qualifier.plan ? qualifierPlayers(state, state.qualifier.activeGroup).find(p => p.id === id) || state.qualifier.players.find(p => p.id === id) : state.qualifier.players.find(p => p.id === id);
@@ -50,5 +54,5 @@
   const qualifierLabel = (state, group = state.qualifier.activeGroup) => state.qualifier.plan === 'A' ? group === 'A' ? 'Qualifier Round 1' : 'Revival Round' : `Group ${group}${state.qualifier.plan === 'B' ? group === 'A' ? ' · Odd numbers' : ' · Even numbers' : ''}`;
   const qualifierTiebreak = state => { const rounds = state.qualifier.rounds?.[state.qualifier.activeGroup]?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
   const matchTiebreak = state => { const rounds = currentMatch(state)?.tiebreaks; const round = rounds?.at(-1); return round && !round.confirmed ? { ...round, index: rounds.length - 1 } : null; };
-  window.Broadcast = { scenes, escape, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierHighlight, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, songDifficulty, date, icon };
+  window.Broadcast = { scenes, escape, audioVolume, total, score, player, name, currentMatch, matchSongCount, fixedFinalSongs, seed, losses, rankings, qualifierPlayers, qualifierAdvancing, qualifierHighlight, qualifierLabel, qualifierTiebreak, challengeQualifier, qualifierTotal, matchTiebreak, song, songDifficulty, date, icon };
 })();

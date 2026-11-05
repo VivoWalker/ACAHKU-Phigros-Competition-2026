@@ -6,6 +6,26 @@ const songs = ['a', 'b', 'c'].map(id => ({ id, previewAudio: `assets/song-previe
 const cue = (id, kind, songIds, startedAt = 1000) => ({ id, kind, songIds, startedAt });
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 
+test('master volume controls previews and retiring fades without restarting their cue', async t => {
+  const f = fixture(t, { gain: 1 });
+  const first = cue('master-a', 'ban', ['a']);
+  f.update(first, { volume: .4 }); f.advance(500); await flush(); f.advance(1000);
+  const audio = f.audios[0]; audio.currentTime = 1;
+  f.update(first, { volume: .12 });
+  assert.equal(audio.volume, .12); assert.equal(audio.currentTime, 1); assert.equal(audio.playCalls, 1);
+  const second = cue('master-b', 'ban', ['b'], f.now());
+  f.update(second, { volume: .12 }); f.advance(100);
+  assert.ok(audio.volume > 0);
+  f.update(second, { volume: 0 });
+  assert.ok(f.audios.every(item => item.volume === 0));
+  f.advance(400); await flush(); f.advance(1000);
+  assert.ok(f.audios.every(item => item.volume === 0));
+  const count = f.audios.length;
+  f.update(second, { volume: .6 });
+  assert.equal(f.audios.length, count); assert.equal(f.audios.at(-1).volume, .6);
+  assert.equal(f.audios.at(-1).playCalls, 1);
+});
+
 function fixture(t, options = {}) {
   let clock = 1000, serial = 0;
   const timers = new Map(), audios = [], focuses = [], statuses = [];

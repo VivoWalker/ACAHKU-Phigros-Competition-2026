@@ -85,7 +85,7 @@
   --song-difficulty-w: 90px;
   --song-difficulty-size: 40px;
   --song-difficulty-label: 17px;
-  --song-difficulty-gap: 0px;
+  --song-difficulty-gap: 10px;
   color: #18202a;
 }
 .selection-stage .candidate.banned { opacity: 1; }
@@ -119,7 +119,7 @@
   --song-difficulty-w: 114px;
   --song-difficulty-size: 44px;
   --song-difficulty-label: 18px;
-  --song-difficulty-gap: 0px;
+  --song-difficulty-gap: 10px;
 }
 .selection-stage .selection-state {
   display: grid;
@@ -183,7 +183,7 @@
   --song-difficulty-h: 76px;
   --song-difficulty-size: 34px;
   --song-difficulty-label: 14px;
-  --song-difficulty-gap: 0px;
+  --song-difficulty-gap: 10px;
 }
 .song-grid.phi-song-select .song-difficulty,
 .song-grid.phi-song-select .song-difficulty b,
@@ -198,13 +198,13 @@
 .song-grid.phi-song-select .cover-window { --selection-cover-h: clamp(220px, 22vw, 340px); --cover-edge-offset: calc(var(--selection-cover-h) * .267949); height: var(--selection-cover-h); }
 .song-grid.phi-song-select .song-focus-title { margin: 14px 0 0; padding-left: 26px; min-height: 88px; }
 .song-grid.phi-song-select .song-focus-title h2 { font-size: 30px; font-weight: 400; line-height: 1.3; }
-.song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-h: 88px; --song-difficulty-w: 96px; --song-difficulty-gap: 0px; }
+.song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-h: 88px; --song-difficulty-w: 96px; --song-difficulty-gap: 10px; }
 .song-grid.phi-song-select > section > .panel { background: transparent; border: 0; padding: 0; }
 .song-grid.phi-song-select .panel-header h2, .song-grid.phi-song-select .section-heading h2 { font-size: 18px; font-weight: 500; }
 .song-grid.phi-song-select .selected-track { border: 0; background: #050b1480; padding: 8px 16px; margin-bottom: 8px; }
 .song-grid.phi-song-select .selected-track h3 { font-size: 21px; font-weight: 400; }
 .song-grid.phi-song-select .selected-track .order { font-size: 22px; font-weight: 400; color: #aebccc; }
-.song-grid.phi-song-select .selected-track .song-difficulty { --song-difficulty-gap: 0px; }
+.song-grid.phi-song-select .selected-track .song-difficulty { --song-difficulty-gap: 8px; }
 .song-grid.phi-song-select .selection-progress { background: #050b1480; font-size: 13px; padding: 16px; }
 .song-grid.phi-song-select .selection-players { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 22px 18px; font-size: 14px; }
 .song-grid.phi-song-select .selection-players b { margin-right: 8px; font-weight: 500; color: #aebccc; }

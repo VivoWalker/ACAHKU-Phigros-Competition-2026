@@ -13,6 +13,7 @@
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
   let state, socket, activeTab = 'broadcast', connections = { overlays: 0, controls: 0 }, focusSongId, editingSongId = null;
+  let volumeDraft = null, volumeEdit = 0;
   let queue = Promise.resolve(), toastTimer, token = sessionValue('broadcast-token');
   let connectionEpoch = 0, freshEpoch = -1;
   const pendingCommands = new Set();
@@ -517,7 +518,28 @@
     task.catch(error => { for (const item of snapshot) item.record.pending.delete(normal(item.record, item.value)); if (pageDisposed) return; reconcileDrafts(); refreshDraftNotice(); toast(error.message, true); $('sync-status').textContent = 'Update not saved · 草稿保留'; });
     return task;
   }
+  function refreshVolume() {
+    $('global-volume').hidden = !state;
+    if (!state) return;
+    const value = volumeDraft ?? Math.round(B.audioVolume(state) * 100);
+    $('broadcast-volume').value = String(value);
+    $('broadcast-volume').disabled = !controlReady();
+    $('broadcast-volume-value').textContent = `${value}%`;
+    $('broadcast-volume').setAttribute('aria-valuetext', `${value}%`);
+  }
+  listen($('broadcast-volume'), 'input', event => {
+    volumeDraft = Number(event.target.value); volumeEdit++; refreshVolume();
+  });
+  listen($('broadcast-volume'), 'change', event => {
+    if (!state || !controlReady()) { volumeDraft = null; refreshVolume(); return; }
+    const value = Number(event.target.value), edit = ++volumeEdit;
+    send('set-broadcast-volume', { volume: value / 100 }).catch(() => {}).finally(() => {
+      if (edit === volumeEdit) { volumeDraft = null; refreshVolume(); }
+    });
+  });
   function controlStatus(connected) {
+    if (!connected) { volumeDraft = null; volumeEdit++; }
+    refreshVolume();
     $('connection').className = 'connection' + (connected ? '' : ' offline');
     $('connection').innerHTML = `<span class="dot"></span>${connected ? 'Connected to laptop' : 'Reconnecting…'}`;
     if (!connected) $('sync-status').textContent = 'Offline · editing paused';
@@ -1094,6 +1116,7 @@
   listen(window, 'pagehide', disposePage);
   function render() {
     if (pageDisposed || !state) return;
+    refreshVolume();
     const currentMatch = B.currentMatch(state);
     const visibleSongs = activeTab === 'songs' || activeTab === 'broadcast' && productionInfo().phase === 'selection' ? (fixedFinal(currentMatch) ? currentMatch.songs : currentMatch?.candidates) || [] : [];
     mediaWarmup.setImages(visibleSongs.filter(song => !song.hidden).map(song => '../' + displayArt(song.art)));

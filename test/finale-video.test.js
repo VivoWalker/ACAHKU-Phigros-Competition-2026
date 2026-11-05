@@ -3,6 +3,20 @@ const assert = require('node:assert/strict');
 const Sequence = require('../public/js/final-sequence');
 const { createPlayer, safePath } = require('../public/js/finale-video');
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+
+test('master volume updates the reveal video in place and preserves preview muting', async t => {
+  for (const enabled of [true, false]) {
+    const f = fixture(t, { enabled }); f.advance(2500);
+    f.player.update({ match: cue(), active: true, volume: .25 }); await flush();
+    const video = f.media[0], time = video.currentTime;
+    for (const volume of [0, .37, 1]) {
+      f.player.update({ match: cue(), active: true, volume }); await flush();
+      assert.equal(video.volume, enabled ? volume : 0);
+      assert.equal(video.muted, !enabled); assert.equal(video.currentTime, time);
+      assert.equal(video.playCalls, 1); assert.equal(f.media.length, 1);
+    }
+  }
+});
 const cue = (id = 'ec2d3b96-dc29-4cbf-ae21-b8bacf63237f', startedAt = 1000, duration = 10) => ({
   id: 'GF', finalMode: 'fixed-two', finale: { stage: 'video', videoPath: 'assets/finale/reveal.mp4',
     videoDuration: duration, effectLevel: 0, videoCue: { id, startedAt, duration } }

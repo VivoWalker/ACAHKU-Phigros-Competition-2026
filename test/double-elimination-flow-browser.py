@@ -181,6 +181,20 @@ def run(browser, directory, tone):
         live.reload()
         loop(live, current(main)['songs'][0])
         check('first-song waiting loops the upcoming clip, survives state updates and resumes after OBS reload')
+        live.evaluate("window.__volumeDecoder=document.querySelector('audio[data-selection-audio]')")
+        for value in [0, 37, 25]:
+            main.locator('#broadcast-volume').evaluate('''(input, value) => {
+              input.value=String(value);
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+              input.dispatchEvent(new Event('change', {bubbles:true}));
+            }''', value)
+            live.wait_for_function('''value => {
+              const audio=document.querySelector('audio[data-selection-audio]');
+              return audio&&audio===window.__volumeDecoder&&
+                (value===0 ? audio.volume===0 : audio.volume>value/100*.82&&audio.volume<=value/100+.0001);
+            }''', arg=value)
+            assert current(main)['waitingPreviewCue'] == before
+        check('global volume and mute update the waiting decoder in place without changing the saved preview cue')
         step(main, live, 'match', 'double-elimination-match')
         processing(main, live, 0)
         check('song one enters an opaque processing screen, stops previews and keeps score entry available until reveal')

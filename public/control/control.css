@@ -3,6 +3,12 @@
 @import url('../assets/ui/judgements.css');
 @import url('../assets/ui/song-card.css');
 @import url('../assets/ui/song-selection.css');
+.global-volume{display:grid;grid-template-columns:auto minmax(100px,1fr) 42px;align-items:center;gap:12px;width:280px;margin-left:auto}
+.global-volume>span{font-size:14px;color:#dfe8f0;margin:0;white-space:nowrap}
+.global-volume input{min-height:44px;margin:0;padding:0;border:0;background:transparent;accent-color:#f4f7fa;cursor:pointer}
+.global-volume .volume-value{text-align:right;font-size:14px;font-variant-numeric:tabular-nums;color:#e5edf4}
+.has-global-volume .global-volume:not([hidden])+.connection{margin-left:0}
+@media(max-width:800px){.app-header.has-global-volume{flex-wrap:wrap;height:auto;min-height:84px;padding-block:18px;row-gap:10px}.has-global-volume .wordmark{order:1}.has-global-volume .header-caption{order:2}.has-global-volume .connection{order:3;margin-left:auto!important}.has-global-volume .global-volume{order:4;flex:1 1 100%;width:auto;margin:0}}
 :root{color-scheme:dark}body.phi-app{margin:0;--phi-font:var(--broadcast-font);background:#101319;min-height:100vh;font-size:16px;font-weight:400;overflow-x:hidden}
 [hidden]{display:none!important}button,input,select,textarea{font-family:inherit}a{text-decoration:none}button{touch-action:manipulation}button:disabled{opacity:.42}button,a,input,select,textarea{outline-offset:3px}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #83def4!important}
 .ambient{position:fixed;inset:0;z-index:-1;background:linear-gradient(110deg,rgba(11,16,23,.98),rgba(19,26,38,.96)),url('../assets/song/cover-2.svg') center/cover;pointer-events:none}.ambient:after{content:'';position:absolute;inset:0;background:url('../assets/ui/triangle-mesh.svg') center/cover;opacity:.22}
