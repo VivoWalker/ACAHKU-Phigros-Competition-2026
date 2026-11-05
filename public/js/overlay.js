@@ -144,7 +144,7 @@
     const scene = shownScene(), finale = finalAudioScene(scene);
     const onAir = previewEnabled && obsActive && obsVisible && !document.hidden && countdownClient?.connected && scene === programScene();
     audioPrompt.hidden = !onAir || !(bgmStatus === 'blocked' && bgmAllowedScenes.has(scene) && scene !== 'grand-final-announcement' && !finale
-      || selectionStatus === 'blocked' && (scene === 'song-selection' || scene === 'double-elimination-waiting' || finale) || videoStatus === 'blocked' && scene === 'grand-final-video' || intermissionVideoStatus === 'blocked' && scene === 'arcaea-trailer');
+      || selectionStatus === 'blocked' && (scene === 'song-selection' || scene === 'qualifier-tiebreak-announcement' || scene === 'double-elimination-waiting' || finale) || videoStatus === 'blocked' && scene === 'grand-final-video' || intermissionVideoStatus === 'blocked' && scene === 'arcaea-trailer');
   }
   function syncBgm() {
     if (pageDisposed) return;
@@ -174,7 +174,7 @@
     if (surface && ambienceHost.parentElement !== surface) surface.append(ambienceHost);
     // This layer survives scene commits. Await the newest bitmap before
     // showing it; stale decodes must never reopen an outgoing background.
-    const src = scene === 'song-selection' && mount.querySelector('[data-motion-content] .selection-stage') && !focus?.hidden ? art(focus) : '';
+    const src = ['song-selection', 'qualifier-tiebreak-announcement'].includes(scene) && mount.querySelector('[data-motion-content] .selection-stage') && !focus?.hidden ? art(focus) : '';
     if (!src) {
       ambienceWanted = ''; ambienceRequest++; ambienceLayer.style.opacity = '0'; return;
     }
@@ -200,7 +200,7 @@
   function sceneImages(s, scene) {
     const match = B.currentMatch(s);
     if (scene === 'grand-final-announcement' || scene === 'song-selection' && match?.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return B.fixedFinalSongs(s).filter(song => !song.hidden).map(art).concat('/assets/finale/error-texture.png');
-    if (scene === 'song-selection') { const focus = selectionFocus(s); return focus && !focus.hidden ? [art(focus)] : []; }
+    if (['song-selection', 'qualifier-tiebreak-announcement'].includes(scene)) { const focus = selectionFocus(s); return focus && !focus.hidden ? [art(focus)] : []; }
     return [];
   }
   function warmImages(s, scene) {
@@ -214,6 +214,7 @@
     return [...shared, ...visible];
   }
   function selectionFocus(s) {
+    if (s.stage === 'qualifier') return B.qualifierTiebreak(s)?.song;
     const m = B.currentMatch(s), tie = B.matchTiebreak(s);
     const preview = m?.id !== 'GF' && !tie ? [...(m?.songs || []), ...(m?.candidates || [])].find(song => song.id === previewFocus) : null;
     return tie?.song || preview || m?.songs[m.currentSong] || m?.candidates.find(c => c.id === m.selectionPreviewCue?.songIds[0]) || m?.candidates.find(c => c.id === m.bans.filter(Boolean).at(-1)) || m?.candidates[0];
@@ -267,13 +268,13 @@
     const clubs = clubLogos('hero-club-logos');
     return backdrop() + `<div class='event-start ${branding.visual ? 'with-art' : 'without-art'}'>${visual('start-art')}<section class='event-copy'>${logo('hero-logo')}<h1 data-motion-block style='font-size:${s.event.title.length > 60 ? 60 : s.event.title.length > 36 ? 78 : 90}px'>${e(s.event.title)}</h1><p data-motion-block class='event-line'>${e(B.date(s.event.date))}<br>${e(s.event.time)} · ${e(s.event.venue)}</p><div class='organiser-row ${clubs ? 'with-club-logos' : ''}'><p data-motion-block class='organiser'>${e(s.event.organiserZH || s.event.organiser)}</p>${clubs}</div></section></div>`;
   }
-  function waiting(s, context, label, names, currentSong, songCount, song, selectionNext = false) {
-    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中</div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'>${selectionNext ? '' : `<span>SONG ${currentSong + 1} / ${songCount}</span>`}<h2>${selectionNext ? '即將開始選曲' : songText(song)}</h2></div></section>${visual('waiting-art')}</div>`;
+  function waiting(s, context, label, names, currentSong, songCount, song, selectionNext = false, showChart = false) {
+    return backdrop() + header(s, context) + `<div class='waiting-body ${branding.visual ? 'with-art' : 'without-art'}'><section class='waiting-copy'><div data-motion-block class='section-label'>準備中</div><h1 data-motion-block>${e(label)}</h1><div class='waiting-players'>${names.map(player => `<p data-motion-block>${entrantText(player)}</p>`).join('')}</div><div data-motion-block class='waiting-song'>${selectionNext || songCount === 1 ? '' : `<span>SONG ${currentSong + 1} / ${songCount}</span>`}<h2>${selectionNext ? '即將開始選曲' : songText(song)}</h2>${showChart && song && !song.hidden ? `<p class="waiting-chart">${e(song.difficulty)} ${e(song.level)}</p>` : ''}</div></section>${visual('waiting-art')}</div>`;
   }
   function qualifierWaiting(s) {
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs;
     const tie = B.qualifierTiebreak(s);
-    return waiting(s, B.challengeQualifier(s) ? '課題模式' : '預選賽', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]));
+    return waiting(s, tie ? B.qualifierLabel(s) : B.challengeQualifier(s) ? '課題模式' : '預選賽', tie ? `TIEBREAK ${tie.index + 1}` : B.qualifierLabel(s), q.activePlayers.map(id => entrant(s, id)), tie ? 0 : q.currentSong, tie ? 1 : 3, tie?.song || B.song(s, songs[q.currentSong]), false, !!tie);
   }
   function qualifierProcessing(s) {
     return processing(s, B.qualifierLabel(s));
@@ -330,9 +331,9 @@
     const q = s.qualifier, songs = q.groups[q.activeGroup].songs.map(id => B.song(s, id));
     const tie = B.qualifierTiebreak(s), challenge = B.challengeQualifier(s);
     const cameras = showHandcams(s);
-    const frames = [[64, 300, 576, 324], [672, 300, 576, 324], [1280, 300, 576, 324]];
-    const cams = cameras ? [[64, 800, 240, 135], [672, 800, 240, 135], [1280, 800, 240, 135]] : [];
-    return backdrop([...frames, ...cams]) + header(s, `${B.qualifierLabel(s)}${challenge ? ' · 課題模式' : ''}`) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : ''}'>${frames.map((rect, i) => {
+    const frames = [[64, 300, 576, 324], [672, 300, 576, 324], [1280, 300, 576, 324]].slice(0, tie ? q.activePlayers.length : 3);
+    const cams = cameras ? [[64, 800, 240, 135], [672, 800, 240, 135], [1280, 800, 240, 135]].slice(0, frames.length) : [];
+    return backdrop([...frames, ...cams]) + header(s, `${B.qualifierLabel(s)}${challenge && !tie ? ' · 課題模式' : ''}`) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : ''}'>${frames.map((rect, i) => {
       const id = q.activePlayers[i], name = id ? B.name(s, id) : '待定';
       const directTotal = challenge ? tie ? tie.scores[id] ?? null : B.qualifierTotal(s, B.player(s, id)) : undefined;
       return playerName(s, id, tie ? [tie.scores[id] ?? null] : B.player(s, id)?.scores, tie ? [tie.song] : songs, i, 'qualifier-player', directTotal) + capture(rect, 'gameplay', name, id) + (cams[i] ? handcam(cams[i], name, id) : '');
@@ -430,15 +431,11 @@
       const pi = r.players.indexOf(id), won = id === r.winnerId;
       const destination = BroadcastBracket.destination(s, completed, id);
       const outcome = r.matchId === 'GF' ? won ? '冠軍' : '亞軍' : won ? '勝出' : destination?.kind === 'loss' ? '轉入敗者組' : '淘汰';
-      const counts = scoreResult ? ScoreRules.sumJudgements(completed?.judgements?.[pi]) : {};
-      const accuracy = r.decisionReason === 'accuracy' ? ScoreRules.meanAccuracy(completed?.judgements?.[pi]) : null;
-      return `<article data-motion-block class='round-result-card result-row result-${destination?.kind || ''} ${won ? 'is-winner' : ''}' data-player-id='${e(id)}'>
+      return `<article data-motion-block class='round-result-card result-row result-${destination?.kind || ''} ${won ? 'is-winner' : ''}' data-player-id='${e(id)}' data-song-count='${count}'>
         <header><p class='round-result-outcome'>${outcome}</p><h2 title='${e(B.name(s, id))}'>${entrantText(entrant(s, id))}</h2></header>
         <div class='round-result-total-label'>${count === 2 ? '兩曲總分' : count === 3 ? '三曲總分' : '總分'}</div>
         <strong data-stat='total'>${scoreResult ? B.score(r.totals[pi]) : '—'}</strong>
-        ${accuracy === null ? '' : `<div class='round-result-accuracy'>ACC ${accuracy.toFixed(4)}%</div>`}
-        ${scoreResult && completed ? `<div class='result-song-scores'>${completed.songs.map((song, si) => `<span><small title='${e(song.title)}'>SONG ${si + 1} · ${e(song.title)}</small><b data-stat='song-score'>${B.score(completed.scores?.[pi]?.[si])}</b></span>`).join('')}</div>
-        <dl class='round-result-judgements'>${['perfect', 'good', 'bad', 'miss'].map(key => { const value = B.score(counts[key]); return `<div class='judgement-${key}'><dt>${key.toUpperCase()}</dt><dd data-stat='${key}' style='font-size:${Math.min(36, Math.floor(270 / value.length))}px'>${value}</dd></div>`; }).join('')}</dl>` : ''}
+        ${scoreResult && completed ? `<div class='result-song-scores' style='--result-song-count:${count}'>${completed.songs.map((song, si) => `<div class='round-result-track'><h3 title='${e(song.title)}'>${e(song.title)}</h3>${B.songDifficulty(song)}<b data-stat='song-score'>${B.score(completed.scores?.[pi]?.[si])}</b></div>`).join('')}</div>` : ''}
         <p class='round-result-route'>${e(destination?.label || r.placements[id] || '—')}</p>
       </article>`;
     }).join('');
@@ -495,7 +492,21 @@
   function arcaeaTrailer(s) {
     return backdrop() + header(s, 'Arcaea 比賽預告') + `<section data-motion-block class="trailer-standby"><h1>ARCAEA</h1><p>比賽預告</p></section>`;
   }
-  const renderers = { start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-processing': doubleProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
+  function qualifierTiebreakAnnouncement(s) {
+    const tie = B.qualifierTiebreak(s), song = tie?.song;
+    if (!song || song.hidden) return qualifierWaiting(s);
+    return backdrop() + header(s, `${B.qualifierLabel(s)} · TIEBREAK ${tie.index + 1}`)
+      + `<section class="selection-stage qualifier-tiebreak-stage" aria-label="加賽曲目公布">
+        <div data-motion-block class="scene-head selection-heading"><h1>加賽曲目公布</h1></div>
+        <div class="selection"><div class="selection-catalog tiebreak-contestants waiting-players">
+          ${s.qualifier.activePlayers.map(id => `<p data-motion-block>${entrantText(entrant(s, id))}</p>`).join('<span class="tiebreak-versus" aria-hidden="true">VS</span>')}
+        </div><section class="selection-feature">
+          <div data-motion-key="selection-cover" class="selection-art"><img src="${e(art(song))}" alt="${e(song.title)}"></div>
+          <div class="selection-detail"><div data-motion-key="selection-focus-card" data-motion-stable class="selection-focus-card">
+            <h2>${songText(song)}</h2>${B.songDifficulty(song)}</div></div>
+        </section></div></section>`;
+  }
+  const renderers = { 'qualifier-tiebreak-announcement': qualifierTiebreakAnnouncement, start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-processing': doubleProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = shownScene();
@@ -510,10 +521,13 @@
     const finaleAudio = finalAudioScene(scene, current);
     const selectionScene = scene === 'song-selection' && current?.id !== 'GF';
     const waitingCue = waitingAudioCue(scene);
-    selectionAudio.update({ cue: waitingCue || (finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue), songs: previewSongs(current), volume: B.audioVolume(state),
+    const qualifierReveal = state.stage === 'qualifier' && scene === 'qualifier-tiebreak-announcement'
+      ? B.qualifierTiebreak(state) : null;
+    selectionAudio.update({ cue: qualifierReveal?.previewCue || waitingCue || (finaleAudio ? BroadcastFinalAnnouncement.audioCue(current) : current?.selectionPreviewCue), songs: qualifierReveal ? [qualifierReveal.song] : previewSongs(current), volume: B.audioVolume(state),
       active: obsActive && obsVisible && !document.hidden && countdownClient?.connected && countdownClient.now() > 0
-        && scene === programScene() && state.stage === 'double-elimination' && current?.status !== 'complete'
-        && (waitingCue || !B.matchTiebreak(state) && (selectionScene || finaleAudio)) });
+        && scene === programScene() && (qualifierReveal && !qualifierReveal.song.hidden
+          || state.stage === 'double-elimination' && current?.status !== 'complete'
+            && (waitingCue || !B.matchTiebreak(state) && (selectionScene || finaleAudio))) });
     syncBgm();
     refreshCountdown();
     syncFinaleEffects();

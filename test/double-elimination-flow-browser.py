@@ -209,20 +209,24 @@ def run(browser, directory, tone):
         assert live.locator('.round-result-card').count() == 2
         assert live.locator('.round-result-card.is-winner').get_attribute('data-player-id') == current(main)['players'][0]
         assert live.locator('.round-result-card>strong').all_inner_texts() == ['1,953,086', '1,930,864']
-        for pi, expected in enumerate([['1,801', '21', '1', '2'], ['1,770', '50', '5', '1']]):
+        for pi in range(2):
             card = live.locator('.round-result-card').nth(pi)
-            assert card.locator('.round-result-judgements dd').all_inner_texts() == expected
-            assert float(card.locator('h2').evaluate('node=>getComputedStyle(node).fontSize').removesuffix('px')) >= 44
-            assert float(card.locator(':scope>strong').evaluate('node=>getComputedStyle(node).fontSize').removesuffix('px')) >= 80
+            assert card.locator('.round-result-judgements,[data-stat="perfect"],[data-stat="good"],[data-stat="bad"],[data-stat="miss"]').count() == 0
+            assert card.locator('.round-result-track h3').all_inner_texts() == [song['title'] for song in current(main)['songs']]
+            assert card.locator('.round-result-track .song-difficulty').count() == 2
+            assert card.locator('.round-result-track .song-difficulty b').evaluate_all("nodes=>nodes.every(node=>getComputedStyle(node).color==='rgb(24, 32, 42)')")
+            assert card.locator('.round-result-track h3').evaluate_all('nodes=>nodes.every(node=>parseFloat(getComputedStyle(node).fontSize)>=32)')
+            assert card.locator('.round-result-track .song-difficulty b').evaluate_all('nodes=>nodes.every(node=>parseFloat(getComputedStyle(node).fontSize)>=40)')
+        assert float(live.locator('.round-result-card>strong').first.evaluate('node=>getComputedStyle(node).fontSize').removesuffix('px')) >= 80
         assert '勝者組' in live.locator('.round-result-card.is-winner .round-result-route').inner_text()
-        assert live.locator('.result-song-scores small').evaluate_all('''nodes=>nodes.every(node=>{
+        assert live.locator('.round-result-track h3').evaluate_all('''nodes=>nodes.every(node=>{
           const title=node.getBoundingClientRect(),column=node.parentElement.getBoundingClientRect();
           return title.left>=column.left-.5&&title.right<=column.right+.5;
         })'''), 'Long song titles escaped their individual score columns'
         assert main.locator('.production-result-card').count() == 2
         screenshot(live, 'round-result-readable-totals')
         P.geometry(main, 'round-result-control')
-        check('verified results show large side-by-side totals, both song scores, summed P/G/B/M and the correct advancement route')
+        check('verified results show large side-by-side totals, large song titles/difficulty, both scores, no judgement totals and the correct advancement route')
         assert not REPORT['browser_errors'], REPORT['browser_errors']
     finally:
         if context:

@@ -48,6 +48,7 @@ with tempfile.TemporaryDirectory(prefix='proposal-overlay-') as directory:
    for scene in ['qualifier-waiting','qualifier-match','result']:
     command('set-scene',{'scene':scene});audit('plan-A-'+scene,'Qualifier Round 1')
    command('draw-qualifier-tiebreak',{'group':'A','playerIds':['p4','p5']})
+   command('set-scene',{'scene':'qualifier-tiebreak-announcement'})
    for scene in ['qualifier-waiting','qualifier-match']:
     command('set-scene',{'scene':scene});audit('qualifier-tiebreak-'+scene,'TIEBREAK 1')
     assert state()['qualifier']['rounds']['A']['tiebreaks'][-1]['song']['title'] in page.locator('#scene').inner_text()

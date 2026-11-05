@@ -582,7 +582,7 @@ def main():
                 live.wait_for_timeout(2700)
                 geometry(live, 'three-song-grand-final-results')
                 fully_readable(live, '.result-row>strong', 2, 'three-song-grand-final-results')
-                fully_readable(live, '.result-song-scores b', 6, 'three-song-grand-final-results')
+                fully_readable(live, '.result-song-scores [data-stat="song-score"]', 6, 'three-song-grand-final-results')
                 assert all(item['boxShadow'] == 'none' and item['filter'] == 'none'
                            for item in graphic_styles(live)), graphic_styles(live)
                 snapshot(live, '06-three-song-champion.png')

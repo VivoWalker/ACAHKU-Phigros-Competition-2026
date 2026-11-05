@@ -341,11 +341,17 @@
         assert(isChallenge(state) || players.every(player => ScoreRules.meanAccuracy(player.judgements || []) !== null), 'Enter every tied player’s original accuracy before drawing a tiebreak.');
         assert(state.library.length > 0, 'Add the full available Phigros song list to the local library for qualifier tiebreaks.');
         assert(round.tiebreaks.length < 1000, 'Qualifier tiebreak history limit reached.');
-        const song = { ...shuffled(state.library)[0] };
+        const preset = helpers.qualifierTiebreakSong?.(group);
+        if (preset && !state.library.some(song => song.id === preset.id)) {
+          assert(state.library.length < 500, 'Library limit is 500 songs.');
+          state.library.push({ ...preset });
+        }
+        const song = { ...(preset || shuffled(state.library)[0]) };
         round.tiebreaks.push({ song, playerIds: [...tied], scores: Object.fromEntries(tied.map(id => [id, null])),
-          judgements: Object.fromEntries(tied.map(id => [id, null])), confirmed: false });
+          judgements: Object.fromEntries(tied.map(id => [id, null])), confirmed: false, revealed: false });
         q.activeGroup = group; q.currentSong = 0;
         q.activePlayers = players.sort(numberOrder).slice(0, 3).map(player => player.id);
+        state.stage = 'qualifier'; state.scene = 'qualifier-waiting';
         return true;
       }
       case 'set-qualifier-tiebreak-score': {
@@ -369,7 +375,9 @@
           const left = tie.playerIds[a], right = tie.playerIds[b];
           assert(isChallenge(state) || ScoreRules.compare([tie.scores[left]], [tie.scores[right]], [tie.judgements[left]], [tie.judgements[right]]).reason !== 'missing-accuracy', 'Enter original accuracy for equal tiebreak scores.');
         }
-        tie.confirmed = true; return true;
+        tie.confirmed = true;
+        if (state.stage === 'qualifier' && q.activeGroup === group) state.scene = 'result';
+        return true;
       }
       default: break;
     }

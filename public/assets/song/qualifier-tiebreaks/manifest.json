@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "sourceCatalog": "https://raw.githubusercontent.com/rhythmarchive/rhythmarchive.github.io/57594018eee6196481636c4113229d129d3de818/catalog/index.json",
+  "tracks": [
+    {
+      "group": "A",
+      "title": "Aleph-0",
+      "difficulty": "IN",
+      "level": 16,
+      "resourceId": "01a00092-d665-7670-902d-a6d8439da073",
+      "art": "assets/song/qualifier-tiebreaks/aleph-0.png",
+      "sourceUrl": "https://rhythm-assets.cn-nb1.rains3.com/objects/9837690bf35f91230942479a55658a6df2614eacb76b79f3a3b719e35368b2cc/png",
+      "sha256": "9837690bf35f91230942479a55658a6df2614eacb76b79f3a3b719e35368b2cc",
+      "chartMetadata": [
+        {
+          "difficulty": "EZ",
+          "level": "3.5",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "HD",
+          "level": "12.2",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "IN",
+          "level": "16.0",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "AT",
+          "level": "0.0",
+          "available": false,
+          "status": "unavailable"
+        },
+        {
+          "difficulty": "Legacy",
+          "level": "15.6",
+          "available": true,
+          "status": "legacy"
+        }
+      ]
+    },
+    {
+      "group": "B",
+      "title": "ぱぴぷぴぷぴぱ",
+      "difficulty": "IN",
+      "level": 15,
+      "resourceId": "01a00093-b607-77c8-a1ca-bffaa5954323",
+      "art": "assets/song/qualifier-tiebreaks/papipupupupipa.png",
+      "sourceUrl": "https://rhythm-assets.cn-nb1.rains3.com/objects/dda3966dfae8eb7945f1d105923627201bb15e56691bec02013b28a74d0485eb/png",
+      "sha256": "dda3966dfae8eb7945f1d105923627201bb15e56691bec02013b28a74d0485eb",
+      "chartMetadata": [
+        {
+          "difficulty": "EZ",
+          "level": "5.0",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "HD",
+          "level": "12.3",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "IN",
+          "level": "15.9",
+          "available": true,
+          "status": "available"
+        },
+        {
+          "difficulty": "AT",
+          "level": "0.0",
+          "available": false,
+          "status": "unavailable"
+        }
+      ]
+    }
+  ]
+}

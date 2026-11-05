@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "previewReference": "https://raw.githubusercontent.com/000ylop/Phigdata/5cc4ec2f26c2d8cbcc2bb0d6d254a2297272d6bf/MonoBehaviour/GameInformation.json",
+  "normalization": "12-second in-game preview windows, constant linear gain to -18 LUFS, MP3 q2 44.1kHz stereo; full original audio is not published.",
+  "tracks": [
+    {
+      "id": "aleph-0",
+      "previewPath": "assets/song-preview/qualifier-tiebreaks/aleph-0.mp3",
+      "highlightStart": 11.519,
+      "highlightDuration": 12,
+      "duration": 12.042449,
+      "sourceUrl": "https://raw.githubusercontent.com/7aGiven/Phigros_Resource/5142ba2673ccbeb23173886f3bd851e9c881e6ec/Aleph0.LeaF.ogg",
+      "sourceGitBlob": "b327972d74fc61a3bf1c76c64d1cf7e52eb53ec8",
+      "sourceSha256": "156d5785b4e275417b586d39a30478720e73d4edb759e06fde1fdf9b5f40ab09",
+      "sha256": "84c97bc386ae6a639dbaddb5c589d63c288dfdd89adb4167adcdcbe54eb878e6",
+      "integratedLufs": -17.92,
+      "truePeakDb": -8.17,
+      "gainDb": -10.63
+    },
+    {
+      "id": "papipupupupipa",
+      "previewPath": "assets/song-preview/qualifier-tiebreaks/papipupupupipa.mp3",
+      "highlightStart": 92.6,
+      "highlightDuration": 12,
+      "duration": 12.042449,
+      "sourceUrl": "https://raw.githubusercontent.com/7aGiven/Phigros_Resource/5142ba2673ccbeb23173886f3bd851e9c881e6ec/%E3%81%B1%E3%81%B4%E3%81%B7%E3%81%B4%E3%81%B7%E3%81%B4%E3%81%B1.%E3%81%93%E3%82%8D%E3%81%AD%E3%81%BD%E3%81%A1With%E7%AB%8B%E7%A7%8B.ogg",
+      "sourceGitBlob": "3ac6f1d242cf94f42d8596a1d42f0ab882df57bf",
+      "sourceSha256": "936859e95edbb56bbbd88e9ff7debc6f0a6d673b3b85f559f9085a10a7960e34",
+      "sha256": "d6a8db4a84310f18a86091fbc37495c1082f6634a85a56206dfbfff12841a51e",
+      "integratedLufs": -17.99,
+      "truePeakDb": -10.0,
+      "gainDb": -11.96
+    }
+  ]
+}
