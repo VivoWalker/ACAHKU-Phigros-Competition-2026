@@ -2,19 +2,25 @@
    Side cuts use height × tan(15deg); text and artwork remain upright. */
 .selection-ambience {
   position: absolute;
-  inset: 14px;
-  z-index: -1;
+  inset: 0;
+  clip-path: inset(14px);
+  z-index: 0;
   overflow: hidden;
   background: #11161e;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 520ms ease-in-out;
 }
-.selection-ambience > img {
+.selection-ambience-art { position: absolute; inset: 0; opacity: .4; }
+.selection-ambience-art > img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform: scale(1.12);
   filter: blur(48px) saturate(.7);
-  opacity: .4;
+  opacity: 1;
 }
 .selection-ambience::before, .selection-ambience::after {
   content: '';
@@ -46,7 +52,7 @@
   align-items: start;
 }
 .selection-stage .selection-catalog, .selection-stage .selection-feature { min-width: 0; }
-.selection-stage .candidate-list { --catalog-row-h: 92px; gap: 12px; }
+.selection-stage .candidate-list { --catalog-row-h: 92px; min-height: 612px; gap: 12px; }
 .selection-stage .candidate-list.compact {
   --catalog-row-h: calc((624px - (var(--candidate-count) - 1) * 10px) / var(--candidate-count));
   gap: 10px;
@@ -96,6 +102,14 @@
 .selection-stage .candidate.focused, .selection-stage .candidate.focused .index { color: #f7f8fa; }
 .selection-stage .candidate.focused h3 { font-size: 36px; color: inherit; }
 .selection-stage .candidate.focused.picked .candidate-status { color: #b5e8d3; }
+.selection-stage .candidate.banned::before { background: #842737; }
+.selection-stage .candidate.banned.focused::before { background: #9b2f42; }
+.selection-stage .candidate.banned,
+.selection-stage .candidate.banned h3,
+.selection-stage .candidate.banned .index,
+.selection-stage .candidate.banned .candidate-status,
+.selection-stage .candidate.banned .song-difficulty { color: #fff; }
+.selection-stage .candidate.banned .song-difficulty::before { background: #b33a50; }
 .selection-stage .compact .candidate h3 { font-size: 28px; }
 .selection-stage .selection-art { --cover-edge-offset: 121.113px; height: 452px; background: #101722; }
 .selection-stage .selection-detail { margin: 18px 0 0; padding: 0; }
@@ -186,6 +200,16 @@
 .song-grid.phi-song-select .ban-button.active { background: #e8c0c3; color: #221b20; }
 .song-grid.phi-song-select .ban-button:disabled { opacity: .55; }
 .song-grid.phi-song-select .ban-button.active:disabled { opacity: 1; }
+.song-grid.phi-song-select .candidate-row.banned::before { background: #842737; }
+.song-grid.phi-song-select .candidate-row.banned.focused::before { background: #9b2f42; }
+.song-grid.phi-song-select .candidate-row.banned,
+.song-grid.phi-song-select .candidate-row.banned .song-preview-button,
+.song-grid.phi-song-select .candidate-row.banned .index,
+.song-grid.phi-song-select .candidate-row.banned .candidate-state,
+.song-grid.phi-song-select .candidate-row.banned .song-difficulty,
+.song-grid.phi-song-select .candidate-row.banned .song-difficulty b,
+.song-grid.phi-song-select .candidate-row.banned .song-difficulty > span { color: #fff; }
+.song-grid.phi-song-select .candidate-row.banned .song-difficulty::before { background: #b33a50; }
 .song-grid.phi-song-select.has-picks .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 96px; }
 .song-grid.phi-song-select.has-picks .ban-actions { display: none; }
 .song-grid.phi-song-select .cover-window { --selection-cover-h: clamp(220px, 22vw, 340px); --cover-edge-offset: calc(var(--selection-cover-h) * .267949); height: var(--selection-cover-h); }
@@ -223,3 +247,4 @@
   .song-grid.phi-song-select .selected-track { padding: 8px 12px; gap: 10px; }
   .song-grid.phi-song-select .selected-track h3 { font-size: 19px; }
 }
+@media (prefers-reduced-motion: reduce) { .selection-ambience { transition: none; } }

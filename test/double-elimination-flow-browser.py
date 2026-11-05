@@ -29,7 +29,7 @@ const fs=require('node:fs'),path=require('node:path');
 const state=require('./lib/default-state').createDefaultState(),T=require('./lib/tournament');
 const act=(type,payload={})=>T.applyAction(state,{type,payload:T.CURRENT_MATCH_ACTIONS.has(type)?
   {matchId:state.tournament.currentMatchId,...payload}:payload});
-state.library.forEach((song,index)=>{song.art='assets/song/cover-'+(index%6+1)+'.svg';
+state.library.forEach((song,index)=>{song.art='assets/song/cover-'+(index%4+1)+'.svg';
   if(song.eligible)song.title=(song.title+' · Phigros ver. / Long fixture title '+index).slice(0,100);
   song.artist='COMPOSER_FIELD_MUST_STAY_PRIVATE_TO_LIBRARY';song.previewAudio='assets/song-preview/de-fixture-'+song.id+'.mp3'});
 act('seed-bracket',{ids:state.qualifier.players.map(player=>player.id),ruleset:'proposal-2026',verified:true});
