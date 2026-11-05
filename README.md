@@ -324,7 +324,7 @@ Artwork: assets/song/song-01.webp
 Preview: assets/song-preview/song-01.mp3
 ```
 
-Song selection follows the [Phigros song-menu composition](https://www.taptap.cn/moment/398585142991389839): a diagonal catalogue beside a large jacket, a dark focus row, and white picked-song rows. The focused jacket supplies the soft background colour. Compact numbered slots below the jacket show the match songs. The control panel uses the same hierarchy, keeps difficulty text dark on white, and hides the locked BAN buttons once songs are selected. Local Saira Regular/Medium supplies the menu typography; Chinese keeps the existing system-font fallbacks.
+Song selection follows the [Phigros song-menu composition](https://www.taptap.cn/moment/398585142991389839): a diagonal catalogue beside a large jacket, a dark focus row, white picked-song rows, and solid red banned-song cards with white text. The focused jacket supplies the soft background colour through a decoded crossfade. A persistent background fades between scenes inside the existing OBS capture mask; drawing or banning updates fixed catalogue slots without replaying their entrance animation. Compact numbered slots below the jacket show the match songs. The control panel uses the same hierarchy, keeps difficulty text dark on white, and hides the locked BAN buttons once songs are selected. Local Saira Regular/Medium supplies the menu typography; Chinese keeps the existing system-font fallbacks.
 
 Preview paths support MP3, OGG, WAV and M4A with ASCII filenames. Candidate, focus and picked-song cards use a white slanted difficulty block, with the level above EZ/HD/IN/AT. BAN/PICK has its own slot and never replaces difficulty. Composer names stay in the library and are omitted from these cards. Regular double-elimination song selection stays silent while drawing six candidates. Each new ban fades out the previous preview, then fades in and loops that banned song. Drawing the two match songs plays them once in order, switching the jacket and title with the music; audio stops after the second song. After selection, the waiting screen loops only the upcoming song’s preview. Moving to the next waiting song changes the loop; score saves, ordinary state updates, reloads and server restarts retain the saved waiting cue. Gameplay, processing, statistics and other scene exits stop and unload it. Hidden/inactive OBS sources stay silent, staff previews remain muted, and sealed final-song previews are withheld until reveal. A normal state refresh does not restart playback. Redraw, leaving selection, tiebreaks and match completion stop selection previews. The fixed Grand Final uses its sequential announcement described above.
 
@@ -377,6 +377,7 @@ Song preview checks use generated temporary tones to exercise actual Chromium de
 ```sh
 python3 test/selection-audio-browser.py
 python3 test/double-elimination-flow-browser.py
+python3 test/selection-motion-browser.py
 python3 test/song-preview-preparation.py
 python3 test/bundled-song-previews.py
 ```
@@ -398,7 +399,7 @@ npm run test:python
 npm run test:browser:smoke
 ```
 
-The browser suite checks the general broadcast flow, complete Challenge results, main-control reconnection, draft recovery and intermission trailer playback. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
+The browser suite checks the general broadcast flow, complete Challenge results, selection entry/exit and rapid-redraw frames, full-card BAN styling, main-control reconnection, draft recovery and intermission trailer playback. The runner prints each test as it starts and keeps separate reports under ignored `test-results/browser-smoke/`; `BROADCAST_TEST_OUTPUT` overrides the report root and `CHROME_BINARY` selects an existing Chromium executable. Media preparation tests require ffmpeg. GitHub Actions runs the JavaScript suite on the Node 24.22.1 security baseline and latest Node 24, and the Python/Chromium suites with these same entrypoints. It also audits npm dependencies; `npm audit` does not check vulnerabilities in the Node.js runtime itself.
 
 The control and scorekeeper panels use concise headings and field labels; validation, draft conflicts and lock reasons appear when relevant. OBS scenes retain scores, chart details and advancement routes without duplicate subtitles. To check staff panels at laptop/mobile widths and every overlay scene, including capture transparency:
 

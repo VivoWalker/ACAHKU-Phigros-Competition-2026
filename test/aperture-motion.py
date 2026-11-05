@@ -41,6 +41,9 @@ STEP = 80
 PIXEL_CDP = {}
 
 SERVER = """
+// This compositor fixture records historical per-song qualifier scores.
+const fs=require('node:fs'),path=require('node:path'),file=path.join(process.argv[1],'match-state.json');
+if(!fs.existsSync(file))fs.writeFileSync(file,JSON.stringify(require('./test/helpers/legacy-state').createDefaultState()));
 const s=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'aperture-fixture-code',scorekeeperPin:'aperture-scorekeeper-fixture'});
 s.listen(0,'127.0.0.1').then(a=>console.log(a.port));
 process.on('SIGTERM',()=>s.close().then(()=>process.exit()));

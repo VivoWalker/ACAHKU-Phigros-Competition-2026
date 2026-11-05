@@ -54,7 +54,7 @@
   const ENTRY_SELECTOR = '.event-title, .topmeta, .event-copy h1, .event-line, .organiser, .key-visual, '
     + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .waiting-song, '
     + '.player-name > h2, .player-total, .song-scores, .handcam-label, .song-band, .scene-head, '
-    + '.ranking-tables > section, .qualifier-processing-panel, .song-result-heading, .song-result-card, .finale-total-card, .challenge-set-heading, .challenge-set-card, .song-result-empty, .footer, .winner-panel, .result-row, .bracket-column, .candidate, '
+    + '.ranking-tables > section, .qualifier-processing-panel, .song-result-heading, .song-result-card, .finale-total-card, .challenge-set-heading, .challenge-set-card, .song-result-empty, .footer, .winner-panel, .result-row, .bracket-column, .candidate-list, .candidate, '
     + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-focus-card, .round-result-heading, .picks, .selection-state, .empty-copy, .final-song-card';
   function entryNodes(root) {
     const nodes = [...root.querySelectorAll(ENTRY_SELECTOR)].filter(node => !node.closest('[data-motion-exits], [data-motion-ghost]'));
@@ -66,7 +66,7 @@
       const identity = node.dataset.motionKey || [...node.querySelectorAll(KEY)].map(child => child.dataset.motionKey).join('/') ||
         `${node.localName}:${node.className}:${index}`;
       // Changed copy is new content; live numbers keep their existing slot.
-      return { node, id: identity + (node.matches('.player-total,.song-scores') ? '' : ':' + node.textContent.trim()) };
+      return { node, id: identity + (node.hasAttribute('data-motion-stable') || node.matches('.player-total,.song-scores') ? '' : ':' + node.textContent.trim()) };
     });
   }
   // Copy the properties that establish a snapshot's geometry and appearance.
@@ -264,6 +264,8 @@
           margin: '0px', width: `${rect.width}px`, height: `${rect.height}px`, transform: 'none',
           animation: 'none', transition: 'none' });
         const slot = document.createElement('div');
+        // Preserve the theme of pseudo-elements while the frozen scene exits.
+        if (node.closest('.selection-stage')) slot.classList.add('selection-stage');
         Object.assign(slot.style, { position: 'absolute', left: `${rect.left}px`, top: `${rect.top}px`,
           width: `${rect.width}px`, height: `${rect.height}px`, overflow: 'hidden' });
         slot.append(clone);
@@ -532,15 +534,21 @@
       old.remove(); record.resolve(); controller.active = null; runCover(controller, latest); return;
     }
     applyCover(controller, record); controller.active.started = true; controller.windowEl.append(old);
-    controller.windowEl.dataset.coverMotionPhase = 'move';
-    const options = { duration: DURATION, easing: EASING, fill: 'both' };
+    controller.windowEl.dataset.coverMotionPhase = record.effect === 'fade' ? 'fade' : 'move';
+    const options = { duration: record.effect === 'fade' ? 520 : DURATION, easing: EASING, fill: 'both' };
     // Share the clip's horizontal inset so both bitmaps travel down its slanted
     // sides. Percent heights stay in local coordinates even on a scaled canvas.
     const edge = getComputedStyle(controller.windowEl).getPropertyValue('--cover-edge-offset').trim() || '0px';
-    const incoming = controller.image.animate([{ transform: `translate(${edge}, -100%)` }, { transform: 'translate(0, 0)' }], options);
-    const outgoing = old.animate([{ transform: 'translate(0, 0)' }, { transform: `translate(calc(-1 * ${edge}), 100%)` }], options);
-    controller.active.animations = [incoming, outgoing];
-    await Promise.all([incoming.finished.catch(() => {}), outgoing.finished.catch(() => {})]);
+    if (record.effect === 'fade') {
+      // The old opaque image sits above the decoded new image. Fading only
+      // that top layer keeps the combined image opaque throughout the blend.
+      controller.active.animations = [old.animate([{ opacity: 1 }, { opacity: 0 }], options)];
+    } else {
+      const incoming = controller.image.animate([{ transform: `translate(${edge}, -100%)` }, { transform: 'translate(0, 0)' }], options);
+      const outgoing = old.animate([{ transform: 'translate(0, 0)' }, { transform: `translate(calc(-1 * ${edge}), 100%)` }], options);
+      controller.active.animations = [incoming, outgoing];
+    }
+    await Promise.all(controller.active.animations.map(animation => animation.finished.catch(() => {})));
     if (token !== controller.token) return;
     clearCover(controller); controller.visibleSrc = record.src; record.resolve(); controller.active = null;
     const latest = controller.pending; controller.pending = null;
@@ -573,7 +581,7 @@
       if (controller.active.started) applyCover(controller, controller.active.record);
       mountCover(controller); return controller.active.record.promise;
     }
-    const record = { src: requestedSrc, attrs, loader: null, ready: null };
+    const record = { src: requestedSrc, attrs, loader: null, ready: null, effect: requested?.effect === 'fade' ? 'fade' : 'slide' };
     if (typeof requested?.decodeImage === 'function') {
       record.ready = Promise.resolve().then(() => requested.decodeImage(requestedSrc)).then(result => { record.loader = result?.image; }).catch(() => {});
     } else {

@@ -26,6 +26,14 @@
     }
   });
   const motion = BroadcastMotion.createScene(mount, { canvas });
+  const ambienceLayer = document.createElement('div'), ambienceArt = document.createElement('div');
+  const ambienceHost = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+  for (const [name, value] of Object.entries({ x: 0, y: 0, width: 1920, height: 1080 })) ambienceHost.setAttribute(name, value);
+  ambienceHost.style.pointerEvents = 'none';
+  ambienceLayer.className = 'selection-ambience'; ambienceLayer.setAttribute('aria-hidden', 'true');
+  ambienceArt.className = 'selection-ambience-art';
+  ambienceLayer.append(ambienceArt); ambienceHost.append(ambienceLayer);
+  let ambienceWanted = '', ambienceSource, ambienceRequest = 0;
   const countdownLayer = BroadcastCountdown.createLayer(canvas);
   let countdownClient;
   let previewCatalog = new Map(), previewFocus = null, previewRenderPending = false, obsActive = true, obsVisible = true;
@@ -159,6 +167,32 @@
   const url = path => '/' + encodeURI(path);
   const displayPath = path => displayMedia.resolve(path);
   const art = song => url(displayPath(song?.art || 'assets/song/cover-1.svg'));
+  function syncSelectionAmbience(scene, focus) {
+    // Compose the menu inside the existing masked backdrop. Applying a second
+    // mask on top would change the transparency of moving capture apertures.
+    const surface = canvas.querySelector('.broadcast-backdrop > g');
+    if (surface && ambienceHost.parentElement !== surface) surface.append(ambienceHost);
+    // This layer survives scene commits. Await the newest bitmap before
+    // showing it; stale decodes must never reopen an outgoing background.
+    const src = scene === 'song-selection' && mount.querySelector('[data-motion-content] .selection-stage') && !focus?.hidden ? art(focus) : '';
+    if (!src) {
+      ambienceWanted = ''; ambienceRequest++; ambienceLayer.style.opacity = '0'; return;
+    }
+    if (src === ambienceWanted) return;
+    ambienceWanted = src;
+    const request = ++ambienceRequest;
+    mediaWarmup.decodeImage(src).then(result => {
+      if (pageDisposed || request !== ambienceRequest || !result.ok) return;
+      if (!ambienceArt.querySelector('img')) {
+        const image = document.createElement('img'); image.alt = ''; image.src = src; ambienceArt.append(image);
+      }
+      BroadcastMotion.coverSlide(ambienceArt, ambienceSource, {
+        src, alt: '', effect: 'fade', decodeImage: () => Promise.resolve(result)
+      });
+      ambienceSource = src;
+      ambienceLayer.style.opacity = '1';
+    }).catch(() => {});
+  }
   function sharedImages() {
     return [branding.logo, branding.visual, branding.socLogo, branding.kiramekiLogo].filter(Boolean).map(path => url(displayPath(path)))
       .concat(displayMedia.background(branding.visual) ? [url(displayMedia.background(branding.visual))] : []);
@@ -434,16 +468,15 @@
       : m.players.map((id, i) => `<span><b>${e(id ? B.name(s, id) : '待定')}</b><small>${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</small></span>`).join('');
     const picks = Array.from({ length: pickCount }, (_, i) => `<span><b>${String(i + 1).padStart(2, '0')}</b>${selected[i] ? `<span title='${e(selected[i].title)}'>${e(selected[i].title || '曲目待定')}</span>` : '<span>—</span>'}</span>`).join('');
     const image = art(focus);
-    return backdrop() + `<div data-motion-key='selection-ambience' class='selection-ambience' aria-hidden='true'><img src='${e(image)}' alt=''></div>`
-      + header(s, `R${m.round} · ${m.id}`) + `<section class='selection-stage' aria-label='選曲'>
+    return backdrop() + header(s, `R${m.round} · ${m.id}`) + `<section class='selection-stage' aria-label='選曲'>
         <div data-motion-block class='scene-head selection-heading'><h1>${tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲'}</h1></div>
         <div class='selection'><div class='selection-catalog'>
-          <div class='candidate-list ${candidates.length > 6 ? 'compact' : ''}' style='--candidate-count:${Math.max(1, candidates.length)}'>${candidatesHTML || '<p data-motion-block class="empty-copy">選曲中</p>'}</div>
-          <div data-motion-block class='selection-state'>${players}</div>
+          <div data-motion-key='selection-catalog' data-motion-stable class='candidate-list ${candidates.length > 6 ? 'compact' : ''}' style='--candidate-count:${Math.max(1, candidates.length)}'>${candidatesHTML || '<p data-motion-block class="empty-copy">選曲中</p>'}</div>
+          <div data-motion-key='selection-state' data-motion-stable class='selection-state'>${players}</div>
         </div><section class='selection-feature'>
           <div data-motion-key='selection-cover' class='selection-art'><img src='${e(image)}' alt='${e(focus?.title || 'Song artwork')}'></div>
-          <div class='selection-detail'><div class='selection-focus-card'><h2>${songText(focus)}</h2>${B.songDifficulty(focus)}</div>
-            <div data-motion-block class='picks' style='--pick-count:${pickCount}'>${picks}</div>
+          <div class='selection-detail'><div data-motion-key='selection-focus-card' data-motion-stable class='selection-focus-card'><h2>${songText(focus)}</h2>${B.songDifficulty(focus)}</div>
+            <div data-motion-key='selection-picks' data-motion-stable class='picks' style='--pick-count:${pickCount}'>${picks}</div>
           </div>
         </section></div></section>`;
   }
@@ -493,6 +526,7 @@
       canvas.dataset.renderedRevision = String(revision);
       canvas.dataset.branding = hasVisual ? 'visual' : 'text';
       canvas.dataset.displayMode = mode;
+      syncSelectionAmbience(scene, focus);
       const windowEl = mount.querySelector('.selection-art'), src = windowEl ? art(focus) : undefined;
       if (windowEl && previousScene !== scene) {
         BroadcastMotion.coverSlide(windowEl, committedCover, { src, alt: focus?.title || 'Song artwork', immediate: true, decodeImage: mediaWarmup.decodeImage });
@@ -544,6 +578,7 @@
     clearTimeout(finaleProjection?.timer); finaleProjection = null;
     countdownClient?.dispose(); countdownLayer.dispose();
     selectionAudio.dispose(); sceneBgm.dispose(); finaleVideo.dispose(); intermissionVideo.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
+    ambienceRequest++; BroadcastMotion.disposeCovers(ambienceArt); ambienceHost.remove();
     mediaWarmup.dispose(); displayMedia.dispose();
     socket.removeAllListeners(); socket.disconnect();
     previewCatalog.clear(); bgmTracks.clear(); bgmScenes.clear(); state = null; audioPrompt.remove();

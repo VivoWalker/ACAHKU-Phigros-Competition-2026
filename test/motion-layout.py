@@ -70,7 +70,7 @@ PROBE = r"""() => {
     }));
     const ghosts=Array.from(mount?.querySelectorAll('[data-motion-ghost]')||[]).filter(visible).map(el=>el.dataset.motionGhost);
     const covers=Array.from(document.querySelectorAll('.selection-art,.cover-window')).map(el=>({
-      phase:el.dataset.coverMotionPhase||'idle',height:el.clientHeight,
+      phase:el.dataset.coverMotionPhase||'idle',height:parseFloat(getComputedStyle(el).height),
       edge:parseFloat(getComputedStyle(el).clipPath.match(/^polygon\((.*)\)$/)?.[1].split(',')[0]),
       images:Array.from(el.querySelectorAll('img')).map(i=>{
         const matrix=new DOMMatrix(getComputedStyle(i).transform);
@@ -238,13 +238,15 @@ def validate_diagonal_cover(page, selector, label, screenshot_dir=None):
           const el=document.querySelector(selector),style=getComputedStyle(el);
           const animations=el.getAnimations({subtree:true});
           for(const animation of animations)animation.currentTime=animation.effect.getTiming().duration*step;
-          const box=el.getBoundingClientRect(),width=el.clientWidth,height=el.clientHeight;
+          // vw/clamp layouts retain fractional CSS pixels; clientHeight and
+          // offsetHeight round them and distort the measured 15-degree slope.
+          const box=el.getBoundingClientRect(),width=parseFloat(style.width),height=parseFloat(style.height);
           const first=style.clipPath.match(/^polygon\\((.*)\\)$/)?.[1].split(',')[0];
           const edge=parseFloat(first),scale=box.width/width;
           const images=Array.from(el.querySelectorAll('img')).map(image=>{
-            const matrix=new DOMMatrix(getComputedStyle(image).transform);
+            const imageStyle=getComputedStyle(image),matrix=new DOMMatrix(imageStyle.transform);
             return {old:image.hasAttribute('data-motion-cover-old'),x:image.offsetLeft+matrix.m41,
-              y:image.offsetTop+matrix.m42,width:image.offsetWidth,height:image.offsetHeight};
+              y:image.offsetTop+matrix.m42,width:parseFloat(imageStyle.width),height:parseFloat(imageStyle.height)};
           });
           const animation=animations.find(a=>a.effect.target.hasAttribute('data-motion-cover-old'));
           const progress=animation.effect.getComputedTiming().progress;
@@ -482,9 +484,12 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 ban_indices = [i for i in range(len(candidates)) if candidates[i]['art'] != candidates[0]['art']]
                 sequence = (ban_indices + [0] + ban_indices)[-6:]
                 revision=crew.evaluate('''async ids=>{let result;for(const songId of ids)result=await window.__fixtureCommand('ban-song',{playerIndex:0,songId});return result.revision}''', [candidates[i]['id'] for i in sequence])
+                latest = candidates[sequence[-1]]
+                # A new preview keeps the outgoing song focused during its
+                # audio fade. Scene idle no longer implies that fade has ended.
+                live.wait_for_function('title=>document.querySelector(".selection-detail h2")?.textContent===title',arg=latest['title'])
                 idle(live, 'song-selection',revision); cover_idle(live, '.selection-art'); trace = stop_trace(live)
                 checked_cover_trace(trace, 'rapid broadcast bans')
-                latest = candidates[sequence[-1]]
                 assert live.locator('.selection-art img').get_attribute('src') == '/' + latest['art']
                 assert live.locator('.selection-detail h2').inner_text() == latest['title']
                 # Hold decoding until the duplicate update arrives. A cached
@@ -511,6 +516,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 # artwork correctly produces no movement and cannot test this.
                 other = next(c for c in candidates if c['id'] != banned and sum(song['art']==c['art'] for song in candidates)==1)
                 revision=command('ban-song', {'playerIndex': 1, 'songId': other['id']})['revision']
+                live.wait_for_function('title=>document.querySelector(".selection-detail h2")?.textContent===title',arg=other['title'])
                 idle(live,'song-selection',revision);cover_idle(live,'.selection-art')
                 assert live.locator('.selection-art img').get_attribute('src')=='/'+other['art']
                 start_trace(live);command('pick-songs')
