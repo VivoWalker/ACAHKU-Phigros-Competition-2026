@@ -56,7 +56,7 @@
   width: calc(100% - 120px);
   margin-left: clamp(0px, calc((5 - var(--song-row)) * 24px), 120px);
   padding: 0 0 0 28px;
-  grid-template-columns: 30px minmax(0, 1fr) 64px 90px;
+  grid-template-columns: 30px minmax(0, 1fr) 64px 112px;
   gap: 12px;
   color: #edf0f5;
 }
@@ -82,10 +82,8 @@
 }
 .selection-stage .candidate-list .song-difficulty {
   --song-difficulty-h: var(--catalog-row-h);
-  --song-difficulty-w: 90px;
-  --song-difficulty-size: 40px;
-  --song-difficulty-label: 17px;
-  --song-difficulty-gap: 10px;
+  --song-difficulty-w: 112px;
+
   color: #18202a;
 }
 .selection-stage .candidate.banned { opacity: 1; }
@@ -99,7 +97,6 @@
 .selection-stage .candidate.focused h3 { font-size: 36px; color: inherit; }
 .selection-stage .candidate.focused.picked .candidate-status { color: #b5e8d3; }
 .selection-stage .compact .candidate h3 { font-size: 28px; }
-.selection-stage .compact .song-difficulty { --song-difficulty-size: 26px; --song-difficulty-label: 13px; }
 .selection-stage .selection-art { --cover-edge-offset: 121.113px; height: 452px; background: #101722; }
 .selection-stage .selection-detail { margin: 18px 0 0; padding: 0; }
 .selection-stage .selection-focus-card { min-height: 100px; padding-left: 36px; gap: 16px; }
@@ -116,10 +113,8 @@
 }
 .selection-stage .selection-focus-card .song-difficulty {
   --song-difficulty-h: 100px;
-  --song-difficulty-w: 114px;
-  --song-difficulty-size: 44px;
-  --song-difficulty-label: 18px;
-  --song-difficulty-gap: 10px;
+  --song-difficulty-w: 124px;
+
 }
 .selection-stage .selection-state {
   display: grid;
@@ -162,7 +157,7 @@
   margin-left: clamp(0px, calc((5 - var(--song-row)) * 6px), 30px);
   margin-bottom: 10px;
   padding: 6px 8px 6px 18px;
-  grid-template-columns: 26px minmax(0, 1fr) 80px auto;
+  grid-template-columns: 26px minmax(0, 1fr) 96px auto;
   gap: 10px;
   min-height: 88px;
   color: #edf1f6;
@@ -179,11 +174,9 @@
 .song-grid.phi-song-select .candidate-row.banned .candidate-state { color: #edb8bc; }
 .song-grid.phi-song-select .candidate-row.banned .song-preview-button { color: #aeb7c4; text-decoration: none; }
 .song-grid.phi-song-select .candidate-row .song-difficulty {
-  --song-difficulty-w: 80px;
+  --song-difficulty-w: 96px;
   --song-difficulty-h: 76px;
-  --song-difficulty-size: 34px;
-  --song-difficulty-label: 14px;
-  --song-difficulty-gap: 10px;
+
 }
 .song-grid.phi-song-select .song-difficulty,
 .song-grid.phi-song-select .song-difficulty b,
@@ -193,41 +186,40 @@
 .song-grid.phi-song-select .ban-button.active { background: #e8c0c3; color: #221b20; }
 .song-grid.phi-song-select .ban-button:disabled { opacity: .55; }
 .song-grid.phi-song-select .ban-button.active:disabled { opacity: 1; }
-.song-grid.phi-song-select.has-picks .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 80px; }
+.song-grid.phi-song-select.has-picks .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 96px; }
 .song-grid.phi-song-select.has-picks .ban-actions { display: none; }
 .song-grid.phi-song-select .cover-window { --selection-cover-h: clamp(220px, 22vw, 340px); --cover-edge-offset: calc(var(--selection-cover-h) * .267949); height: var(--selection-cover-h); }
 .song-grid.phi-song-select .song-focus-title { margin: 14px 0 0; padding-left: 26px; min-height: 88px; }
 .song-grid.phi-song-select .song-focus-title h2 { font-size: 30px; font-weight: 400; line-height: 1.3; }
-.song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-h: 88px; --song-difficulty-w: 96px; --song-difficulty-gap: 10px; }
+.song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-h: 88px; --song-difficulty-w: 108px;  }
 .song-grid.phi-song-select > section > .panel { background: transparent; border: 0; padding: 0; }
 .song-grid.phi-song-select .panel-header h2, .song-grid.phi-song-select .section-heading h2 { font-size: 18px; font-weight: 500; }
 .song-grid.phi-song-select .selected-track { border: 0; background: #050b1480; padding: 8px 16px; margin-bottom: 8px; }
 .song-grid.phi-song-select .selected-track h3 { font-size: 21px; font-weight: 400; }
 .song-grid.phi-song-select .selected-track .order { font-size: 22px; font-weight: 400; color: #aebccc; }
-.song-grid.phi-song-select .selected-track .song-difficulty { --song-difficulty-gap: 8px; }
 .song-grid.phi-song-select .selection-progress { background: #050b1480; font-size: 13px; padding: 16px; }
 .song-grid.phi-song-select .selection-players { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 22px 18px; font-size: 14px; }
 .song-grid.phi-song-select .selection-players b { margin-right: 8px; font-weight: 500; color: #aebccc; }
 .production-embedded .song-grid.phi-song-select { grid-template-columns: minmax(0, 1fr); }
-.production-embedded .song-grid.phi-song-select .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 80px; }
+.production-embedded .song-grid.phi-song-select .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 96px; }
 .production-embedded .song-grid.phi-song-select .ban-actions { grid-column: 2 / 4; justify-content: flex-start; }
 .production-embedded .song-grid.phi-song-select .cover-window { --selection-cover-h: 240px; }
 @media (max-width: 1100px) {
   .song-grid.phi-song-select { gap: 24px; }
-  .song-grid.phi-song-select .candidate-row { grid-template-columns: 24px minmax(0, 1fr) 80px; }
+  .song-grid.phi-song-select .candidate-row { grid-template-columns: 24px minmax(0, 1fr) 96px; }
   .song-grid.phi-song-select .ban-actions { grid-column: 2 / 4; justify-content: flex-start; padding-bottom: 6px; }
 }
 @media (max-width: 800px) {
   .song-grid.phi-song-select { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 520px) {
-  .song-grid.phi-song-select .candidate-row, .song-grid.phi-song-select.has-picks .candidate-row { width: calc(100% - 20px); margin-left: clamp(0px, calc((5 - var(--song-row)) * 4px), 20px); grid-template-columns: 20px minmax(0, 1fr) 72px; padding: 6px 4px 6px 28px; gap: 8px; }
+  .song-grid.phi-song-select .candidate-row, .song-grid.phi-song-select.has-picks .candidate-row { width: calc(100% - 20px); margin-left: clamp(0px, calc((5 - var(--song-row)) * 4px), 20px); grid-template-columns: 20px minmax(0, 1fr) 88px; padding: 6px 4px 6px 28px; gap: 8px; }
   .song-grid.phi-song-select .candidate-row .index { font-size: 17px; grid-row: 1; align-self: center; padding-top: 0; }
   .song-grid.phi-song-select .song-preview-button { font-size: 20px; }
-  .song-grid.phi-song-select .candidate-row .song-difficulty { --song-difficulty-w: 72px; --song-difficulty-size: 32px; }
+  .song-grid.phi-song-select .candidate-row .song-difficulty { --song-difficulty-w: 88px;  }
   .song-grid.phi-song-select .song-focus-title h2 { font-size: 25px; }
   .song-grid.phi-song-select .cover-window { --selection-cover-h: 210px; }
-  .song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-w: 82px; }
+  .song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-w: 108px; }
   .song-grid.phi-song-select .selected-track { padding: 8px 12px; gap: 10px; }
   .song-grid.phi-song-select .selected-track h3 { font-size: 19px; }
 }

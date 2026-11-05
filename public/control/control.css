@@ -117,7 +117,7 @@ summary{font-size:18px;font-weight:700;flex-wrap:wrap}.secondary,summary .second
 .candidate-row.picked .candidate-state{color:#17222d}.candidate-row.banned .song-preview-button{text-decoration:line-through}
 .song-focus-title{position:relative;isolation:isolate;min-height:84px;margin:17px 0 0;padding-left:24px}
 .song-focus-title:before{content:'';position:absolute;inset:0 12px;background:#04060bcc;transform:skewX(-15deg);z-index:-1}
-.song-focus-title .song-difficulty{--song-difficulty-h:84px;--song-difficulty-w:104px;--song-difficulty-size:38px}
-.selected-track>div{flex:1;min-width:0}.selected-track .song-difficulty{--song-difficulty-h:64px;--song-difficulty-w:82px;--song-difficulty-size:30px;--song-difficulty-label:13px;--song-difficulty-gap:8px;margin-left:auto}
+.song-focus-title .song-difficulty{--song-difficulty-h:84px;--song-difficulty-w:104px;}
+.selected-track>div{flex:1;min-width:0}.selected-track .song-difficulty{--song-difficulty-h:64px;--song-difficulty-w:82px;margin-left:auto}
 @media(max-width:1100px){.candidate-row{grid-template-columns:28px minmax(0,1fr) 88px}.candidate-row .ban-actions{grid-column:2 / 4;justify-content:flex-end}.candidate-row .song-difficulty{--song-difficulty-w:88px}}
-@media(max-width:520px){.candidate-row{grid-template-columns:26px minmax(0,1fr) 80px;padding-inline:12px;gap:8px}.candidate-row .song-difficulty{--song-difficulty-w:80px;--song-difficulty-size:30px}}
+@media(max-width:520px){.candidate-row{grid-template-columns:26px minmax(0,1fr) 80px;padding-inline:12px;gap:8px}.candidate-row .song-difficulty{--song-difficulty-w:80px;}}

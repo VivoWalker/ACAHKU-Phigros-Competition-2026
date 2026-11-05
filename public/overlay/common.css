@@ -241,9 +241,9 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .intermission-video-message[hidden]{display:none}
 .candidate{grid-template-columns:44px minmax(0,1fr) 78px 112px;gap:12px;padding:0 0 0 26px}
 .candidate h3{font-size:34px}.candidate-status{font-size:24px;text-align:center}
-.selection .song-difficulty{--song-difficulty-h:87px;--song-difficulty-w:112px;--song-difficulty-size:40px;--song-difficulty-label:18px}
+.selection .song-difficulty{--song-difficulty-h:87px;--song-difficulty-w:112px;}
 .candidate.banned{opacity:1}.candidate.banned:before{background:#e8b4b815}.candidate.banned h3{color:#c5b8ca}.candidate.banned .candidate-status{color:#edbdc2}
-.final-list .candidate{height:68px}.final-list .candidate .song-difficulty{--song-difficulty-h:68px;--song-difficulty-size:30px;--song-difficulty-label:14px;--song-difficulty-gap:10px}
+.final-list .candidate{height:68px}.final-list .candidate .song-difficulty{--song-difficulty-h:68px;}
 .selection-focus-card{position:relative;isolation:isolate;display:flex;align-items:center;gap:20px;min-width:0;padding-left:26px}
 .selection-focus-card:before{content:'';position:absolute;inset:0 12px;background:#04060bcc;transform:skewX(-15deg);z-index:-1}
 .selection-focus-card h2{min-width:0;flex:1;font-size:40px;font-weight:500}
