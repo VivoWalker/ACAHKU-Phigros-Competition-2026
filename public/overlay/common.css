@@ -1,4 +1,5 @@
 @import url('../assets/ui/fonts.css');
+@import url('../assets/ui/song-selection.css');
 @import url('../assets/ui/judgements.css');
 @import url('../assets/ui/song-card.css');
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:transparent!important;overflow:hidden}

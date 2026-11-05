@@ -423,10 +423,31 @@
     if (!m) return doubleWaiting(s);
     if (m.finalMode === 'fixed-two' && !B.matchTiebreak(s)) return grandFinalAnnouncement(s);
     const tie = B.matchTiebreak(s), focus = selectionFocus(s);
-    return backdrop() + header(s, `R${m.round} · ${m.id}`) + title(tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲') + `<div class='selection'><div class='candidate-list ${m.id === 'GF' ? 'final-list' : ''}'>${(tie ? [tie.song] : m.candidates).map((song, i) => {
-      const banned = m.bans.indexOf(song.id), picked = m.songs.some(x => !x.hidden && x.id === song.id);
-      return `<div data-motion-key='candidate-${e(song.id)}' class='candidate ${banned >= 0 ? 'banned' : ''} ${picked ? 'picked' : ''}'><span class='index'>${String(i + 1).padStart(2, '0')}</span><h3>${e(song.title)}</h3><span class='candidate-status'>${banned >= 0 ? 'BAN' : picked ? 'PICK' : ''}</span>${B.songDifficulty(song)}</div>`;
-    }).join('') || `<p data-motion-block class='empty-copy'>選曲中</p>`}</div><section><div data-motion-key='selection-cover' class='selection-art'><img src='${e(art(focus))}' alt='${e(focus?.title || 'Song artwork')}'></div><div class='selection-detail'><div class='selection-focus-card'><h2>${songText(focus)}</h2>${B.songDifficulty(focus)}</div><div data-motion-block class='picks'>${m.songs.map((song, i) => `<span title='${e(song.title)}'>${i + 1} · ${e(song.title)}</span>`).join('')}</div></div><div data-motion-block class='selection-state'>${m.finalMode === 'fixed-two' ? `<span>加賽曲目 · TIEBREAK SONG</span>` : m.id === 'GF' ? `<span>AUDIENCE · ${m.audiencePicks.length}/2</span><span>MC · ${m.hostRevealed ? 'REVEALED' : 'SEALED'}</span>` : m.players.map((id, i) => `<span>${e(id ? B.name(s, id) : '待定')} · ${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</span>`).join('')}</div></section></div>`;
+    const candidates = tie ? [tie.song] : m.candidates, selected = tie ? [tie.song] : m.songs;
+    const pickCount = tie ? 1 : m.id === 'GF' ? 3 : 2;
+    const candidatesHTML = candidates.map((song, i) => {
+      const banned = m.bans.includes(song.id), picked = selected.some(item => !item.hidden && item.id === song.id);
+      return `<div data-motion-key='candidate-${e(song.id)}' style='--song-row:${i}' class='candidate ${banned ? 'banned' : ''} ${picked ? 'picked' : ''} ${focus?.id === song.id ? 'focused' : ''}'>
+        <span class='index'>${String(i + 1).padStart(2, '0')}</span><h3 title='${e(song.title)}'>${e(song.title)}</h3>
+        <span class='candidate-status'>${banned ? 'BAN' : picked ? 'PICK' : ''}</span>${B.songDifficulty(song)}</div>`;
+    }).join('');
+    const players = tie ? '<span>加賽曲目</span>' : m.id === 'GF'
+      ? `<span>AUDIENCE · ${m.audiencePicks.length}/2</span><span>MC · ${m.hostRevealed ? 'REVEALED' : 'SEALED'}</span>`
+      : m.players.map((id, i) => `<span><b>${e(id ? B.name(s, id) : '待定')}</b><small>${m.bans[i] ? 'BAN ✓' : m.bansConfirmed?.[i] ? 'PASS ✓' : 'CHOOSING'}</small></span>`).join('');
+    const picks = Array.from({ length: pickCount }, (_, i) => `<span><b>${String(i + 1).padStart(2, '0')}</b>${selected[i] ? `<span title='${e(selected[i].title)}'>${e(selected[i].title || '曲目待定')}</span>` : '<span>—</span>'}</span>`).join('');
+    const image = art(focus);
+    return backdrop() + `<div data-motion-key='selection-ambience' class='selection-ambience' aria-hidden='true'><img src='${e(image)}' alt=''></div>`
+      + header(s, `R${m.round} · ${m.id}`) + `<section class='selection-stage' aria-label='選曲'>
+        <div data-motion-block class='scene-head selection-heading'><h1>${tie ? `TIEBREAK ${tie.index + 1}` : m.id === 'GF' ? '決賽選曲' : '選曲'}</h1></div>
+        <div class='selection'><div class='selection-catalog'>
+          <div class='candidate-list ${candidates.length > 6 ? 'compact' : ''}' style='--candidate-count:${Math.max(1, candidates.length)}'>${candidatesHTML || '<p data-motion-block class="empty-copy">選曲中</p>'}</div>
+          <div data-motion-block class='selection-state'>${players}</div>
+        </div><section class='selection-feature'>
+          <div data-motion-key='selection-cover' class='selection-art'><img src='${e(image)}' alt='${e(focus?.title || 'Song artwork')}'></div>
+          <div class='selection-detail'><div class='selection-focus-card'><h2>${songText(focus)}</h2>${B.songDifficulty(focus)}</div>
+            <div data-motion-block class='picks' style='--pick-count:${pickCount}'>${picks}</div>
+          </div>
+        </section></div></section>`;
   }
   function grandFinalAnnouncement(s) {
     const songs = B.fixedFinalSongs(s);

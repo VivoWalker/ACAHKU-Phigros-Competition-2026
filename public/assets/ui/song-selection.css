@@ -1,0 +1,233 @@
+/* Song-select composition: a diagonal catalogue beside one clear illustration.
+   Side cuts use height × tan(15deg); text and artwork remain upright. */
+.selection-ambience {
+  position: absolute;
+  inset: 14px;
+  z-index: -1;
+  overflow: hidden;
+  background: #11161e;
+  pointer-events: none;
+}
+.selection-ambience > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.12);
+  filter: blur(48px) saturate(.7);
+  opacity: .4;
+}
+.selection-ambience::before, .selection-ambience::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.selection-ambience::before {
+  background: linear-gradient(105deg, #0a101bba, #11172055 62%, #10151d44);
+}
+.selection-ambience::after {
+  background: linear-gradient(105deg, transparent 38%, #ffffff05 38% 64%, transparent 64%),
+    url('./triangle-mesh.svg') center / cover;
+  opacity: .32;
+}
+.selection-stage .selection-heading {
+  position: absolute;
+  top: 210px;
+  left: 208px;
+}
+.selection-stage .selection-heading h1 { font-size: 44px; font-weight: 400; letter-spacing: .04em; }
+.selection-stage .selection {
+  left: 88px;
+  right: 80px;
+  top: 300px;
+  bottom: 80px;
+  grid-template-columns: 740px minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.selection-stage .selection-catalog, .selection-stage .selection-feature { min-width: 0; }
+.selection-stage .candidate-list { --catalog-row-h: 92px; gap: 12px; }
+.selection-stage .candidate-list.compact {
+  --catalog-row-h: calc((624px - (var(--candidate-count) - 1) * 10px) / var(--candidate-count));
+  gap: 10px;
+}
+.selection-stage .candidate-list .candidate {
+  height: var(--catalog-row-h);
+  width: calc(100% - 120px);
+  margin-left: clamp(0px, calc((5 - var(--song-row)) * 24px), 120px);
+  padding: 0 0 0 28px;
+  grid-template-columns: 30px minmax(0, 1fr) 64px 90px;
+  gap: 12px;
+  color: #edf0f5;
+}
+.selection-stage .candidate::before {
+  inset: 0;
+  transform: none;
+  clip-path: polygon(calc(var(--catalog-row-h) * .267949) 0, 100% 0,
+    calc(100% - var(--catalog-row-h) * .267949) 100%, 0 100%);
+  background: transparent;
+}
+.selection-stage .candidate .index { font-size: 22px; font-weight: 400; color: #b1bccb; }
+.selection-stage .candidate h3 {
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-decoration: none;
+}
+.selection-stage .candidate .candidate-status {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: inherit;
+}
+.selection-stage .candidate-list .song-difficulty {
+  --song-difficulty-h: var(--catalog-row-h);
+  --song-difficulty-w: 90px;
+  --song-difficulty-size: 40px;
+  --song-difficulty-label: 17px;
+  --song-difficulty-gap: 0px;
+  color: #18202a;
+}
+.selection-stage .candidate.banned { opacity: 1; }
+.selection-stage .candidate.banned h3 { color: #adb3bf; text-decoration: none; }
+.selection-stage .candidate.banned .candidate-status { color: #edb8bc; }
+.selection-stage .candidate.picked::before { background: #f7f8fa; }
+.selection-stage .candidate.picked, .selection-stage .candidate.picked .index { color: #18202a; }
+.selection-stage .candidate.picked .candidate-status { color: #315d4d; }
+.selection-stage .candidate.focused::before { background: #03070dd9; }
+.selection-stage .candidate.focused, .selection-stage .candidate.focused .index { color: #f7f8fa; }
+.selection-stage .candidate.focused h3 { font-size: 36px; color: inherit; }
+.selection-stage .candidate.focused.picked .candidate-status { color: #b5e8d3; }
+.selection-stage .compact .candidate h3 { font-size: 28px; }
+.selection-stage .compact .song-difficulty { --song-difficulty-size: 26px; --song-difficulty-label: 13px; }
+.selection-stage .selection-art { --cover-edge-offset: 121.113px; height: 452px; background: #101722; }
+.selection-stage .selection-detail { margin: 18px 0 0; padding: 0; }
+.selection-stage .selection-focus-card { min-height: 100px; padding-left: 36px; gap: 16px; }
+.selection-stage .selection-focus-card::before { inset: 0 14px; background: #03070dc9; }
+.selection-stage .selection-focus-card h2 {
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.selection-stage .selection-focus-card .song-difficulty {
+  --song-difficulty-h: 100px;
+  --song-difficulty-w: 114px;
+  --song-difficulty-size: 44px;
+  --song-difficulty-label: 18px;
+  --song-difficulty-gap: 0px;
+}
+.selection-stage .selection-state {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin: 28px 18px 0;
+  font-size: 25px;
+  color: #eef1f7;
+}
+.selection-stage .selection-state > span { min-width: 0; }
+.selection-stage .selection-state b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.selection-stage .selection-state small { display: block; margin-top: 8px; font-size: 19px; font-weight: 400; color: #b7c4d2; }
+.selection-stage .picks {
+  display: grid;
+  grid-template-columns: repeat(var(--pick-count), minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+  font-weight: 400;
+}
+.selection-stage .picks > span {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 74px;
+  padding: 12px 20px;
+  background: #060c1680;
+  font-size: 26px;
+  color: #f0f3f8;
+}
+.selection-stage .picks b { font-size: 25px; font-weight: 400; color: #aebccc; }
+.selection-stage .picks > span > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The same hierarchy in the control panel, with separate, reachable BAN controls. */
+.song-grid.phi-song-select { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 36px; align-items: start; }
+.song-grid.phi-song-select > section { min-width: 0; }
+.song-grid.phi-song-select .candidate-catalog { padding-top: 4px; }
+.song-grid.phi-song-select .candidate-row {
+  width: calc(100% - 30px);
+  margin-left: clamp(0px, calc((5 - var(--song-row)) * 6px), 30px);
+  margin-bottom: 10px;
+  padding: 6px 8px 6px 18px;
+  grid-template-columns: 26px minmax(0, 1fr) 80px auto;
+  gap: 10px;
+  min-height: 88px;
+  color: #edf1f6;
+}
+.song-grid.phi-song-select .candidate-row::before { background: transparent; }
+.song-grid.phi-song-select .candidate-row.focused::before { background: #03070de6; }
+.song-grid.phi-song-select .candidate-row.picked::before { background: #f7f8fa; }
+.song-grid.phi-song-select .candidate-row.picked { color: #17212c; }
+.song-grid.phi-song-select .candidate-row .index { color: #a2afbd; font-size: 20px; font-weight: 400; }
+.song-grid.phi-song-select .candidate-row.picked .index { color: #536271; }
+.song-grid.phi-song-select .song-preview-button { font-size: 23px; font-weight: 400; line-height: 1.3; text-decoration: none; }
+.song-grid.phi-song-select .candidate-state { font-size: 12px; font-weight: 500; letter-spacing: .06em; color: #b9e1cf; }
+.song-grid.phi-song-select .candidate-row.picked .candidate-state { color: #315d4d; }
+.song-grid.phi-song-select .candidate-row.banned .candidate-state { color: #edb8bc; }
+.song-grid.phi-song-select .candidate-row.banned .song-preview-button { color: #aeb7c4; text-decoration: none; }
+.song-grid.phi-song-select .candidate-row .song-difficulty {
+  --song-difficulty-w: 80px;
+  --song-difficulty-h: 76px;
+  --song-difficulty-size: 34px;
+  --song-difficulty-label: 14px;
+  --song-difficulty-gap: 0px;
+}
+.song-grid.phi-song-select .song-difficulty,
+.song-grid.phi-song-select .song-difficulty b,
+.song-grid.phi-song-select .song-difficulty > span { color: #18202a; }
+.song-grid.phi-song-select .ban-actions { gap: 6px; }
+.song-grid.phi-song-select .ban-button { border: 0; background: #273544; color: #edf1f6; min-width: 44px; min-height: 44px; }
+.song-grid.phi-song-select .ban-button.active { background: #e8c0c3; color: #221b20; }
+.song-grid.phi-song-select .ban-button:disabled { opacity: .55; }
+.song-grid.phi-song-select .ban-button.active:disabled { opacity: 1; }
+.song-grid.phi-song-select.has-picks .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 80px; }
+.song-grid.phi-song-select.has-picks .ban-actions { display: none; }
+.song-grid.phi-song-select .cover-window { --selection-cover-h: clamp(220px, 22vw, 340px); --cover-edge-offset: calc(var(--selection-cover-h) * .267949); height: var(--selection-cover-h); }
+.song-grid.phi-song-select .song-focus-title { margin: 14px 0 0; padding-left: 26px; min-height: 88px; }
+.song-grid.phi-song-select .song-focus-title h2 { font-size: 30px; font-weight: 400; line-height: 1.3; }
+.song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-h: 88px; --song-difficulty-w: 96px; --song-difficulty-gap: 0px; }
+.song-grid.phi-song-select > section > .panel { background: transparent; border: 0; padding: 0; }
+.song-grid.phi-song-select .panel-header h2, .song-grid.phi-song-select .section-heading h2 { font-size: 18px; font-weight: 500; }
+.song-grid.phi-song-select .selected-track { border: 0; background: #050b1480; padding: 8px 16px; margin-bottom: 8px; }
+.song-grid.phi-song-select .selected-track h3 { font-size: 21px; font-weight: 400; }
+.song-grid.phi-song-select .selected-track .order { font-size: 22px; font-weight: 400; color: #aebccc; }
+.song-grid.phi-song-select .selected-track .song-difficulty { --song-difficulty-gap: 0px; }
+.song-grid.phi-song-select .selection-progress { background: #050b1480; font-size: 13px; padding: 16px; }
+.song-grid.phi-song-select .selection-players { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 22px 18px; font-size: 14px; }
+.song-grid.phi-song-select .selection-players b { margin-right: 8px; font-weight: 500; color: #aebccc; }
+.production-embedded .song-grid.phi-song-select { grid-template-columns: minmax(0, 1fr); }
+.production-embedded .song-grid.phi-song-select .candidate-row { grid-template-columns: 26px minmax(0, 1fr) 80px; }
+.production-embedded .song-grid.phi-song-select .ban-actions { grid-column: 2 / 4; justify-content: flex-start; }
+.production-embedded .song-grid.phi-song-select .cover-window { --selection-cover-h: 240px; }
+@media (max-width: 1100px) {
+  .song-grid.phi-song-select { gap: 24px; }
+  .song-grid.phi-song-select .candidate-row { grid-template-columns: 24px minmax(0, 1fr) 80px; }
+  .song-grid.phi-song-select .ban-actions { grid-column: 2 / 4; justify-content: flex-start; padding-bottom: 6px; }
+}
+@media (max-width: 800px) {
+  .song-grid.phi-song-select { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .song-grid.phi-song-select .candidate-row, .song-grid.phi-song-select.has-picks .candidate-row { width: calc(100% - 20px); margin-left: clamp(0px, calc((5 - var(--song-row)) * 4px), 20px); grid-template-columns: 20px minmax(0, 1fr) 72px; padding: 6px 4px 6px 28px; gap: 8px; }
+  .song-grid.phi-song-select .candidate-row .index { font-size: 17px; grid-row: 1; align-self: center; padding-top: 0; }
+  .song-grid.phi-song-select .song-preview-button { font-size: 20px; }
+  .song-grid.phi-song-select .candidate-row .song-difficulty { --song-difficulty-w: 72px; --song-difficulty-size: 32px; }
+  .song-grid.phi-song-select .song-focus-title h2 { font-size: 25px; }
+  .song-grid.phi-song-select .cover-window { --selection-cover-h: 210px; }
+  .song-grid.phi-song-select .song-focus-title .song-difficulty { --song-difficulty-w: 82px; }
+  .song-grid.phi-song-select .selected-track { padding: 8px 12px; gap: 10px; }
+  .song-grid.phi-song-select .selected-track h3 { font-size: 19px; }
+}

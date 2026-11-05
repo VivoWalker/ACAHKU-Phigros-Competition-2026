@@ -81,6 +81,20 @@ def cards(main, live, phase):
             assert row.locator('.song-difficulty b').inner_text() == str(int(song['level']))
             assert row.locator('.song-difficulty>span').inner_text() == song['difficulty']
             assert 'COMPOSER_FIELD' not in row.inner_text()
+            contrast = row.locator('.song-difficulty').evaluate('''tile => {
+              const luminance = color => {
+                const channels = color.match(/[\\d.]+/g).slice(0, 3).map(Number).map(n => {
+                  const v = n / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+                });
+                return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+              };
+              const background = luminance(getComputedStyle(tile, '::before').backgroundColor);
+              return [...tile.children].map(child => {
+                const ink = luminance(getComputedStyle(child).color);
+                return (Math.max(ink, background) + .05) / (Math.min(ink, background) + .05);
+              });
+            }''')
+            assert all(value >= 4.5 for value in contrast), (phase, song['id'], contrast)
         status = live.locator('.candidate-status').nth(index).inner_text()
         expected = 'BAN' if song['id'] in match['bans'] else 'PICK' if any(item['id'] == song['id'] for item in match['songs']) else ''
         assert status == expected, (phase, song['id'], status, expected)
