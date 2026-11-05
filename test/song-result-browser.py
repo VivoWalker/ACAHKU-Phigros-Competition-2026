@@ -46,6 +46,7 @@ function fixture(kind){
    for(let number=3;number<=8;number++)act('set-qualifier-total',{group:'A',playerId:'p'+number,
      total:number<=5?3000000-number:1000000});
    act('draw-qualifier-tiebreak',{group:'A',playerIds:['p1','p2']});
+   act('set-scene',{scene:'qualifier-tiebreak-announcement'});
    act('set-qualifier-tiebreak-score',{group:'A',index:0,playerId:'p1',score:987654});
   }
  }else if(kind==='legacy'){
@@ -187,7 +188,7 @@ def main():
                         assert page.locator('.song-result-score').all_inner_texts() == ['987,654', '0']
                     elif kind == 'completed':
                         assert 'W1' in page.locator('.topmeta').inner_text()
-                        assert page.locator('.result-song-scores b').all_inner_texts() == ['987,654', '976,543', '0', '965,432']
+                        assert page.locator('.result-song-scores [data-stat="song-score"]').all_inner_texts() == ['987,654', '976,543', '0', '965,432']
                         assert page.locator('.result-row>strong').all_inner_texts() == ['1,964,197', '965,432']
                     else:
                         assert page.locator('.waiting-song h2').inner_text() == '即將開始選曲'

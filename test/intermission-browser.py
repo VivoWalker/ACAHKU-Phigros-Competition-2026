@@ -111,10 +111,11 @@ def main():
                 report['checks'].append('rest shows traditional Chinese/English and the supplied poster character; rest and trailer have separate responsive control tabs and OBS pages')
 
                 control.set_viewport_size({'width': 1194, 'height': 834})
+                previous_path = state()['broadcast']['intermission']['videoPath']
                 control.set_input_files('#intermission-upload-file', str(video))
                 control.locator('[data-upload-intermission]').click()
                 control.wait_for_function("document.querySelector('#intermission-video-path').value.startsWith('media/intermission/')")
-                assert not state()['broadcast']['intermission']['videoPath'], 'An upload must not immediately change the live trailer'
+                assert state()['broadcast']['intermission']['videoPath'] == previous_path, 'An upload must not immediately change the live trailer'
                 save()
                 control.locator('[data-intermission-command=play-intermission-video]').click()
                 wait_scene('arcaea-trailer')

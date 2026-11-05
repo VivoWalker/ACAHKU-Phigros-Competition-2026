@@ -38,11 +38,13 @@ test('intermission preserves competition results, exposes the trailer, and retur
   assert.deepEqual(state.tournament, before.tournament); validateState(state);
 });
 
-test('empty intermissions work before video delivery; restart, replay, stop and other scene changes have explicit cue lifetimes', t => {
+test('bundled trailer works without configuration; restart, replay, stop and other scenes have explicit cue lifetimes', t => {
   const store = new StateStore(directory(t));
   const commit = (type, payload) => store.commit({ type, payload }, store.state.revision);
   commit('start-intermission'); assert.equal(store.state.broadcast.intermission.cue, null);
-  assert.throws(() => commit('play-intermission-video'), /[Cc]onfigure a video/);
+  assert.equal(store.state.broadcast.intermission.videoPath, 'assets/intermission/arcaea-trailer.mp4');
+  commit('play-intermission-video');
+  assert.equal(store.state.scene, 'arcaea-trailer');
   commit('configure-intermission', options); commit('play-intermission-video');
   const first = store.state.broadcast.intermission.cue;
   assert.deepEqual(new StateStore(path.dirname(store.file)).state.broadcast.intermission.cue, first);

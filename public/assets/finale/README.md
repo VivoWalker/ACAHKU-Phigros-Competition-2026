@@ -1,10 +1,10 @@
 # Final-song reveal video
 
-Put the final song's reveal video in this directory, for example `final-song-reveal.mp4` (H.264 video with AAC audio is recommended). The video has not been supplied yet.
+The supplied final-song PV is bundled as `final-song-reveal.mp4` (H.264/AAC, 1920×1080). Its path and measured 94.333008-second duration are selected automatically when no replacement is configured. See [processing and loudness measurements](../broadcast-videos/README.md).
 
 The final song is **What do you want more than a Happy ending? — AT 17**. Its title and difficulty are already filled in on the main control, and starting the finale setup or provisional-total step automatically attaches it to an unfinished GF. No title entry is needed. Artwork and composer remain unspecified until their actual assets/metadata are supplied. Existing explicitly configured final songs are preserved.
 
-In the main control's **Grand Final / 最後一首** panel, configure:
+The main control's **Grand Final / 最後一首** panel already contains these defaults. For a replacement, configure:
 
 - Local video path: `assets/finale/final-song-reveal.mp4`
 - Video duration: the exact duration in seconds, including its ending; a decimal is supported.

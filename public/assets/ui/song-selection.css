@@ -247,4 +247,8 @@
   .song-grid.phi-song-select .selected-track { padding: 8px 12px; gap: 10px; }
   .song-grid.phi-song-select .selected-track h3 { font-size: 19px; }
 }
+.qualifier-tiebreak-stage .tiebreak-contestants{min-height:612px;display:flex;flex-direction:column;justify-content:center;gap:32px;padding-left:80px;overflow-wrap:anywhere}
+.qualifier-tiebreak-stage .tiebreak-contestants p{font-size:48px;line-height:1.3;margin:0}
+.tiebreak-versus{font-size:26px;letter-spacing:.14em;color:#c7cdd5}
+.waiting-song .waiting-chart{font-size:30px;margin-top:12px;line-height:1.2}
 @media (prefers-reduced-motion: reduce) { .selection-ambience { transition: none; } }

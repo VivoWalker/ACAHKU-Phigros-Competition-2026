@@ -570,6 +570,16 @@
     artist: '', difficulty: 'AT', level: 17,
     art: 'assets/song/sealed.svg', eligible: false
   });
+  const QUALIFIER_TIEBREAK_SONGS = Object.freeze({
+    A: Object.freeze({ id: 'competition-2026-qt-a', title: 'Aleph-0', artist: 'LeaF',
+      difficulty: 'IN', level: 16, constant: 16.0, eligible: false,
+      art: 'assets/song/qualifier-tiebreaks/aleph-0.png',
+      previewAudio: 'assets/song-preview/qualifier-tiebreaks/aleph-0.mp3' }),
+    B: Object.freeze({ id: 'competition-2026-qt-b', title: 'ぱぴぷぴぷぴぱ', artist: 'ころねぽち With 立秋',
+      difficulty: 'IN', level: 15, constant: 15.9, eligible: false,
+      art: 'assets/song/qualifier-tiebreaks/papipupupupipa.png',
+      previewAudio: 'assets/song-preview/qualifier-tiebreaks/papipupupupipa.mp3' })
+  });
   const DRAW_RULES = Object.freeze(Object.fromEntries([
     [1, [4, 1, 1], 16.45], [2, [2, 3, 1], 16.65],
     [3, [1, 3, 2], 16.85], [4, [0, 3, 3], 17.05], [5, [0, 0, 6], 17.20]
@@ -590,6 +600,6 @@
       validConstant(canonical.constant, song.level) ? canonical.constant : null;
   }
   function library() { return LIBRARY.map(song => ({ ...song })); }
-  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS, FINALE_SONG,
+  return Object.freeze({ VERSION, LIBRARY, library, QUALIFIER_SONG_IDS, DOUBLE_ELIMINATION_SONG_IDS, FINAL_SONG_IDS, FINALE_SONG, QUALIFIER_TIEBREAK_SONGS,
     DRAW_RULES, validConstant, chartConstant });
 });
