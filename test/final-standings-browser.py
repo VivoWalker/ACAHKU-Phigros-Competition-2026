@@ -95,6 +95,13 @@ def exercise(browser, count):
         live = context.new_page()
         live.set_viewport_size({'width': 1920, 'height': 1080})
         live.add_init_script(CLOCK)
+        live.add_init_script('''(() => {
+          const animate=Element.prototype.animate;window.__podiumAnimations=[];
+          Element.prototype.animate=function(frames,options){
+            if(this.matches('.standings-podium-card'))window.__podiumAnimations.push({place:this.dataset.podiumPlace,frames});
+            return animate.call(this,frames,options);
+          };
+        })();''')
         live.goto(base + '/overlay/live.html')
         fixed = context.new_page()
         fixed.set_viewport_size({'width': 1920, 'height': 1080})
@@ -115,6 +122,7 @@ def exercise(browser, count):
         live.evaluate('document.fonts.ready')
         saved = P.state(main)
         podium = verify_podium(live, saved)
+        assert set(live.evaluate('window.__podiumAnimations.map(item=>item.place)')) == {'1', '2', '3'}
         top = live.locator('[data-standings-group="top-eight"]')
         assert top.locator('li').count() == 5
         assert '不分先後' in top.inner_text()
@@ -155,6 +163,16 @@ def exercise(browser, count):
                 idle(live)
                 assert live.locator('.standings-page').inner_text() == '1 / 5'
             check('All 56 remaining entrants cycle without duplicates; reentry resets page one and stale timers cannot advance it')
+            live.emulate_media(reduced_motion='reduce')
+            P.command(main, 'set-scene', {'scene': 'bracket'})
+            idle(live, 'bracket')
+            animations = live.evaluate('window.__podiumAnimations.length')
+            P.click_saved(main, '[data-production-next]')
+            idle(live)
+            assert live.evaluate('window.__podiumAnimations.length') == animations
+            assert live.locator('.standings-page').inner_text() == '1 / 5'
+            geometry(live)
+            check('Reduce motion renders the complete standings immediately without starting podium animations')
         elif count == 8:
             assert live.locator('.standings-groups.single-group').count() == 1
             assert live.locator('[data-standings-group="remaining"]').count() == 0
