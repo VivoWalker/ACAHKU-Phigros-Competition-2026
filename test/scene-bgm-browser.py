@@ -309,7 +309,6 @@ def main():
                     ('preview', '/overlay/live.html?preview=1', None),
                     ('all-audio-muted', '/overlay/live.html?audio=0', None),
                     ('bgm-muted', '/overlay/live.html?bgm=0', None),
-                    ('zero-volume', '/overlay/live.html?bgmVolume=0', None),
                     ('fixed-offair', '/overlay/qualifier-waiting.html?fixed=1', None),
                     ('hidden-at-load', '/overlay/live.html', "Object.defineProperty(document,'hidden',{configurable:true,get:()=>true})")]:
                     page, context = new_page(label, path, initial)
@@ -324,14 +323,37 @@ def main():
                 control.wait_for_selector('#program-preview')
                 control.frame_locator('#program-preview').locator('#canvas[data-media-boot]').wait_for()
                 assert not [item for item in REPORT['requests'] if item['context'] == 'control'], REPORT['requests']
-                control_context.close()
-                check('control iframe, preview/audio/bgm mute modes, zero volume, off-air fixed source and hidden initial page request no audio')
+                check('control iframe, preview/audio/bgm mute modes, off-air fixed source and hidden initial page request no audio')
 
+                original = bgm_playing(live, MANIFEST['scenes']['start'])
+                slider = control.locator('#broadcast-volume')
+                assert slider.input_value() == '25'
+                def set_volume(value):
+                    slider.evaluate('''(input, value) => {
+                      input.value = String(value);
+                      input.dispatchEvent(new Event('input', {bubbles: true}));
+                      input.dispatchEvent(new Event('change', {bubbles: true}));
+                    }''', value)
+                set_volume(37)
+                adjusted = bgm_playing(live, MANIFEST['scenes']['start'], gain=.37)
+                assert adjusted['index'] == original['index'] and adjusted['stats'] == original['stats']
+                assert adjusted['time'] >= original['time']
                 volume, volume_context = new_page('volume', '/overlay/live.html?bgmVolume=0.12')
-                quieter = bgm_playing(volume, MANIFEST['scenes']['start'], gain=.12)
-                assert abs(quieter['volume'] - .12 * TRACKS[MANIFEST['scenes']['start']].get('gain', 1)) < .005, quieter
+                bgm_playing(volume, MANIFEST['scenes']['start'], gain=.37)
+                set_volume(0)
+                for page in [live, volume]:
+                    page.wait_for_function("()=>document.querySelector('audio[data-scene-bgm]')?.volume===0")
+                control.reload()
+                control.wait_for_selector('#program-preview')
+                control.wait_for_function("()=>document.querySelector('#broadcast-volume')?.value==='0'")
+                slider = control.locator('#broadcast-volume')
+                set_volume(25)
+                resumed = bgm_playing(live, MANIFEST['scenes']['start'])
+                bgm_playing(volume, MANIFEST['scenes']['start'])
+                assert resumed['index'] == original['index'] and resumed['stats'] == original['stats']
+                control_context.close()
                 volume_context.close()
-                check('URL bgmVolume scales the normalized packaged track gain')
+                check('global slider synchronizes sources, preserves playback, saves zero across reload and overrides old per-source volume URLs')
 
                 blocked, blocked_context = new_page('blocked', initial='window.__rejectBgmPlay=1')
                 blocked.wait_for_function("document.querySelector('#canvas')?.dataset.sceneBgm==='blocked'")

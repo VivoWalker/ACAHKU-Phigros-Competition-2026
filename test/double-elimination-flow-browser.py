@@ -81,6 +81,20 @@ def cards(main, live, phase):
             assert row.locator('.song-difficulty b').inner_text() == str(int(song['level']))
             assert row.locator('.song-difficulty>span').inner_text() == song['difficulty']
             assert 'COMPOSER_FIELD' not in row.inner_text()
+            contrast = row.locator('.song-difficulty').evaluate('''tile => {
+              const luminance = color => {
+                const channels = color.match(/[\\d.]+/g).slice(0, 3).map(Number).map(n => {
+                  const v = n / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+                });
+                return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+              };
+              const background = luminance(getComputedStyle(tile, '::before').backgroundColor);
+              return [...tile.children].map(child => {
+                const ink = luminance(getComputedStyle(child).color);
+                return (Math.max(ink, background) + .05) / (Math.min(ink, background) + .05);
+              });
+            }''')
+            assert all(value >= 4.5 for value in contrast), (phase, song['id'], contrast)
         status = live.locator('.candidate-status').nth(index).inner_text()
         expected = 'BAN' if song['id'] in match['bans'] else 'PICK' if any(item['id'] == song['id'] for item in match['songs']) else ''
         assert status == expected, (phase, song['id'], status, expected)
@@ -167,6 +181,20 @@ def run(browser, directory, tone):
         live.reload()
         loop(live, current(main)['songs'][0])
         check('first-song waiting loops the upcoming clip, survives state updates and resumes after OBS reload')
+        live.evaluate("window.__volumeDecoder=document.querySelector('audio[data-selection-audio]')")
+        for value in [0, 37, 25]:
+            main.locator('#broadcast-volume').evaluate('''(input, value) => {
+              input.value=String(value);
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+              input.dispatchEvent(new Event('change', {bubbles:true}));
+            }''', value)
+            live.wait_for_function('''value => {
+              const audio=document.querySelector('audio[data-selection-audio]');
+              return audio&&audio===window.__volumeDecoder&&
+                (value===0 ? audio.volume===0 : audio.volume>value/100*.82&&audio.volume<=value/100+.0001);
+            }''', arg=value)
+            assert current(main)['waitingPreviewCue'] == before
+        check('global volume and mute update the waiting decoder in place without changing the saved preview cue')
         step(main, live, 'match', 'double-elimination-match')
         processing(main, live, 0)
         check('song one enters an opaque processing screen, stops previews and keeps score entry available until reveal')

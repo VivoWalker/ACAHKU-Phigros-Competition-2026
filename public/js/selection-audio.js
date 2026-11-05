@@ -40,6 +40,7 @@
     const createAudio = options.createAudio || (() => new Audio());
     const fadeMs = options.fadeMs ?? FADE_MS, enabled = options.enabled !== false;
     const gain = Number.isFinite(options.gain) ? clamp(options.gain) : .8;
+    let masterVolume = 1;
     let context = null, key = null, current = null, retiring = null, prepared = null, timer = null;
     let disposed = false, blocked = false, lastFocus, lastStatus = '', failedSources = new Set();
     const durationCache = new Map();
@@ -74,13 +75,17 @@
       item.audio.removeAttribute('src'); item.audio.load();
       item.audio.remove?.();
     }
+    function level(item, value) {
+      item.level = value;
+      item.audio.volume = clamp(value * masterVolume);
+    }
     function retire() {
       release(prepared); prepared = null;
       release(retiring); retiring = null;
       if (current?.audio) {
         detach(current);
         retiring = current;
-        retiring.volume = current.audio.volume; retiring.startsAt = now(); retiring.endsAt = now() + fadeMs;
+        retiring.volume = current.level || 0; retiring.startsAt = now(); retiring.endsAt = now() + fadeMs;
         role(retiring, 'retiring');
       }
       current = null;
@@ -199,7 +204,7 @@
       if (retiring) {
         const length = retiring.endsAt - retiring.startsAt;
         const progress = length > 0 ? (time - retiring.startsAt) / length : 1;
-        retiring.audio.volume = retiring.volume * (1 - ease(progress));
+        level(retiring, retiring.volume * (1 - ease(progress)));
         if (progress >= 1) { release(retiring); retiring = null; }
       }
       const currentPhase = context && phase(context.cue, context.songs, time, fadeMs);
@@ -217,7 +222,7 @@
         if (!current || current.segmentKey !== segmentKey || current.path !== path) open(currentPhase, song);
         if (current?.audio && current.playing) {
           const fadeSeconds = fadeMs / 1000;
-          current.audio.volume = gain * (fadeSeconds > 0 ? Math.min(ease(currentPhase.offset / fadeSeconds), ease((currentPhase.duration - currentPhase.offset) / fadeSeconds)) : 1);
+          level(current, gain * (fadeSeconds > 0 ? Math.min(ease(currentPhase.offset / fadeSeconds), ease((currentPhase.duration - currentPhase.offset) / fadeSeconds)) : 1));
           // Only the next selected track is warmed, after actual playback has
           // started. Initial candidate draws and disabled staff previews never
           // create media, and a failed/blocked first play does not fan out loads.
@@ -226,8 +231,9 @@
       } else if (!retiring) report('silent');
       schedule();
     }
-    function update({ cue, songs = [], active = false } = {}) {
+    function update({ cue, songs = [], active = false, volume = 1 } = {}) {
       if (disposed) return;
+      masterVolume = Number.isFinite(volume) ? clamp(volume) : 1;
       // Catalog edits may replace a preview URL while this page remains open
       // for the whole event. Retain metadata/failures only for current files.
       const paths = new Set(songs.map(song => song.previewAudio).filter(safePath));

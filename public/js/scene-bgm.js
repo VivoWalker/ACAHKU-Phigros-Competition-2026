@@ -16,6 +16,7 @@
     const createAudio = options.createAudio || (() => new Audio());
     const enabled = options.enabled !== false;
     const gain = Number.isFinite(options.gain) ? clamp(options.gain) : .3;
+    let masterVolume = 1;
     const fadeMs = Number.isFinite(options.fadeMs) ? Math.max(0, Math.min(5000, options.fadeMs)) : FADE_MS;
     let onStatus = options.onStatus;
     let desired = null, active = false, current = null, retiring = null, timer = null;
@@ -51,8 +52,12 @@
       item.audio.dataset[isRetiring ? 'sceneBgmRetiring' : 'sceneBgm'] = '';
       item.audio.dataset.trackId = item.track.id;
     }
+    function level(item, value) {
+      item.level = value;
+      item.audio.volume = clamp(value * masterVolume);
+    }
     function fade(item, to, duration = fadeMs) {
-      item.fade = { from: item.audio.volume, to, startsAt: now(), endsAt: now() + duration };
+      item.fade = { from: item.level || 0, to, startsAt: now(), endsAt: now() + duration };
     }
     function retire() {
       if (!current) return;
@@ -69,7 +74,7 @@
         if (!item?.playing || !item.fade) continue;
         const { from, to, startsAt, endsAt } = item.fade;
         const progress = endsAt > startsAt ? (time - startsAt) / (endsAt - startsAt) : 1;
-        item.audio.volume = clamp(from + (to - from) * ease(progress));
+        level(item, clamp(from + (to - from) * ease(progress)));
         if (progress < 1) animating = true;
         else {
           item.fade = null;
@@ -109,8 +114,10 @@
       } catch (error) { failed(item, error); }
       tick();
     }
-    function update({ track = null, active: nextActive = false, immediate = false } = {}) {
+    function update({ track = null, active: nextActive = false, immediate = false, volume = 1 } = {}) {
       if (disposed) return;
+      masterVolume = Number.isFinite(volume) ? clamp(volume) : 1;
+      for (const item of [current, retiring]) if (item?.audio && !item.released) level(item, item.level || 0);
       const valid = track && typeof track.id === 'string' && track.id.length > 0 && track.id.length <= 128 && safePath(track.path);
       const next = valid ? { id: track.id, path: track.path.replace(/^\//, ''),
         gain: gain * (Number.isFinite(track.gain) ? clamp(track.gain) : 1) } : null;

@@ -221,7 +221,8 @@ def main():
         try:
             crew_context = new_context('control', 1194, 834)
             crew = helper.login(crew_context, base)
-            live_context = new_context('live')
+            reload_manifest = {'tracks': []}
+            live_context = new_context('live', manifest=reload_manifest)
             # OBS and the server may run on machines whose wall clocks differ.
             # Cues must follow the synchronized server clock, not this local one.
             live_context.add_init_script('''{const actualNow=Date.now.bind(Date);Date.now=()=>actualNow()+300000;}''')
@@ -362,6 +363,15 @@ def main():
             helper.command(crew, 'set-event', {'message': 'Audio browser fixture: finished previews remain stopped.'})
             live.wait_for_timeout(500)
             assert live.evaluate('window.__fixtureMedia.length') == complete_count
+            # Earlier checks deliberately discover unknown 10/12-second durations.
+            # A reload loses that in-memory decoder cache. Publish the real fixture
+            # lengths for this check, as the bundled production manifest does, so
+            # a short first pick cannot become a fresh 12-second fallback window.
+            reload_manifest['tracks'] = [
+                {'songIds': [song['id']], 'output': song['previewAudio'],
+                 'duration': 10 if '/' + song['previewAudio'] in short_fixture_paths else 12}
+                for song in picks
+            ]
             live.reload()
             helper.idle(live, 'song-selection')
             live.wait_for_timeout(600)

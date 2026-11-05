@@ -74,13 +74,14 @@
         release(); cueId = id;
         video = document.createElement('video'); mediaEvents = new window.AbortController();
         video.dataset.finaleVideo = ''; video.preload = 'auto'; video.playsInline = true;
-        video.muted = !enabled; video.volume = enabled ? 1 : 0; video.loop = false;
+        video.muted = !enabled; video.volume = 0; video.loop = false;
         const options = { signal: mediaEvents.signal };
         for (const kind of ['loadedmetadata', 'canplay', 'seeked']) video.addEventListener(kind, sync, options);
         video.addEventListener('ended', () => { if (phase().videoEnded) complete(); }, options);
         video.addEventListener('error', () => { message.hidden = false; status('error'); }, options);
         layer.prepend(video); video.src = '/' + match.finale.videoPath; status('loading');
       }
+      video.volume = enabled ? Math.max(0, Math.min(1, Number.isFinite(next.volume) ? next.volume : 1)) : 0;
       layer.hidden = false; sync(); schedule();
     }
     return {

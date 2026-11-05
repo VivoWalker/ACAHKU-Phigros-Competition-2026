@@ -25,6 +25,7 @@
     const message = document.createElement('p'); message.className = 'intermission-video-message';
     message.textContent = '預告暫時無法播放'; message.hidden = true; layer.append(message); canvas.append(layer);
     let config, active = false, video, events, timer = 0, disposed = false, pending = false, generation = 0, signature = '', status = 'silent';
+    let volume = 1;
     function setStatus(value) { if (status === value) return; status = value; layer.dataset.status = value; onStatus(value); }
     function release() {
       generation++; pending = false; window.clearTimeout(timer); timer = 0; events?.abort(); events = null;
@@ -68,6 +69,7 @@
     }
     function update(next = {}) {
       if (disposed) return;
+      if (Number.isFinite(next.volume)) volume = Math.max(0, Math.min(1, next.volume));
       config = next.config; active = next.active === true;
       const key = config?.cue && safePath(config.videoPath) ? `${config.cue.id}:${config.videoPath}:${config.loop}` : '';
       if (!active || document.hidden || !key) { release(); signature = ''; setStatus('silent'); return; }
@@ -81,11 +83,12 @@
         video.addEventListener('error', () => { message.hidden = false; setStatus('error'); }, options);
         layer.prepend(video); video.src = '/' + config.videoPath; layer.hidden = false; setStatus('loading');
       }
+      if (video) video.volume = enabled ? volume : 0;
       sync(); schedule();
     }
     return {
       update,
-      retry() { if (!disposed && active) { signature = ''; update({ config, active }); } },
+      retry() { if (!disposed && active) { signature = ''; update({ config, active, volume }); } },
       get hasMedia() { return !!video; },
       dispose() { if (disposed) return; disposed = true; release(); config = null; layer.remove(); }
     };

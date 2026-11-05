@@ -4,6 +4,22 @@ const { createPlayer, safePath, FADE_MS } = require('../public/js/scene-bgm');
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 const track = id => ({ id, path: `assets/bgm/${id}.ogg` });
 
+test('master volume changes a playing track without replay and mutes both sides of a crossfade', async t => {
+  const f = fixture(t, { gain: 1, fadeMs: 1000 });
+  f.update(track('menu'), { volume: .4 }); await flush(); f.advance(1000);
+  const first = f.audios[0]; first.currentTime = 23;
+  f.update(track('menu'), { volume: .12 });
+  assert.equal(first.volume, .12); assert.equal(first.currentTime, 23); assert.equal(first.playCalls, 1);
+  f.update(track('results'), { volume: .12 }); await flush(); f.advance(250);
+  assert.ok(f.audios.every(audio => audio.volume > 0 && audio.volume <= .12));
+  f.update(track('results'), { volume: 0 });
+  assert.ok(f.audios.every(audio => audio.volume === 0));
+  f.advance(100); assert.ok(f.audios.every(audio => audio.volume === 0));
+  f.update(track('results'), { volume: .6 }); f.advance(1000);
+  assert.equal(f.audios.length, 2); assert.equal(f.audios[1].playCalls, 1);
+  assert.equal(f.audios[1].volume, .6); assert.equal(first.paused, true);
+});
+
 function fixture(t, options = {}) {
   let clock = 1000, serial = 0;
   const audios = [], statuses = [], timers = new Map();

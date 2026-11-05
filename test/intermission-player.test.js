@@ -2,6 +2,20 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createPlayer } = require('../public/js/intermission');
 const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+
+test('master volume updates the trailer in place and cannot unmute a staff preview', async t => {
+  for (const enabled of [true, false]) {
+    const f = fixture(t, { enabled }); f.advance(2500);
+    f.player.update({ config: cue(), active: true, volume: .25 }); await flush();
+    const video = f.media[0], time = video.currentTime;
+    for (const volume of [0, .37, 1]) {
+      f.player.update({ config: cue(), active: true, volume }); await flush();
+      assert.equal(video.volume, enabled ? volume : 0);
+      assert.equal(video.muted, !enabled); assert.equal(video.currentTime, time);
+      assert.equal(video.playCalls, 1); assert.equal(f.media.length, 1);
+    }
+  }
+});
 const cue = (id = 'ec2d3b96-dc29-4cbf-ae21-b8bacf63237f', loop = true) => ({
   videoPath: 'assets/intermission/arcaea-trailer.mp4', loop, resumeTime: '', cue: { id, startedAt: 1000 }
 });
