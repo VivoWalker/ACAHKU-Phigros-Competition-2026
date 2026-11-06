@@ -104,3 +104,15 @@ test('manual launcher serves a paired test event and removes its temporary data 
   child.kill('SIGTERM'); assert.deepEqual(await exit, [0, null]);
   assert.equal(errors, ''); assert.equal(fs.existsSync(ready.dataDir), false);
 });
+
+test('manual launcher can stop and clean up immediately after announcing readiness', { timeout: 20000 }, async t => {
+  const child = spawn(process.execPath, ['scripts/manual-rehearsal.js', '--case', 'B02', '--port', '0', '--host', '127.0.0.1', '--json'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stopped = false;
+  const exit = once(child, 'exit').then(result => { stopped = true; return result; });
+  t.after(async () => { if (!stopped) child.kill('SIGTERM'); await exit; });
+  const lines = readline.createInterface({ input: child.stdout });
+  const ready = JSON.parse((await once(lines, 'line'))[0]);
+  child.kill('SIGTERM');
+  assert.deepEqual(await exit, [0, null]);
+  assert.equal(fs.existsSync(ready.dataDir), false);
+});

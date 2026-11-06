@@ -57,6 +57,10 @@ async function main(args = process.argv.slice(2)) {
     fs.writeFileSync(path.join(directory, 'match-state.json'), JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
     broadcast = require('../server').createBroadcastServer({ dataDir: directory, pin: 'test-main', scorekeeperPin: 'test-score' });
     const address = await broadcast.listen(options.port, options.host);
+    // Publish readiness only after a caller can safely stop the test server.
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+      stop().then(() => process.exit(0), error => { console.error(error.message); process.exit(1); });
+    });
     const base = 'http://localhost:' + address.port;
     const ready = { caseId: entry.id, port: address.port, dataDir: directory,
       controlUrl: base + '/control/', scorekeeperUrl: base + '/scorekeeper/', overlayUrl: base + '/overlay/live.html' };
@@ -75,9 +79,6 @@ async function main(args = process.argv.slice(2)) {
       console.log('\n预期：'); entry.expected.forEach(value => console.log('· ' + value));
       console.log('\n临时测试赛事。按 Ctrl+C 结束，再加载下一个存档。');
     }
-    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
-      stop().then(() => process.exit(0), error => { console.error(error.message); process.exit(1); });
-    });
     return { ...ready, broadcast, stop };
   } catch (error) { await stop(); throw error; }
 }
