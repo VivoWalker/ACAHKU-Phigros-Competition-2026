@@ -40,7 +40,7 @@
   const previewEnabled = query.get('preview') !== '1' && query.get('audio') !== '0';
   const bgmScenes = new Map(), bgmTracks = new Map();
   const bgmEnabled = previewEnabled && query.get('bgm') !== '0';
-  const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'qualifier-processing', 'double-elimination-processing', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement']);
+  const bgmAllowedScenes = new Set(['start', 'qualifier-waiting', 'qualifier-processing', 'double-elimination-processing', 'double-elimination-waiting', 'song-result', 'result', 'bracket', 'grand-final-announcement', 'final-standings']);
   let bgmStatus = 'silent', selectionStatus = 'silent', intermissionVideoStatus = 'silent', videoStatus = 'silent', audioSyncPending = false;
   const audioPrompt = document.createElement('button');
   audioPrompt.type = 'button'; audioPrompt.className = 'selection-audio-prompt';
@@ -353,15 +353,17 @@
     return s.qualifier.plan === 'A' && !s.qualifier.rounds?.A?.locked ? ['A'] : ['A', 'B'];
   }
   function syncRankingRotation(scene) {
+    const final = scene === 'final-standings' && obsActive && obsVisible && !document.hidden ? BroadcastFinalStandings.build(state) : null;
+    const finalPages = final?.ready ? BroadcastFinalStandings.pages(final) : [];
     const visible = scene === 'result' && state.stage === 'qualifier' && obsActive && obsVisible && !document.hidden;
     const groups = visible ? rankingGroups(state) : [];
-    const context = visible ? JSON.stringify([state.eventId, state.qualifier.plan, state.qualifier.activeGroup, groups]) : '';
+    const context = final?.ready ? JSON.stringify(['final', state.eventId, final]) : visible ? JSON.stringify([state.eventId, state.qualifier.plan, state.qualifier.activeGroup, groups]) : '';
     // A new visit or round gets a full first page; score updates keep its clock.
     if (context !== rankingContext) {
       clearTimeout(rankingTimer); rankingTimer = null;
       rankingTick = 0; rankingContext = context;
     }
-    if (fixedRankPage || !groups.some(group => B.rankings(state, group).length > 8)) {
+    if (fixedRankPage || !(finalPages.length > 1 || groups.some(group => B.rankings(state, group).length > 8))) {
       clearTimeout(rankingTimer); rankingTimer = null; return;
     }
     if (rankingTimer !== null) return;
@@ -492,12 +494,26 @@
   function arcaeaTrailer(s) {
     return backdrop() + header(s, 'Arcaea 比賽預告') + `<section data-motion-block class="trailer-standby"><h1>ARCAEA</h1><p>比賽預告</p></section>`;
   }
+  function finalStandings(s) {
+    const standings = BroadcastFinalStandings.build(s);
+    const heading = `<div data-motion-block class="final-standings-heading"><h1>總排名</h1><p>FINAL STANDINGS</p></div>`;
+    if (!standings.ready) return backdrop() + header(s) + heading + `<section data-motion-block class="standings-pending"><h2>等待賽果確認</h2><p>AWAITING CONFIRMED RESULTS</p></section>`;
+    const labels = [['冠軍', 'CHAMPION'], ['亞軍', 'RUNNER-UP'], ['季軍', 'THIRD PLACE']];
+    const podium = [2, 1, 3].map(place => {
+      const { player } = standings.podium[place - 1], [zh, en] = labels[place - 1];
+      return `<article data-motion-key="podium-${place}-${e(player?.id || 'vacant')}" data-motion-block data-podium-place="${place}" class="standings-podium-card"><div class="podium-place" aria-hidden="true">${place}</div><div class="podium-award"><h2>${zh}</h2><p>${en}</p></div><h3 title="${e(player?.name || '')}" data-player-id="${e(player?.id || '')}">${e(player?.name || '名次懸空')}</h3></article>`;
+    }).join('');
+    const top = standings.groups.find(group => group.id === 'top-eight'), pages = BroadcastFinalStandings.pages(standings);
+    const page = pages.length ? pages[fixedRankPage ? Math.min(rankPage - 1, pages.length - 1) : rankingTick % pages.length] : null;
+    const group = item => `<section data-motion-block class="standings-group" data-standings-group="${item.id}"><header><h2>${item.label}<span>${item.english}</span></h2>${item.unordered ? '<p>不分先後</p>' : ''}${item.count > 1 ? `<span class="standings-page">${item.page} / ${item.count}</span>` : ''}</header><ul>${item.players.map(player => `<li data-player-id="${e(player.id)}" title="${e(player.name)}">${e(player.name)}</li>`).join('') || '<li class="standings-vacant">—</li>'}</ul></section>`;
+    return backdrop() + header(s) + heading + `<section class="standings-podium" aria-label="冠亞季軍">${podium}</section><div class="standings-groups ${page ? '' : 'single-group'}">${group(top)}${page ? group(page) : ''}</div>`;
+  }
   function qualifierTiebreakAnnouncement(s) {
     const tie = B.qualifierTiebreak(s), song = tie?.song;
     if (!song || song.hidden) return qualifierWaiting(s);
     return backdrop() + header(s, `${B.qualifierLabel(s)} · TIEBREAK ${tie.index + 1}`)
       + `<section class="selection-stage qualifier-tiebreak-stage" aria-label="加賽曲目公布">
-        <div data-motion-block class="scene-head selection-heading"><h1>加賽曲目公布</h1></div>
+        <div data-motion-block class="scene-head selection-heading tiebreak-heading"><h1>加賽曲目公布</h1><p>TIEBREAKER SONG REVEAL</p></div>
         <div class="selection"><div class="selection-catalog tiebreak-contestants waiting-players">
           ${s.qualifier.activePlayers.map(id => `<p data-motion-block>${entrantText(entrant(s, id))}</p>`).join('<span class="tiebreak-versus" aria-hidden="true">VS</span>')}
         </div><section class="selection-feature">
@@ -506,7 +522,7 @@
             <h2>${songText(song)}</h2>${B.songDifficulty(song)}</div></div>
         </section></div></section>`;
   }
-  const renderers = { 'qualifier-tiebreak-announcement': qualifierTiebreakAnnouncement, start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-processing': doubleProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
+  const renderers = { 'final-standings': finalStandings, 'qualifier-tiebreak-announcement': qualifierTiebreakAnnouncement, start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-processing': doubleProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = shownScene();

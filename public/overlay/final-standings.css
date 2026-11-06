@@ -1,0 +1,31 @@
+.final-standings-heading{position:absolute;left:96px;right:96px;top:192px;display:flex;align-items:baseline;gap:32px}
+.final-standings-heading h1{font-size:80px;font-weight:500;line-height:1.35}
+.final-standings-heading>p{font-size:32px;line-height:1.6;letter-spacing:.1em;color:#d3d9e2}
+.standings-podium{position:absolute;left:96px;right:96px;top:342px;height:308px;display:grid;grid-template-columns:1fr 1.18fr 1fr;gap:28px;align-items:end}
+.standings-podium-card{--award:#d6dfe9;position:relative;isolation:isolate;min-width:0;height:272px;padding:26px 32px 30px;background:#090e18dc;border-top:4px solid var(--award);display:flex;flex-direction:column;justify-content:space-between}
+.standings-podium-card[data-podium-place="1"]{--award:#f4d99a;height:308px;background:linear-gradient(135deg,#fcf5df,#d9caab);color:#17202a}
+.standings-podium-card[data-podium-place="3"]{--award:#dbb7a4}
+.podium-award{position:relative;z-index:1;max-width:calc(100% - 115px);color:var(--award)}
+[data-podium-place="1"] .podium-award{color:#53412b}
+.podium-award h2{font-size:38px;font-weight:500;line-height:1.2}
+.podium-award p{font-size:22px;letter-spacing:.08em;line-height:1.6;margin-top:6px}
+.podium-place{position:absolute;right:24px;top:0;width:112px;height:126px;display:flex;align-items:center;justify-content:center;font-family:'Saira Difficulty',var(--broadcast-font);font-size:90px;line-height:1;color:#101721;background:var(--award);clip-path:polygon(34px 0,100% 0,calc(100% - 34px) 100%,0 100%)}
+.standings-podium-card h3{position:relative;font-size:48px;font-weight:500;line-height:1.35;overflow:hidden;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+[data-podium-place="1"] h3{font-size:60px}
+.standings-groups{position:absolute;left:96px;right:96px;top:700px;bottom:64px;display:grid;grid-template-columns:512px minmax(0,1fr);gap:40px}
+.standings-group{min-width:0;position:relative;border-top:2px solid #e3e7ee78;padding:18px 0 0}
+.standings-group header{display:flex;align-items:baseline;gap:18px;min-height:65px}
+.standings-group h2{font-size:32px;line-height:1.3;font-weight:500;white-space:nowrap}
+.standings-group h2 span{font-size:21px;color:#c6cbd5;margin-left:16px;letter-spacing:.04em}
+.standings-group header>p{font-size:20px;line-height:1.6;color:#d0d5df;white-space:nowrap}
+.standings-page{font-size:22px;margin-left:auto;color:#d0d5df}
+.standings-group ul{list-style:none;margin:0;padding:0;display:grid;grid-auto-flow:column;grid-template-rows:repeat(4,48px);grid-auto-columns:minmax(0,1fr);column-gap:32px}
+.standings-group li{min-width:0;font-size:30px;font-weight:400;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.standings-group[data-standings-group="top-eight"] ul{grid-template-rows:repeat(5,42px)}
+.standings-groups.single-group{grid-template-columns:minmax(0,1fr)}
+.standings-groups.single-group ul{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto;gap:22px 48px}
+.standings-groups.single-group li{font-size:40px}
+.standings-vacant{color:#adb3bf}
+.standings-pending{position:absolute;left:96px;right:96px;top:470px;text-align:center}
+.standings-pending h2{font-size:64px;font-weight:500}
+.standings-pending p{font-size:30px;line-height:1.6;margin-top:24px;letter-spacing:.06em;color:#c6cbd5}

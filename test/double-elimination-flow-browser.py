@@ -76,12 +76,18 @@ def cards(main, live, phase):
     idle(live, 'song-selection')
     match = current(main)
     for index, song in enumerate(match['candidates']):
-        for row in [live.locator('.candidate').nth(index), main.locator('.candidate-row').nth(index)]:
+        for page, selector in [(live, '.candidate'), (main, '.candidate-row')]:
+            row = page.locator(selector).nth(index)
             assert row.locator('.song-difficulty').get_attribute('aria-label') == f"{song['difficulty']} {int(song['level'])}"
             assert row.locator('.song-difficulty b').inner_text() == str(int(song['level']))
             assert row.locator('.song-difficulty>span').inner_text() == song['difficulty']
             assert 'COMPOSER_FIELD' not in row.inner_text()
-            contrast = row.locator('.song-difficulty').evaluate('''tile => {
+            # Resolve and measure the current tile in one browser task. A
+            # locator handle can detach between resolution and evaluate while
+            # the live control rebuilds its rows after a saved pick.
+            contrast = page.wait_for_function('''({selector,index}) => {
+              const tile = document.querySelectorAll(selector)[index]?.querySelector('.song-difficulty');
+              if (!tile) return null;
               const luminance = color => {
                 const channels = color.match(/[\\d.]+/g).slice(0, 3).map(Number).map(n => {
                   const v = n / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
@@ -93,7 +99,7 @@ def cards(main, live, phase):
                 const ink = luminance(getComputedStyle(child).color);
                 return (Math.max(ink, background) + .05) / (Math.min(ink, background) + .05);
               });
-            }''')
+            }''', arg={'selector': selector, 'index': index}).json_value()
             assert all(value >= 4.5 for value in contrast), (phase, song['id'], contrast)
         status = live.locator('.candidate-status').nth(index).inner_text()
         expected = 'BAN' if song['id'] in match['bans'] else 'PICK' if any(item['id'] == song['id'] for item in match['songs']) else ''

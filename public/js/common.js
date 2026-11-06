@@ -9,7 +9,8 @@
     ['bracket', 'Bracket progress', '雙淘汰賽進度'], ['song-selection', 'Song selection', '選曲'],
     ['grand-final-announcement', 'Grand Final songs', '總決賽曲目公佈'],
     ['grand-final-totals', 'Grand Final first two totals', '決賽前兩首累計成績'],
-    ['grand-final-video', 'Grand Final reveal video', '決賽最終曲公布影片']
+    ['grand-final-video', 'Grand Final reveal video', '決賽最終曲公布影片'],
+    ['final-standings', 'Final standings', '賽事總排名']
   ];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const total = values => (values || []).reduce((s, n) => s + (n ?? 0), 0);
