@@ -71,20 +71,24 @@ function fixture(t, options = {}) {
 }
 
 
-test('looping trailers seek modulo duration, stay muted in staff previews and retain one decoder across score updates', async t => {
-  const f = fixture(t, { enabled: false }); f.advance(23000); f.update(); await flush();
+test('trailers play once even with an older looping setting and retain one muted decoder across updates', async t => {
+  const f = fixture(t, { enabled: false }); f.advance(3000); f.update(); await flush();
   const video = f.media[0];
-  assert.equal(video.currentTime, 3); assert.equal(video.loop, true); assert.equal(video.muted, true);
+  assert.equal(video.currentTime, 3); assert.equal(video.loop, false); assert.equal(video.muted, true);
   for (let i = 0; i < 100; i++) f.update(structuredClone(cue()));
   await flush(); assert.equal(f.media.length, 1); assert.equal(video.playCalls, 1); assert.equal(f.timers.size, 1);
 });
 
-test('single-play trailers end on standby without replaying after later revisions', async t => {
-  const f = fixture(t); f.update(cue(undefined, false)); await flush();
+test('trailers signal completion once without replaying after updates, visibility changes or retry', async t => {
+  const completed = [], f = fixture(t, { onComplete: id => completed.push(id) }); f.update(); await flush();
   f.advance(10000); await flush();
   assert.equal(f.player.hasMedia, false); assert.equal(f.timers.size, 0); assert.equal(f.statuses.at(-1), 'ended');
-  for (let i = 0; i < 30; i++) f.update(cue(undefined, false));
+  for (let i = 0; i < 30; i++) f.update();
+  f.document.hidden = true; f.update(); f.document.hidden = false; f.update(); f.player.retry();
   assert.equal(f.media.length, 1);
+  assert.deepEqual(completed, [cue().cue.id]);
+  f.update(cue('aceb43c7-648d-45b0-b8aa-62d33a95d734')); await flush();
+  assert.equal(f.media.length, 2, 'An explicit replay creates a new cue');
 });
 
 test('scene exit, hidden OBS sources and disposal release the audio, decoder, event listeners and timers', async t => {

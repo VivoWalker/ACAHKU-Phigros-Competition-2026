@@ -110,15 +110,19 @@
     onComplete: queueRender,
     onStatus(value) { videoStatus = value; canvas.dataset.finaleVideo = value; refreshAudioPrompt(); }
   });
+  let completedIntermissionCue;
   const intermissionVideo = BroadcastIntermission.createPlayer({ canvas, now: previewNow, enabled: previewEnabled,
+    onComplete(id) { completedIntermissionCue = id; queueRender(); },
     onStatus(value) { intermissionVideoStatus = value; canvas.dataset.intermissionVideo = value; refreshAudioPrompt(); }
   });
   listen(audioPrompt, 'click', () => { selectionAudio.retry(); sceneBgm.retry(); finaleVideo.retry(); intermissionVideo.retry(); rouletteSound.retry(); });
-  const programScene = () => state?.scene === 'grand-final-video' && BroadcastFinalSequence.phase(state && B.currentMatch(state), previewNow()).videoEnded
-    ? 'double-elimination-waiting' : state?.scene;
+  listen(canvas, 'pointerdown', () => { if (canvas.hasAttribute('data-video-only')) finaleVideo.retry(); });
+  const projectedScene = scene => scene === 'grand-final-video' && BroadcastFinalSequence.phase(state && B.currentMatch(state), previewNow()).videoEnded
+    ? 'double-elimination-waiting' : scene === 'arcaea-trailer' && completedIntermissionCue && state?.broadcast?.intermission?.cue?.id === completedIntermissionCue
+      ? 'intermission' : scene;
+  const programScene = () => projectedScene(state?.scene);
   const rawScene = () => fixed || !follow ? requested === 'live' ? state?.scene : requested : state?.scene;
-  const shownScene = () => rawScene() === 'grand-final-video' && BroadcastFinalSequence.phase(state && B.currentMatch(state), previewNow()).videoEnded
-    ? 'double-elimination-waiting' : rawScene();
+  const shownScene = () => projectedScene(rawScene());
   function refreshFinaleProjection() {
     const match = B.currentMatch(state), phase = BroadcastFinalSequence.phase(match, previewNow());
     if (!phase.videoEnded || !match?.songs[2]?.hidden) return;
@@ -179,7 +183,8 @@
   const finaleEffects = BroadcastFinaleEffects.createController({ canvas, now: previewNow, onPhaseChange: () => render() });
   function syncFinaleEffects() {
     finaleEffects.update({ match: state?.stage === 'double-elimination' ? B.currentMatch(state) : null,
-      scene: shownScene(), active: bootReady && obsActive && obsVisible && !document.hidden && countdownClient?.connected === true });
+      scene: shownScene(), active: bootReady && obsActive && obsVisible && !document.hidden && countdownClient?.connected === true
+        && !['grand-final-video', 'arcaea-trailer'].includes(shownScene()) });
   }
   const url = path => '/' + encodeURI(path);
   const displayPath = path => displayMedia.resolve(path);
@@ -327,7 +332,7 @@
     return backdrop() + header(s, '總決賽') + title('決賽階段成績') + `<div class='finale-totals'>${match.players.map(card).join('')}</div>`;
   }
   function finalVideoScene(s) {
-    return backdrop() + header(s, '總決賽') + `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
+    return `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
   }
   function playerName(s, id, scores, songs, index, kind, directTotal) {
     const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
@@ -554,6 +559,9 @@
   function render() {
     if (pageDisposed || !state || !bootReady) return;
     const scene = shownScene();
+    const videoOnly = scene === 'grand-final-video';
+    canvas.toggleAttribute('data-video-only', videoOnly);
+    document.body.classList.toggle('video-only', videoOnly);
     const draw = BroadcastSelectionRoulette.context(state, previewNow());
     rouletteClock.update(scene === 'song-selection' && draw ? B.currentMatch(state).selectionPreviewCue : null);
     syncRouletteSound(draw);

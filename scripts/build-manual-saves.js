@@ -247,8 +247,8 @@ function main() {
     ['左侧显示繁体中文及英文休息标题，右侧为主视觉。', '进入休息页不自动播放预告。'],
     [command('end-intermission', {}, { 'state.stage': 'double-elimination' })]);
   save('B02', 'arcaea-trailer', rest, '中场 Arcaea 视频',
-    ['切到「Arcaea 預告」标签，按「播放預告」。', '调节全局音量、静音，再刷新一个 OBS 测试源。'],
-    ['另一个页面播放 Arcaea 预告；工作人员预览静音。', '视频与菜单音频不叠加，刷新按同一播放时钟恢复。'],
+    ['切到「Arcaea 預告」标签，按「播放預告」。', '调节全局音量、静音，刷新一个 OBS 测试源，再等待播放完成。'],
+    ['Arcaea 预告只播放一次；工作人员预览静音。', '刷新按同一时钟继续；播完自动返回休息画面，主控同步更新。'],
     [command('play-intermission-video', {}, { 'state.scene': 'arcaea-trailer' })]);
   save('D01', 'seeded-bracket', seededBase, '双淘汰赛签表',
     ['查看 24 人预选产生的八人签表。', '选择 W1，进入准备。'],
@@ -362,7 +362,7 @@ function main() {
     [command('set-match-score', { playerIndex: 0, songIndex: 2, score: 990000 }, {}, 'Reveal')]);
   save('F04', 'final-version-pv', sealed, '新版 Ending Song Video',
     ['准备好 OBS 测试源，按「播放公布視頻」。', '完整播放，期间检查音量、静音和工作人员预览。'],
-    ['播放新版 1080p/24fps PV，按 88.512 秒计时。', '播完自动回到准备页并公布 What do you want more than a Happy ending? / AT 17。'],
+    ['播放新版 1080p/24fps PV，按 88.512 秒计时，画面只显示视频。', 'Logo、标题、错误侵入和连接提示都不会盖住视频。', '播完自动回到准备页并公布 What do you want more than a Happy ending? / AT 17。'],
     [command('play-final-finale-video', {}, { 'state.scene': 'grand-final-video', 'state.tournament.matches.13.finale.videoCue.duration': 88.512 })]);
   const revealed = finalRevealed();
   save('F05', 'purification-effects', revealed, '最后一首净化效果',

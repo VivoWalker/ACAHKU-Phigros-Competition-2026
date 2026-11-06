@@ -404,7 +404,7 @@
       "group": "B",
       "scene": "intermission",
       "stage": "double-elimination",
-      "sha256": "74499dbc07bdbb915c70f105414be62b4834d8d0ef1697f24187a1a84c3a6ff0",
+      "sha256": "8fe6a1ba3c7e03af1b7779f756fe0c01ec03d95b60845a2fcf37fb75252e3487",
       "steps": [
         "查看休息画面。",
         "核对左侧文字和右侧主视觉。"
@@ -430,14 +430,14 @@
       "group": "B",
       "scene": "intermission",
       "stage": "double-elimination",
-      "sha256": "67d3652d4f08bdfe7331b146b4df339885b09e6e3be1ed1f738e7d9cd7825669",
+      "sha256": "2638e458ae2255b961a18f3c551563711db19f0edd506d68c7ad6064e3789ced",
       "steps": [
         "切到「Arcaea 預告」标签，按「播放預告」。",
-        "调节全局音量、静音，再刷新一个 OBS 测试源。"
+        "调节全局音量、静音，刷新一个 OBS 测试源，再等待播放完成。"
       ],
       "expected": [
-        "另一个页面播放 Arcaea 预告；工作人员预览静音。",
-        "视频与菜单音频不叠加，刷新按同一播放时钟恢复。"
+        "Arcaea 预告只播放一次；工作人员预览静音。",
+        "刷新按同一时钟继续；播完自动返回休息画面，主控同步更新。"
       ],
       "probes": [
         {
@@ -1029,7 +1029,8 @@
         "完整播放，期间检查音量、静音和工作人员预览。"
       ],
       "expected": [
-        "播放新版 1080p/24fps PV，按 88.512 秒计时。",
+        "播放新版 1080p/24fps PV，按 88.512 秒计时，画面只显示视频。",
+        "Logo、标题、错误侵入和连接提示都不会盖住视频。",
         "播完自动回到准备页并公布 What do you want more than a Happy ending? / AT 17。"
       ],
       "probes": [

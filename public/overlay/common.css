@@ -222,9 +222,13 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .finale-waiting-difficulty{font-size:32px;font-weight:700;line-height:1.4;color:#ffccd6;margin-top:18px}
 .finale-next-song [data-finale-garbled]{font-family:monospace;font-size:44px;letter-spacing:.1em}
 .finale-video-placeholder{position:absolute;inset:0;background:#03030a}
-.finale-video-layer{position:absolute;inset:0;width:1920px;height:1080px;z-index:900;background:#03030a;overflow:hidden;pointer-events:none}
+.finale-video-layer{position:absolute;inset:0;width:1920px;height:1080px;z-index:1200;background:#03030a;overflow:hidden;pointer-events:none}
 .finale-video-layer[hidden]{display:none}.finale-video-layer video{display:block;width:100%;height:100%;object-fit:contain;background:#03030a}
 .finale-video-message{position:absolute;left:160px;right:160px;top:480px;margin:0;font-size:44px;font-weight:700;text-align:center;line-height:1.5;color:#f2d9e4}
+#canvas[data-video-only]{background:#03030a}
+#canvas[data-video-only]>:not([data-finale-video-layer]){opacity:0!important;visibility:hidden!important}
+#canvas[data-video-only]::before,#canvas[data-video-only]::after,
+.video-only .selection-audio-prompt,.video-only .finale-video-message{display:none!important}
 
 /* Rest and the Arcaea trailer have separate broadcast compositions. */
 .intermission-layout{position:absolute;left:128px;right:96px;top:192px;bottom:72px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:64px;align-items:center}

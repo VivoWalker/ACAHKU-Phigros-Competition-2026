@@ -24,7 +24,7 @@ test('delivered video files match the measured duration, loudness and checksum m
 
 test('empty saved video settings pick up the supplied files without changing scene or playback cues', () => {
   const rest = { videoPath: '', loop: false, resumeTime: '16:00', cue: null };
-  assert.deepEqual(Videos.intermission(rest), { ...rest, videoPath: Videos.clips.arcaea.videoPath });
+  assert.deepEqual(Videos.intermission(rest), { ...rest, videoPath: Videos.clips.arcaea.videoPath, videoDuration: Videos.clips.arcaea.videoDuration });
   const finale = { videoPath: '', videoDuration: 0, stage: 'sealed', song: null };
   assert.deepEqual(Videos.finale(finale), { ...finale, ...Videos.clips.finale });
   assert.equal(rest.videoPath, ''); assert.equal(finale.videoDuration, 0);

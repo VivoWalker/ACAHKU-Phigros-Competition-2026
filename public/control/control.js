@@ -9,6 +9,7 @@
   const exportURLs = new Map();
   let pageDisposed = false;
   let intermissionFile = null, intermissionUploading = false, intermissionUploadedPath = '', intermissionUploadEvent = '';
+  let intermissionMetadata, intermissionMetadataKey = '';
   const displayMedia = BroadcastDisplayMedia.createClient();
   const mediaWarmup = BroadcastMediaWarmup.createController({ maxDecoded: 8, concurrency: 2, timeoutMs: 2200, fontTimeoutMs: 1800 });
   const displayArt = path => displayMedia.resolve(path);
@@ -175,7 +176,7 @@
     if (kind === 'intermission') {
       // Preserve timing metadata from older events without showing it on the rest page.
       const value = BroadcastVideos.intermission(s.broadcast?.intermission || BroadcastIntermission.defaults());
-      return { 'intermission-video-path': value.videoPath, 'intermission-loop': value.loop, 'intermission-resume-time': value.resumeTime };
+      return { 'intermission-video-path': value.videoPath, 'intermission-resume-time': value.resumeTime };
     }
     if (kind === 'event') return Object.fromEntries(Object.entries(s.event).map(([key, value]) => [`event-${key.replace('ZH', '-zh')}`, value]));
     if (kind === 'song') {
@@ -532,6 +533,31 @@
     queue = task.catch(() => {});
     task.catch(error => { for (const item of snapshot) item.record.pending.delete(normal(item.record, item.value)); if (pageDisposed) return; reconcileDrafts(); refreshDraftNotice(); toast(error.message, true); $('sync-status').textContent = 'Update not saved · 草稿保留'; });
     return task;
+  }
+  function syncIntermissionMetadata() {
+    const config = BroadcastVideos.intermission(state?.broadcast?.intermission || BroadcastIntermission.defaults());
+    const cueId = config.cue?.id ?? null;
+    const key = controlReady() && BroadcastIntermission.safePath(config.videoPath) && !Number.isFinite(config.videoDuration)
+      ? JSON.stringify([state.eventId, connectionEpoch, config.videoPath, cueId]) : '';
+    if (intermissionMetadata?.key !== key) { intermissionMetadata?.cancel(); intermissionMetadata = null; }
+    if (!key || key === intermissionMetadataKey) return;
+    intermissionMetadataKey = key;
+    const video = document.createElement('video'), events = new AbortController();
+    const record = { key, cancel() { clearTimeout(timeout); events.abort(); video.removeAttribute('src'); video.load(); } };
+    const timeout = setTimeout(() => { record.cancel(); if (intermissionMetadata === record) intermissionMetadata = null; }, 8000);
+    intermissionMetadata = record;
+    video.preload = 'metadata'; video.muted = true;
+    video.addEventListener('loadedmetadata', () => {
+      const duration = video.duration;
+      record.cancel(); if (intermissionMetadata === record) intermissionMetadata = null;
+      if (!Number.isFinite(duration) || duration <= 0 || duration > 3600 || pageDisposed || key !== intermissionMetadataKey) return;
+      send('set-intermission-video-duration', { videoPath: config.videoPath, cueId, duration }, { guard() {
+        if (state?.broadcast?.intermission?.videoPath !== config.videoPath || (state.broadcast.intermission.cue?.id ?? null) !== cueId)
+          throw new Error('預告影片已切換，時長未套用。');
+      } }).catch(() => {});
+    }, { signal: events.signal });
+    video.addEventListener('error', () => { record.cancel(); if (intermissionMetadata === record) intermissionMetadata = null; }, { signal: events.signal });
+    video.src = '/' + config.videoPath;
   }
   function refreshVolume() {
     $('global-volume').hidden = !state;
@@ -1136,7 +1162,7 @@
     const config = BroadcastVideos.intermission(state.broadcast?.intermission || BroadcastIntermission.defaults()), onAir = state.scene === 'arcaea-trailer';
     const selectedPath = drafts.get('intermission|intermission-video-path')?.value ?? config.videoPath;
     const uploaded = intermissionUploadEvent === state.eventId && intermissionUploadedPath && intermissionUploadedPath !== selectedPath;
-    return heading('Arcaea 預告') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir && config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${config.videoPath ? '' : 'disabled'}`, true)}${button('返回休息畫面', `data-intermission-command="stop-intermission-video" ${onAir ? '' : 'disabled'}`)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>影片設定</h2><form id="intermission-form"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><label class="checkbox-label"><input id="intermission-loop" type="checkbox" ${config.loop ? 'checked' : ''}>循環播放</label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
+    return heading('Arcaea 預告') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir && config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${config.videoPath ? '' : 'disabled'}`, true)}${button('返回休息畫面', `data-intermission-command="stop-intermission-video" ${onAir ? '' : 'disabled'}`)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>影片設定</h2><form id="intermission-form"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
   }
   function useIntermissionUpload() {
     const input = $('intermission-video-path');
@@ -1165,6 +1191,7 @@
   function disposePage(event) {
     if (event.persisted || pageDisposed) return;
     persistDrafts(); pageDisposed = true; invalidateConnection(); lifecycle.abort(); drawClock.dispose();
+    intermissionMetadata?.cancel(); intermissionMetadata = null;
     clearInterval(countdownRefreshTimer); clearInterval(waitRefreshTimer); clearInterval(finalAnnouncementTimer); finalAnnouncementTimer = null; clearInterval(finalSequenceTimer); finalSequenceTimer = null; clearTimeout(toastTimer);
     tabAnimation?.cancel(); tabAnimation = null;
     countdownClient?.dispose(); BroadcastMotion.disposeCovers($('content'));
@@ -1244,7 +1271,7 @@
     }
     $('content').dataset.matchId = state.tournament.currentMatchId || '';
     if (state.recovery?.message) { const notice = document.createElement('div'); notice.className = 'notice recovery-alert'; notice.setAttribute('role', 'alert'); notice.innerHTML = `<strong>赛事数据已自动恢复</strong><p>${e(state.recovery.message)}</p><p>请核对当前名单、分数及赛果。${state.recovery.preservedFile ? `原文件已保留：${e(state.recovery.preservedFile)}` : ''}</p>`; $('content').prepend(notice); }
-    refreshDraftNotice(); refreshConnections(); refreshCountdownControls(); refreshWaitControls(); syncFinalAnnouncementTimer(); syncFinalSequenceTimer();
+    refreshDraftNotice(); refreshConnections(); refreshCountdownControls(); refreshWaitControls(); syncFinalAnnouncementTimer(); syncFinalSequenceTimer(); syncIntermissionMetadata();
   }
   listen(document, 'click', event => {
     const target = event.target.closest('button,[data-focus-song]'); if (!target || target.disabled || !state) return;
@@ -1367,7 +1394,7 @@
     if (form.dataset.scoreEditor) { submitScore(form, scope).then(result => { if (result) toast(form.dataset.scoreEditor === 'qd' ? '本曲統計已保存' : form.dataset.scoreEditor === 'qc' ? 'Challenge 总分已保存' : form.dataset.scoreEditor === 'qt' && challenge() ? '加赛分数已保存' : '分数与 ACC 已保存'); }).catch(error => toast(error.message, true)); return; }
     if (form.dataset.numberPlayer) { draftForm(scope, 'set-player-number', values => ({ playerId: form.dataset.numberPlayer, number: Number(values[`number-${form.dataset.numberPlayer}`]) })).catch(() => {}); return; }
     if (form.id === 'intermission-form') {
-      draftForm(scope, 'configure-intermission', values => ({ videoPath: values['intermission-video-path'].trim(), loop: values['intermission-loop'], resumeTime: values['intermission-resume-time'] })).then(() => toast('預告影片設定已保存')).catch(() => {}); return;
+      draftForm(scope, 'configure-intermission', values => ({ videoPath: values['intermission-video-path'].trim(), loop: false, resumeTime: values['intermission-resume-time'] })).then(() => toast('預告影片設定已保存')).catch(() => {}); return;
     }
     if (form.id === 'plan-form') { if (confirm('按建议书比赛规则设置方案？已有比赛成绩时不能切换方案。')) draftForm(scope, 'set-qualifier-plan', values => ({ plan: values['qualifier-plan'] })).catch(() => {}); return; }
     if (form.id === 'competition-roster-form') { if (confirm('保存完整参赛名单？保留未改名选手的 ID，开赛后不可更改名单。')) draftForm(scope, 'set-competition-roster', values => ({ names: values['competition-roster'].split('\n') })).catch(() => {}); return; }

@@ -79,12 +79,17 @@ def run(browser, directory):
         staff.goto(base + '/overlay/live.html?preview=1')
         playing(staff, 'video[data-intermission-video]', 0, True)
         volume_checks(main, live, 'video[data-intermission-video]')
+        # Refresh a newly requested replay so slower CI decoding never runs
+        # this check against a cue whose 29-second slot has already expired.
+        H.command(main, 'play-intermission-video')
+        playing(live, 'video[data-intermission-video]', .25)
         previous_time = live.locator('video[data-intermission-video]').evaluate('video=>video.currentTime')
         saved_trailer = H.state(main)['broadcast']['intermission']
+        REPORT['trailer_reload'] = {'previous_time': previous_time}
         live.reload()
         resumed = playing(live, 'video[data-intermission-video]', .25)
-        # A loop may wrap during reload. Check the saved clock in both
-        # directions instead of requiring an always-increasing media time.
+        assert saved_trailer['loop'] is False
+        assert live.locator('video[data-intermission-video]').evaluate('video=>!video.loop')
         live.wait_for_function('''({startedAt,loop})=>{
           const video=document.querySelector('video[data-intermission-video]');
           if(!video||!Number.isFinite(video.duration)||video.duration<=0)return false;
@@ -98,9 +103,12 @@ def run(browser, directory):
         live.screenshot(path=str(OUT / 'arcaea-trailer.png'))
         check('Arcaea uses the shared volume and mute without replacing its decoder or cue; refresh resumes and staff preview stays silent')
 
-        H.command(main, 'stop-intermission-video')
+        live.wait_for_function("document.querySelector('#canvas').dataset.renderedScene==='intermission'", timeout=40000)
         H.idle(live, 'intermission')
         live.wait_for_function("()=>!document.querySelector('video')")
+        assert H.state(main)['scene'] == 'intermission'
+        assert H.state(main)['broadcast']['intermission']['cue'] is None
+        check('the bundled Arcaea trailer completes once and automatically returns to the rest poster')
         H.command(main, 'show-final-two-totals')
         H.command(main, 'start-final-finale')
         H.command(main, 'configure-final-finale', {'videoPath': 'assets/finale/final-song-reveal.mp4', 'videoDuration': 94.333008})
@@ -117,13 +125,28 @@ def run(browser, directory):
         assert F.SECRET not in public, 'The final song leaked before the reveal video ended'
         playing(staff, 'video[data-finale-video]', 0, True)
         volume_checks(main, live, 'video[data-finale-video]')
+        assert live.locator('#canvas[data-video-only]').count() == 1
+        assert not live.locator('#scene .topbar').first.is_visible()
+        live.evaluate('''()=>{
+          document.querySelector('#canvas').classList.add('is-offline');
+          document.querySelector('.selection-audio-prompt').hidden=false;
+        }''')
+        for selector in ['[data-motion-branding]', '[data-countdown-layer]', '.offline-notice', '.selection-audio-prompt', '.finale-video-message']:
+            assert not live.locator(selector).is_visible(), selector + ' covered the PV'
+        live.evaluate('''()=>{
+          document.querySelector('#canvas').classList.remove('is-offline');
+          document.querySelector('.selection-audio-prompt').hidden=true;
+        }''')
         live.screenshot(path=str(OUT / 'final-song-pv.png'))
+        check('the PV is the only visible composition, including during branding transitions and connection/audio prompts')
         if os.environ.get('BROADCAST_FULL_FINALE') == '1':
             live.wait_for_selector('[data-rendered-scene="double-elimination-waiting"]', timeout=110000)
             check('the complete final-version PV returns to waiting and reveals the song on its measured clock')
         else:
             H.command(main, 'finish-final-finale-video')
         H.idle(live, 'double-elimination-waiting')
+        assert live.locator('#canvas[data-video-only]').count() == 0
+        assert live.locator('.topbar').is_visible()
         live.wait_for_function("()=>!document.querySelector('video[data-finale-video]')")
         live.screenshot(path=str(OUT / 'final-song-waiting.png'))
         assert F.SECRET in context.request.get(base + '/api/state').text()

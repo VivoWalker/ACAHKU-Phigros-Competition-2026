@@ -29,7 +29,7 @@ def main():
         video = Path(directory) / 'trailer.mp4'
         subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i',
                         'color=c=0x273a50:s=640x360:r=12', '-f', 'lavfi', '-i',
-                        'sine=frequency=440:sample_rate=48000', '-t', '2', '-c:v', 'libx264',
+                        'sine=frequency=440:sample_rate=48000', '-t', '8', '-c:v', 'libx264',
                         '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', str(video)], check=True)
         process = subprocess.Popen(['node', '-e', SERVER, directory], cwd=ROOT, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True)
@@ -120,7 +120,8 @@ def main():
                 control.locator('[data-intermission-command=play-intermission-video]').click()
                 wait_scene('arcaea-trailer')
                 overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='playing'")
-                assert overlay.locator('video[data-intermission-video]').evaluate('v=>!v.muted&&v.loop')
+                assert overlay.locator('video[data-intermission-video]').evaluate('v=>!v.muted&&!v.loop')
+                assert control.locator('#intermission-loop').count() == 0
                 assert overlay.locator('video[data-intermission-video]').bounding_box() == {'x': 0, 'y': 0, 'width': 1920, 'height': 1080}
                 assert fixed_rest.locator('video[data-intermission-video]').count() == 0
                 assert fixed_rest.locator('.intermission-copy p').inner_text() == 'INTERMISSION'
@@ -140,17 +141,17 @@ def main():
                 assert overlay.locator('video[data-intermission-video]').get_attribute('data-fixture-identity') == identity
                 overlay.reload(); overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='playing'")
                 screenshot(overlay, 'obs-intermission-video-fixture')
-                report['checks'].append('uploaded MP4 loops with sound on OBS, stays muted in the control preview and survives updates/reload')
+                report['checks'].append('uploaded MP4 plays once with sound on OBS, stays muted in the control preview and survives updates/reload')
 
-                control.locator('[data-intermission-command=stop-intermission-video]').click()
                 wait_scene('intermission')
                 overlay.wait_for_function("!document.querySelector('video[data-intermission-video]')")
                 overlay.wait_for_selector('.intermission-art img')
-                control.uncheck('#intermission-loop'); save()
+                assert state()['broadcast']['intermission']['cue'] is None
+                assert abs(state()['broadcast']['intermission']['videoDuration'] - 8) < .1
+                assert state()['broadcast']['intermission']['loop'] is False
+                report['checks'].append('the measured uploaded clip ends on the shared server clock and automatically returns every source to the poster rest page')
                 control.locator('[data-intermission-command=play-intermission-video]').click()
-                overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='ended'")
-                assert state()['scene'] == 'arcaea-trailer'
-                assert overlay.locator('video[data-intermission-video]').count() == 0
+                overlay.wait_for_function("document.querySelector('#canvas').dataset.intermissionVideo==='playing'")
                 control.locator('[data-intermission-command=stop-intermission-video]').click(); wait_scene('intermission')
                 overlay.wait_for_selector('.intermission-art img')
                 control.locator('[data-intermission-command=end-intermission]').click(); wait_scene('double-elimination-waiting')

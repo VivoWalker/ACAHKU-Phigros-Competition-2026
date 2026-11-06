@@ -12,6 +12,7 @@ const { createDisplayAssetsReader } = require('./lib/display-assets');
 const { sourceStatus } = require('./lib/broadcast-check');
 const obsAdapter = require('./lib/obs-adapter');
 const { FILE_NAME: INTERMISSION_FILE, createIntermissionMedia } = require('./lib/intermission-media');
+const { createIntermissionPlayback } = require('./lib/intermission-playback');
 const { context: countdownContext, DURATION: COUNTDOWN_CUE_DURATION } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
@@ -48,6 +49,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb', inflate: false }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
   const controls = io.of('/control'); const overlays = io.of('/overlay'); const scorekeepers = io.of('/scorekeeper');
+  const intermissionPlayback = createIntermissionPlayback({ store, onChange: publishState });
   // A start cue belongs to the live connection, never to a saved match or backup.
   let countdownCue = null, countdownTimer = null, countdownSources = null, countdownSequence = 0;
   function clearCountdown() {
@@ -79,6 +81,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, scorekeepers: scorekeepers.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
   function notifyStatus() { controls.emit('connections', connectionStatus()); }
   function publishState(beforeScene) {
+    intermissionPlayback.sync();
     cancelChangedCountdown();
     controls.emit('state', controlState()); overlays.emit('state', publicState(store.state)); scorekeepers.emit('state', scorekeeperState(store.state));
     if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
@@ -241,12 +244,14 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   let closing = null;
   function close() {
     if (closing) return closing;
+    intermissionPlayback.close();
     attempts.close(); intermissionMedia.close(); clearTimeout(countdownTimer); countdownTimer = null; countdownCue = null; countdownSources = null;
     closing = new Promise((resolve, reject) => io.close(() => server.close(() => {
       try { dataLock.release(); resolve(); } catch (error) { reject(error); }
     })));
     return closing;
   }
+  intermissionPlayback.sync();
   return { app, server, io, store, pin, scorekeeperPin,
     listen(port = 3000, host = '0.0.0.0') {
       if (closing) return Promise.reject(new Error('This broadcast server has closed. Create a new server before listening.'));
