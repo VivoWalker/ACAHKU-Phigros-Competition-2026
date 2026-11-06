@@ -39,6 +39,17 @@ An existing unscored installation can load the same settings through **Event & l
 
 When upgrading an existing installation, preserve the whole `data/` folder, replace the application files, restart the server, and refresh every control-panel tab and the OBS Browser Source once. Older control scripts without explicit match IDs are rejected by the updated server; existing valid schema-1 event files and paired sessions remain supported.
 
+## 人工测试存档
+
+提供 [45 个关键节点及检查清单](test/manual-saves/README.md)，覆盖晋级线同分、加赛公布、ACC 判定、中场视频、决赛 PV 和赛事总排名。每份 JSON 使用合成数据，可重复加载。
+
+```sh
+npm run test:manual -- --list
+npm run test:manual -- --case Q05
+```
+
+不带参数可按编号选择。测试服务默认使用 3001 端口和独立临时赛事；主控配对码 `test-main`，记分员配对码 `test-score`。操作步骤和预期结果会显示在终端，也可在检查清单中记录。按 Ctrl+C 结束，再加载下一个存档；需要保留人工输入时先在主控导出备份。更新规则后用 `npm run test:manual:build` 重新生成，`npm test` 会验证所有存档及其关键后续操作。
+
 ## Laptop + iPad
 
 1. Connect both devices to the same Wi-Fi or wired LAN. A network with client isolation or a guest Wi-Fi policy can block device-to-device access.
