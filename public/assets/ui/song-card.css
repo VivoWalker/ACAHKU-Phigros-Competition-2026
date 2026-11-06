@@ -13,8 +13,8 @@
 .song-difficulty {
   --song-difficulty-h: 76px;
   --song-difficulty-w: 96px;
-  --song-difficulty-size: calc(var(--song-difficulty-h) * .565);
-  --song-difficulty-label: max(12px, calc(var(--song-difficulty-h) * .16));
+  --song-difficulty-size: calc(var(--song-difficulty-h) * .50);
+  --song-difficulty-label: max(14px, calc(var(--song-difficulty-h) * .205));
   position: relative;
   isolation: isolate;
   display: flex;
