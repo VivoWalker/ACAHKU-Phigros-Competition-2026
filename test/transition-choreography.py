@@ -140,7 +140,9 @@ with tempfile.TemporaryDirectory(prefix='acahku-choreography-') as data:
     check('start');command('set-scene',{'scene':'double-elimination-match'});page.wait_for_timeout(200)
     revision=command('set-match-score',{'playerIndex':0,'songIndex':0,'score':999876})['revision']
     page.wait_for_function('r=>Number(document.querySelector("#canvas").dataset.renderedRevision)>=r',arg=revision,timeout=1000)
-    idle(page);assert '999,876' in page.locator('.player-total').first.inner_text()
+    idle(page);assert page.locator('.player-total').count()==0
+    command('set-song-progress',{'index':1});idle(page)
+    assert '999,876' in page.locator('.player-total').first.inner_text()
     page.evaluate(PROBE)
     for target in ['start','bracket','start','qualifier-match']:command('set-scene',{'scene':target});page.wait_for_timeout(80)
     idle(page,'qualifier-match');validate(page.evaluate('window.__trace.stop()'),'rapid switching');assert page.locator('[data-motion-live],[data-motion-placeholder],[data-motion-entry],[data-motion-exits]').count()==0

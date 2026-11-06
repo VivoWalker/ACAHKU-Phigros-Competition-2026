@@ -166,7 +166,13 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             assert live.locator('.score-row').count() == 0
             assert live.locator('.player-info').count() == 2
             assert live.locator('.song-band').count() == 1
-            assert '2,970,000' in live.locator('.player-total').first.inner_text()
+            assert live.locator('.player-total').count() == 0
+            revision = state()['revision']; crew.click('[data-song-progress="1"]'); saved_after(revision)
+            live.wait_for_function("document.querySelector('.player-total>span')?.textContent==='SONG 1'")
+            assert live.locator('.player-total strong').all_text_contents() == ['990,000', '980,000']
+            revision = state()['revision']; crew.click('[data-song-progress="2"]'); saved_after(revision)
+            live.wait_for_function("document.querySelector('.player-total>span')?.textContent==='SONGS 1–2'")
+            assert live.locator('.player-total strong').all_text_contents() == ['1,980,000', '1,960,000']
             live.set_viewport_size({'width':1920,'height':1080})
             live.screenshot(path=str(OUT/'grand-finals-match.png'), omit_background=True)
             crew.locator('#result-details summary').click()
@@ -232,7 +238,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 motion_idle(overlay, scene)
                 captures = overlay.locator('[data-capture]').all()
                 assert len(captures) == len(expected)
-                expected_scores = (9 if scene == 'qualifier-match' else 6) if '&details=1' in options else 0
+                expected_scores = 4 if scene == 'double-elimination-match' and '&details=1' in options else 0
                 assert overlay.locator('.score-row').count() == expected_scores
                 png = overlay.screenshot(path=str(OUT/(scene + ('-cameras-details.png' if options else '-minimal.png'))), omit_background=True, animations='disabled')
                 image = Image.open(io.BytesIO(png)).convert('RGBA')
