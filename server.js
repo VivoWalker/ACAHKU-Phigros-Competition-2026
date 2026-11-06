@@ -55,6 +55,14 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     if (!countdownCue) return;
     countdownCue = null; countdownSources = null; countdownSequence++; publishCountdown();
   }
+  function expireCountdown() {
+    if (!countdownCue) return;
+    // A timer can wake before the wall-clock deadline; keep the shared cue
+    // until its timestamp is actually reached.
+    const remaining = countdownCue.endsAt - Date.now();
+    if (remaining > 0) { countdownTimer = setTimeout(expireCountdown, remaining); return; }
+    clearCountdown();
+  }
   function countdownMessage() {
     if (countdownCue && Date.now() >= countdownCue.endsAt) clearCountdown();
     return { serverNow: Date.now(), sequence: countdownSequence, cue: countdownCue };
@@ -180,7 +188,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
           countdownCue = { id: randomBytes(16).toString('hex'), startsAt, endsAt: startsAt + COUNTDOWN_CUE_DURATION, context };
           countdownSequence++;
           countdownSources = JSON.stringify(store.state.broadcast?.sourceSlots || null);
-          countdownTimer = setTimeout(clearCountdown, countdownCue.endsAt - Date.now());
+          countdownTimer = setTimeout(expireCountdown, countdownCue.endsAt - Date.now());
           publishCountdown();
         }
         ack({ ok: true, revision: store.state.revision });

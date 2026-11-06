@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "Organiser-supplied split ZIP; both entries passed CRC verification.",
+  "source": "Organiser-supplied split ZIP archives; the current video entries passed CRC verification.",
   "processing": "Full-length clips, measured loudness aligned with bundled BGM; H.264/AAC MP4 with faststart, no speed or pitch changes.",
   "clips": [
     {
@@ -33,11 +33,11 @@
     {
       "id": "finale",
       "path": "assets/finale/final-song-reveal.mp4",
-      "duration": 94.333008,
-      "sourceFile": "Ending Song Video.mp4",
-      "sourceSha256": "8b601ce0b5f7fa69db8951bdfd1efc39aa31a5c802ad5e829c9002610c8af146",
-      "sha256": "04430c3cb08388177046ce8ff43f36f5af54642903898262d29ee3a843e3cdf6",
-      "bytes": 31699961,
+      "duration": 88.512,
+      "sourceFile": "Ending Song Video Final Ver.mp4",
+      "sourceSha256": "305cf6bae948d9966d9c2945ef4f91988307475f94043166e3748f73d2f8bdb1",
+      "sha256": "22133dc945d75157a95d7194559056f52932a8d5c26428e871e9dc87b1eddab1",
+      "bytes": 61172264,
       "videoCodec": "h264",
       "width": 1920,
       "height": 1080,
@@ -45,17 +45,39 @@
       "audioCodec": "aac",
       "sampleRate": 48000,
       "channels": 2,
-      "sourceIntegratedLufs": -13.53,
-      "sourceTruePeakDb": -2.5,
+      "sourceIntegratedLufs": -13.55,
+      "sourceTruePeakDb": -3.31,
       "integratedLufs": -18.03,
-      "truePeakDb": -6.97,
+      "truePeakDb": -7.7,
       "normalization": {
         "targetLufs": -18,
         "truePeakCeilingDb": -2,
-        "gainDb": -4.47,
+        "gainDb": -4.45,
         "mode": "constant linear gain; measured before and after AAC encoding; original dynamics retained"
       },
-      "videoProcessing": "HEVC converted to H.264 High 4.1, yuv420p, x264 medium CRF 20; original resolution and frame rate retained"
+      "videoProcessing": "Original H.264 Main 4.1 bitstream copied; complete 88.5-second visual track retained. Delivered AAC adds 12 ms ending padding.",
+      "sourceDuration": 88.5,
+      "sourceLoudnessRangeLu": 14.7,
+      "loudnessRangeLu": 14.6,
+      "sourceVideoStreamSha256": "3511ab41e8b5c30b7b32c054d903fc7ded337023a6f32a5e6aceadcc065223f2",
+      "videoStreamSha256": "3511ab41e8b5c30b7b32c054d903fc7ded337023a6f32a5e6aceadcc065223f2",
+      "sourceArchiveParts": [
+        {
+          "name": "Ending Song Video Final Ver.z01",
+          "bytes": 25600000,
+          "sha256": "0867578fbe30da2a2f0c66d36920393b72f08090c7ca546ec2e2896f0d967ca6"
+        },
+        {
+          "name": "Ending Song Video Final Ver.z02",
+          "bytes": 25600000,
+          "sha256": "f729c6ad770ee2e4ea20bef072c49c0bde2ab61e5476c405e7624905831a773c"
+        },
+        {
+          "name": "Ending Song Video Final Ver.zip",
+          "bytes": 10451032,
+          "sha256": "53a1e4c2839082b50b15d63ed8af1f581ac57c9318d5108eb720a4db63ebbc92"
+        }
+      ]
     }
   ]
 }

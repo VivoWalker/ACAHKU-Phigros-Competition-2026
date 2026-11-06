@@ -1,6 +1,6 @@
 # Final-song reveal video
 
-The supplied final-song PV is bundled as `final-song-reveal.mp4` (H.264/AAC, 1920×1080). Its path and measured 94.333008-second duration are selected automatically when no replacement is configured. See [processing and loudness measurements](../broadcast-videos/README.md).
+The final-version final-song PV is bundled as `final-song-reveal.mp4` (H.264/AAC, 1920×1080). Its path and measured 88.512-second duration are selected automatically when no replacement is configured. Saved defaults using the first PV's 94.333008-second slot adopt the new duration before playback. Custom paths and timings keep their settings; an active saved cue keeps its clock until the next play action. See [processing and loudness measurements](../broadcast-videos/README.md).
 
 The final song is **What do you want more than a Happy ending? — AT 17**. Its title and difficulty are already filled in on the main control, and starting the finale setup or provisional-total step automatically attaches it to an unfinished GF. No title entry is needed. Artwork and composer remain unspecified until their actual assets/metadata are supplied. Existing explicitly configured final songs are preserved.
 

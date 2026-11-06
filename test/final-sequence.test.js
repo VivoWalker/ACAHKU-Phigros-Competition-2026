@@ -98,6 +98,27 @@ test('video-only configuration uses the confirmed finale and leaves the preset/r
   assert.equal(match(state).finale.song.title, CompetitionConfig.FINALE_SONG.title);
 });
 
+test('saved first-version PV settings use the new complete duration on play and replay', () => {
+  const state = ready(); firstTwo(state);
+  act(state, 'show-final-two-totals'); act(state, 'start-final-finale');
+  const duration = require('../public/js/broadcast-videos').clips.finale.videoDuration;
+  match(state).finale.videoDuration = 94.333008;
+  validateState(state);
+  act(state, 'play-final-finale-video');
+  assert.equal(match(state).finale.videoDuration, duration);
+  assert.equal(match(state).finale.videoCue.duration, duration);
+  const end = match(state).finale.videoCue.startedAt + duration * 1000;
+  assert.equal(Sequence.phase(match(state), end - 1).videoActive, true);
+  assert.equal(Sequence.phase(match(state), end).videoEnded, true);
+  match(state).finale.videoDuration = 94.333008;
+  match(state).finale.videoCue.duration = 94.333008;
+  const previousCue = match(state).finale.videoCue.id;
+  validateState(state);
+  act(state, 'play-final-finale-video');
+  assert.notEqual(match(state).finale.videoCue.id, previousCue);
+  assert.equal(match(state).finale.videoCue.duration, duration);
+});
+
 test('confirmed finale setup preserves custom/scored songs, while completed two-song saves remain two-song saves', () => {
   const custom = sealed(), configured = structuredClone(match(custom).finale.song);
   assert.deepEqual(match(custom).songs[2], configured);
