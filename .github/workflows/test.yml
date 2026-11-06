@@ -52,9 +52,15 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: python3 -m pip install -r requirements-test.txt
       - name: Install audio regression tools
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes ffmpeg
+          media_apt_options=(
+            -o Acquire::Retries=2
+            -o Acquire::http::Timeout=30
+            -o Acquire::https::Timeout=30
+          )
+          sudo apt-get "${media_apt_options[@]}" update
+          sudo apt-get "${media_apt_options[@]}" install --yes ffmpeg
       - run: npm run test:python
       - run: python3 -m playwright install --with-deps chromium
       - run: npm run test:browser:smoke
