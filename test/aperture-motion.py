@@ -34,8 +34,10 @@ REPORT = {'checks': [], 'timelines': {}, 'page_errors': [], 'artifacts': [],
           'source_sha256':{file:hashlib.sha256((ROOT/file).read_bytes()).hexdigest() for file in ['public/js/overlay.js','public/js/motion.js']},
           'pixel_method':'Chromium compositor PNGs; original native WAAPI effects paused and sought in 80 ms steps'}
 QUALIFIER_CARDS = [(64, 300, 576, 324), (672, 300, 576, 324), (1280, 300, 576, 324)]
+QUALIFIER_WEBCAMS = [(64, 300, 576, 432), (672, 300, 576, 432), (1280, 300, 576, 432)]
 QUALIFIER_HANDCAMS = [(64, 800, 240, 135), (672, 800, 240, 135), (1280, 800, 240, 135)]
 DOUBLE_CARDS = [(64, 280, 872, 490.5), (984, 280, 872, 490.5)]
+DOUBLE_WEBCAMS = [(64, 280, 872, 654), (984, 280, 872, 654)]
 DOUBLE_HANDCAMS = [(64, 846, 224, 126), (1632, 846, 224, 126)]
 STEP = 80
 PIXEL_CDP = {}
@@ -327,6 +329,24 @@ with tempfile.TemporaryDirectory(prefix='acahku-aperture-') as data_dir:
                 check(label+' paints a right-to-left alpha wipe, staggered left first',{'samples':len(samples),'frame_observations':len(trace['frames'])})
                 return image
 
+            def format_transition(label, enabled, cards, webcams, handcams):
+                live.evaluate(TRACE)
+                before, _ = snapshot(live, [], 0)
+                ack = command('set-broadcast-display', {'showHandcams': enabled})
+                wait_revision(live, ack['revision']); idle(live)
+                trace = live.evaluate('window.__apertureProbe.stop()'); validate_trace(trace, label)
+                primary, secondary = (cards, handcams) if enabled else (webcams, [])
+                assert_rects(live, primary, secondary)
+                final, _ = snapshot(live, primary + secondary, 0)
+                assert final['alpha'] == [[0, 0, 0]] * (len(primary) + len(secondary)), final
+                assert live.locator('.broadcast-backdrop [data-aperture-key]').count() == len(primary) + len(secondary)
+                assert final['background'] == before['background'], (label, 'Background flashed')
+                tracks = [aperture['attributes'] for frame in trace['frames'] for aperture in frame['apertures']]
+                exits = [float(a['data-aperture-start']) + 560 for a in tracks if a.get('data-aperture-phase') == 'exit']
+                entries = [float(a['data-aperture-start']) for a in tracks if a.get('data-aperture-phase') == 'enter']
+                assert exits and entries and min(entries) >= max(exits) - .5, (label, 'Resized windows opened before the old format closed')
+                check(label + ' closes the previous format before opening exact transparent windows')
+
             def assert_hidden_abort(label, rectangles, expected):
                 samples=[]
                 start=live.evaluate('document.timeline.currentTime')
@@ -369,8 +389,8 @@ with tempfile.TemporaryDirectory(prefix='acahku-aperture-') as data_dir:
                     idle(live,'qualifier-match');trace=live.evaluate('window.__apertureProbe.stop()');validate_trace(trace,'natural score update')
                     REPORT['score_update_mask_attributes']={'before':before,'after':after}
                     check('real-time score revision preserves original active mask start times and does not restart reveal')
-                    transition('qualifier handcam close','set-broadcast-display',{'showHandcams':False},QUALIFIER_CARDS+QUALIFIER_HANDCAMS,False,unchanged=(0,1,2))
-                    assert_rects(live,QUALIFIER_CARDS,[])
+                    format_transition('qualifier 4:3 webcam format',False,QUALIFIER_CARDS,QUALIFIER_WEBCAMS,QUALIFIER_HANDCAMS)
+                    assert_rects(live,QUALIFIER_WEBCAMS,[])
                     ack=command('set-broadcast-display',{'showHandcams':True});wait_revision(live,ack['revision'])
                     ack=command('set-broadcast-display',{'showHandcams':False});wait_revision(live,ack['revision'])
                     # Observe after the abort has actually reached the overlay. A
@@ -381,7 +401,7 @@ with tempfile.TemporaryDirectory(prefix='acahku-aperture-') as data_dir:
                       return !el||Number(getComputedStyle(el).opacity)===0;
                     }).map(rect=>rect[0])''',QUALIFIER_HANDCAMS)
                     REPORT['aborted_handcam_unopened_x']=unopened
-                    assert_hidden_abort('dual mode aborted before handcam reveal',QUALIFIER_CARDS+QUALIFIER_HANDCAMS,[[0,0,0]]*3+[[255,255,255] if r[0] in unopened else None for r in QUALIFIER_HANDCAMS])
+                    assert_hidden_abort('dual mode aborted before handcam reveal',QUALIFIER_CARDS+QUALIFIER_HANDCAMS,[None]*3+[[255,255,255] if r[0] in unopened else None for r in QUALIFIER_HANDCAMS])
                 else:
                     ack=command('set-broadcast-display',{'showHandcams':False});wait_revision(live,ack['revision']);idle(live,'qualifier-match')
                 command('set-broadcast-display',{'showHandcams':True})
@@ -399,7 +419,7 @@ with tempfile.TemporaryDirectory(prefix='acahku-aperture-') as data_dir:
                 assert live.locator('.broadcast-backdrop [data-aperture-key]').count()==6
                 check('rapid single/dual/single/dual starts recreated handcams after the outgoing masks have closed')
                 command('set-broadcast-display',{'showHandcams':False});idle(live,'qualifier-match')
-                transition('qualifier handcam reveal','set-broadcast-display',{'showHandcams':True},QUALIFIER_CARDS+QUALIFIER_HANDCAMS,True,unchanged=(0,1,2))
+                format_transition('qualifier dual format',True,QUALIFIER_CARDS,QUALIFIER_WEBCAMS,QUALIFIER_HANDCAMS)
                 assert_rects(live,QUALIFIER_CARDS,QUALIFIER_HANDCAMS)
 
                 # Create a playable match through production tournament actions.
@@ -409,13 +429,16 @@ with tempfile.TemporaryDirectory(prefix='acahku-aperture-') as data_dir:
                 command('ban-song',{'playerIndex':0,'songId':candidates[0]})
                 command('ban-song',{'playerIndex':1,'songId':candidates[1]})
                 command('pick-songs')
+                # The draw now opens its own announcement scene. Settle the
+                # qualifier screen before measuring that screen's exit masks.
+                command('set-scene',{'scene':'qualifier-match'});idle(live,'qualifier-match')
                 transition('qualifier exit before double','set-scene',{'scene':'double-elimination-waiting'},QUALIFIER_CARDS+QUALIFIER_HANDCAMS,False)
                 transition('double dual entry','set-scene',{'scene':'double-elimination-match'},DOUBLE_CARDS+DOUBLE_HANDCAMS,True)
                 assert_rects(live,DOUBLE_CARDS,DOUBLE_HANDCAMS)
                 snapshot(live,DOUBLE_CARDS+DOUBLE_HANDCAMS,0,'aperture-double-dual.png')
-                transition('double handcam close','set-broadcast-display',{'showHandcams':False},DOUBLE_CARDS+DOUBLE_HANDCAMS,False,unchanged=(0,1))
-                assert_rects(live,DOUBLE_CARDS,[])
-                transition('double handcam reveal','set-broadcast-display',{'showHandcams':True},DOUBLE_CARDS+DOUBLE_HANDCAMS,True,unchanged=(0,1))
+                format_transition('double 4:3 webcam format',False,DOUBLE_CARDS,DOUBLE_WEBCAMS,DOUBLE_HANDCAMS)
+                assert_rects(live,DOUBLE_WEBCAMS,[])
+                format_transition('double dual format',True,DOUBLE_CARDS,DOUBLE_WEBCAMS,DOUBLE_HANDCAMS)
                 assert_rects(live,DOUBLE_CARDS,DOUBLE_HANDCAMS)
 
                 # Reverse a partially closing set, then supersede it with another
