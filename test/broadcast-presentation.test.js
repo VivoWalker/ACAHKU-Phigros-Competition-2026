@@ -98,6 +98,50 @@ test('legacy pick cues and accuracy results without presentation fields retain t
   const sandbox = {}; vm.runInNewContext(fs.readFileSync(require.resolve('../public/js/selection-roulette'), 'utf8'), sandbox);
   assert.equal(sandbox.BroadcastSelectionRoulette.ROLL_MS, Roulette.ROLL_MS);
 });
+test('equal mean ACC is presented before drawing an extra song without committing a phantom winner', () => {
+  const state = fixture(); scores(state, true);
+  act(state, 'show-tied-round-result');
+  assert.equal(state.result, null); assert.equal(match(state).status, 'live');
+  assert.deepEqual(Presentation.result(state).totals, [1970000, 1970000]);
+  assert.equal(Presentation.result(state).winnerId, null);
+  act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'scores' });
+  assert.equal(Presentation.phase(match(state)), 'accuracy');
+  assert.equal(Presentation.accuracy(match(state), 0), Presentation.accuracy(match(state), 1));
+  act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'accuracy' });
+  assert.equal(state.scene, 'double-elimination-waiting'); assert.equal(match(state).tiebreaks.length, 1);
+  assert.equal(match(state).resultPresentation, undefined); assert.equal(match(state).winnerId, null); assert.equal(state.result, null);
+});
+test('a late ACC correction withdraws the provisional presentation while preserving the recorded song scores', () => {
+  const state = fixture(); scores(state, true); act(state, 'show-tied-round-result');
+  act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'scores' });
+  const recorded = structuredClone(match(state).scores);
+  act(state, 'set-match-score', { playerIndex: 0, songIndex: 0, score: recorded[0][0], judgements: { accuracy: 99.5 } });
+  assert.deepEqual(match(state).scores, recorded); assert.equal(match(state).resultPresentation, undefined);
+  assert.equal(state.scene, 'double-elimination-processing'); assert.equal(match(state).winnerId, null);
+});
+test('scores can be shown while ACC is entered; only a verified final decision commits the winner', () => {
+  const state = fixture();
+  for (const playerIndex of [0, 1]) for (const songIndex of [0, 1]) act(state, 'set-match-score', { playerIndex, songIndex, score: 990000 });
+  act(state, 'show-tied-round-result', { note: 'Arbiter checked both score screens.' });
+  assert.throws(() => act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'scores' }), /every score-screen accuracy/);
+  for (const playerIndex of [0, 1]) for (const songIndex of [0, 1]) act(state, 'set-match-score', {
+    playerIndex, songIndex, score: 990000, judgements: { accuracy: playerIndex ? 99 : 99.1 }
+  });
+  assert.equal(Presentation.phase(match(state)), 'scores'); assert.equal(state.result, null);
+  act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'scores' });
+  assert.throws(() => act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'accuracy' }), /arbiter/);
+  act(state, 'advance-result-presentation', { matchId: 'W1', expectedPhase: 'accuracy', verified: true });
+  assert.equal(match(state).status, 'complete'); assert.equal(Presentation.phase(match(state)), 'verdict');
+  assert.equal(state.result.winnerId, match(state).players[0]);
+  assert.equal(state.result.note, 'Arbiter checked both score screens.');
+});
+test('an arbiter forfeit remains available while a provisional round result is on air', () => {
+  const state = fixture(); scores(state, true); act(state, 'show-tied-round-result');
+  const playerId = match(state).players[0];
+  act(state, 'disqualify-player', { playerId, reason: 'other', note: 'Fixture arbiter withdrawal decision.' });
+  assert.equal(match(state).status, 'complete'); assert.equal(match(state).resultPresentation, undefined);
+  assert.equal(state.result.type, 'forfeit'); assert.notEqual(state.result.winnerId, playerId);
+});
 test('the three-song Grand Final uses the same staged decision and averages all three played charts', () => {
   const state = require('./helpers/final-standings-state').fixture(16, false);
   act(state, 'show-final-two-totals'); act(state, 'start-final-finale'); act(state, 'reveal-final-finale');

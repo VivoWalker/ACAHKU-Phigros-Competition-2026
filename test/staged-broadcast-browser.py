@@ -123,8 +123,10 @@ def run(browser, base):
         for si in [0, 1]:
             P.command(main, 'set-match-score', {'matchId': 'W1', 'playerIndex': pi, 'songIndex': si,
                 'score': 990000 if pi == si else 980000, 'judgements': {'accuracy': 99.1234 if pi == 0 and si == 0 else 99}})
-    P.command(main, 'record-result', {'matchId': 'W1', 'verified': True})
+    P.command(main, 'set-broadcast-cue', {'stage': 'double-elimination', 'scene': 'song-result', 'matchId': 'W1', 'songIndex': 1})
+    P.click_saved(main, '[data-production-next]')
     idle(live, 'result')
+    assert P.state(main)['result'] is None
     assert live.locator('.round-result-card.is-winner').count() == 0
     assert live.locator('[data-stat="average-accuracy"]').count() == 0
     assert '待 ACC 判定' in live.locator('.round-result-heading').inner_text()
@@ -154,7 +156,19 @@ def run(browser, base):
     for pi in [0, 1]:
         for si in [0, 1]:
             P.command(main, 'set-match-score', {'matchId': 'W2', 'playerIndex': pi, 'songIndex': si, 'score': 990000, 'judgements': {'accuracy': 99}})
-    P.command(main, 'draw-match-tiebreak', {'matchId': 'W2'})
+    P.command(main, 'set-broadcast-cue', {'stage': 'double-elimination', 'scene': 'song-result', 'matchId': 'W2', 'songIndex': 1})
+    P.click_saved(main, '[data-production-next]')
+    idle(live, 'result')
+    assert live.locator('[data-stat="total"]').all_inner_texts() == ['1,980,000', '1,980,000']
+    assert live.locator('.is-winner').count() == 0
+    shot(live, '08a-equal-round-scores')
+    P.click_saved(main, '[data-production-next]')
+    idle(live, 'result')
+    live.wait_for_selector('[data-result-phase="accuracy"]')
+    assert live.locator('[data-stat="average-accuracy"]').all_inner_texts() == ['99.0000%', '99.0000%']
+    assert live.locator('.is-winner').count() == 0
+    shot(live, '08b-equal-round-accuracy')
+    P.click_saved(main, '[data-production-next]')
     idle(live, 'double-elimination-waiting')
     tie = next(m for m in P.state(main)['tournament']['matches'] if m['id'] == 'W2')['tiebreaks'][-1]
     assert live.locator('.waiting-song h2').inner_text() == '加賽曲目待公布'
@@ -179,6 +193,12 @@ def run(browser, base):
     idle(live, 'song-result')
     assert live.locator('.song-result-card').count() == 2
     shot(live, '10-tiebreak-result')
+    P.command(main, 'confirm-match-tiebreak', {'matchId': 'W2', 'index': 0, 'verified': True})
+    P.command(main, 'record-result', {'matchId': 'W2', 'verified': True})
+    idle(live, 'result')
+    assert live.locator('.round-result-card.is-winner').count() == 1
+    shot(live, '11-tiebreak-verdict')
+    check('When mean ACC also ties, the shared result screen shows both ties before preparing the concealed extra song; only the played tiebreak declares a winner')
     check('DE tiebreak cancels an earlier rolling draw and follows concealed waiting → song reveal → named waiting → match → processing → scored result')
     assert not REPORT['browser_errors'], REPORT['browser_errors']
     context.close()

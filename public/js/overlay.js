@@ -442,12 +442,13 @@
   }
   function result(s) {
     if (s.stage === 'qualifier') return qualifierResults(s);
-    const r = s.result;
+    const r = BroadcastResultPresentation.result(s);
     if (!r) return backdrop() + header(s, '比賽結果') + title('等待比賽結果');
     const completed = s.tournament.matches.find(match => match.id === r.matchId), players = r.players.filter(Boolean);
     const count = completed?.songs.length || 2, scoreResult = r.type === 'score';
     const presentation = BroadcastResultPresentation.phase(completed), pending = presentation !== 'verdict', showAccuracy = presentation === 'accuracy';
-    const note = pending ? presentation === 'scores' ? '總分相同 · 待 ACC 判定' : 'ACC 已公布 · 待最終判定'
+    const requiresTiebreak = showAccuracy && completed.status !== 'complete' && ScoreRules.matchDecision(completed).reason === 'tie';
+    const note = pending ? presentation === 'scores' ? '總分相同 · 待 ACC 判定' : requiresTiebreak ? '平均 ACC 相同 · 需要加賽' : 'ACC 已公布 · 待最終判定'
       : r.decisionReason === 'accuracy' ? 'WIN ON ACCURACY' : r.decisionReason === 'tiebreak' ? 'TIEBREAK WINNER'
       : r.type === 'forfeit' ? '對手取消資格 · FORFEIT' : r.type === 'draw' ? '抽籤晉級' : r.type === 'bye' ? '輪空晉級' : '';
     const cards = players.map(id => {
@@ -464,7 +465,7 @@
       </article>`;
     }).join('');
     return backdrop() + header(s, `比賽結果 · R${r.round} · ${r.matchId}`)
-      + `<section data-motion-block class='round-result-heading'><h1>${showAccuracy ? '平均 ACC' : '整輪賽果'}</h1>${note ? `<p>${note}${pending ? `<small>${showAccuracy ? 'ACCURACY COMPARISON · VERDICT PENDING' : 'TIED SCORE · ACC COMPARISON REQUIRED'}</small>` : ''}</p>` : ''}</section>`
+      + `<section data-motion-block class='round-result-heading'><h1>${showAccuracy ? '平均 ACC' : '整輪賽果'}</h1>${note ? `<p>${note}${pending ? `<small>${showAccuracy ? requiresTiebreak ? 'TIED ACCURACY · TIEBREAK REQUIRED' : 'ACCURACY COMPARISON · VERDICT PENDING' : 'TIED SCORE · ACC COMPARISON REQUIRED'}</small>` : ''}</p>` : ''}</section>`
       + `<div class='result-wrap round-result-grid ${players.length === 1 ? 'single-player' : ''}'>${cards || '<p>空缺場次</p>'}</div>`;
   }
 

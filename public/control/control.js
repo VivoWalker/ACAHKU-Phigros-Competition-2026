@@ -94,7 +94,7 @@
     return `<section class="round-difficulty-notice notice" aria-label="本輪抽曲難度梯度"><h3>R${e(m.round)} · 難度梯度抽選</h3><p>目標：低 ${rule.target[0]}／中 ${rule.target[1]}／高 ${rule.target[2]}；平均定數約 ${Number(rule.mean).toFixed(2)}。${limits[m.round]}。</p>${m.candidates.length ? `<p data-draw-difficulty-summary>本次候選：低 ${count[0]}／中 ${count[1]}／高 ${count[2]}${known.length === constants.length ? `；平均定數 ${(known.reduce((sum, value) => sum + value, 0) / known.length).toFixed(2)}` : `；${constants.length - known.length} 首尚未填寫原始定數`}。</p>` : ''}</section>`;
   }
   const heading = (title, action = '') => `<div class="page-heading"><h1>${title}</h1>${action ? `<div class="heading-action">${action}</div>` : ''}</div>`;
-  const matchActions = new Set(['draw-candidates', 'ban-song', 'pick-songs', 'set-final-candidates', 'set-final-picks', 'reveal-host-song', 'start-final-announcement', 'configure-final-finale', 'show-final-two-totals', 'start-final-finale', 'play-final-finale-video', 'finish-final-finale-video', 'reveal-final-finale', 'set-final-finale-effect', 'set-song-progress', 'set-match-score', 'record-result', 'record-bye', 'lottery-bye', 'reset-current-match', 'draw-match-tiebreak', 'set-match-tiebreak-score', 'confirm-match-tiebreak']);
+  const matchActions = new Set(['draw-candidates', 'ban-song', 'pick-songs', 'set-final-candidates', 'set-final-picks', 'reveal-host-song', 'start-final-announcement', 'configure-final-finale', 'show-final-two-totals', 'start-final-finale', 'play-final-finale-video', 'finish-final-finale-video', 'reveal-final-finale', 'set-final-finale-effect', 'set-song-progress', 'set-match-score', 'record-result', 'show-tied-round-result', 'record-bye', 'lottery-bye', 'reset-current-match', 'draw-match-tiebreak', 'set-match-tiebreak-score', 'confirm-match-tiebreak']);
   const drafts = new Map();
   const draftStorage = BroadcastDraftStorage.createStore({ role: 'control' });
   let draftEventId = '';
@@ -674,7 +674,7 @@
   function productionInfo() {
     const q = state.qualifier, qualifier = state.stage === 'qualifier';
     const tie = qualifier ? B.qualifierTiebreak(state) : B.matchTiebreak(state);
-    const completed = state.scene === 'result' && !qualifier ? state.tournament.matches.find(m => m.id === state.result?.matchId) : null;
+    const completed = state.scene === 'result' && !qualifier ? state.tournament.matches.find(m => m.id === BroadcastResultPresentation.result(state)?.matchId) : null;
     const match = completed || B.currentMatch(state), songIndex = tie ? 0 : qualifier ? q.currentSong : match?.currentSong || 0;
     const challengeSet = qualifier && challenge() && !tie;
     const phase = state.scene === 'final-standings' ? 'final-standings' : state.scene === 'grand-final-totals' ? 'final-totals' : state.scene === 'grand-final-video' ? finalSequencePhase(match).videoEnded ? 'waiting' : 'final-video' : ['qualifier-processing', 'double-elimination-processing'].includes(state.scene) ? 'processing' : state.scene === 'song-result' ? challengeSet ? 'set-result' : 'song-result' : state.scene === 'result' ? qualifier ? 'ranking' : 'round-result' : state.scene === 'bracket' ? 'bracket' : ['song-selection', 'grand-final-announcement', 'qualifier-tiebreak-announcement', 'double-elimination-tiebreak-announcement'].includes(state.scene) ? 'selection' : state.scene.endsWith('-match') ? 'match' : state.scene.endsWith('-waiting') ? 'waiting' : 'standby';
@@ -799,7 +799,10 @@
       return { label: '本批選手 · 第一首準備', cue: productionCue('qualifier-waiting', 0), disabled: !i.active.length };
     }
     if (!m) return { label: '先建立雙淘汰賽程', disabled: true };
-    if (i.phase === 'round-result' && BroadcastResultPresentation.pending(m)) return { label: BroadcastResultPresentation.phase(m) === 'scores' ? '公布平均 ACC' : '公布最終判定', advanceResult: true };
+    if (i.phase === 'round-result' && BroadcastResultPresentation.pending(m)) {
+      const missing = [0, 1].some(index => !Number.isFinite(BroadcastResultPresentation.accuracy(m, index)));
+      return { label: BroadcastResultPresentation.phase(m) === 'scores' ? missing ? '請先補錄各曲 ACC' : '公布平均 ACC' : m.status !== 'complete' && ScoreRules.matchDecision(m).reason === 'tie' ? '平均 ACC 相同 · 準備加賽' : '公布最終判定', advanceResult: true, disabled: missing };
+    }
     if (BroadcastFinalStandings.build(state).ready && ['round-result', 'bracket'].includes(i.phase))
       return { label: '公布賽事總排名', cue: productionCue('final-standings') };
     if (i.phase === 'round-result') return { label: '顯示目前 Bracket', cue: productionCue('bracket', undefined, { matchId: state.tournament.currentMatchId }) };
@@ -832,6 +835,7 @@
     if (i.phase === 'waiting') return !m.songs.length ? { label: '進入抽選與 BAN 曲', cue: productionCue('song-selection') } : { label: `進入第 ${i.songIndex + 1} 首比賽`, cue: productionCue('double-elimination-match', i.songIndex) };
     if (i.phase === 'match') return { label: '結果正在統計中', cue: productionCue('double-elimination-processing', i.songIndex) };
     if (i.phase === 'processing') return { label: `顯示第 ${i.songIndex + 1} 首統計`, cue: productionCue('song-result', i.songIndex) };
+    if (i.phase === 'song-result' && state.tournament.ruleset === 'proposal-2026' && i.songIndex === matchSongCount(m) - 1 && !m.tiebreaks?.length && m.scores.flat().every(value => value !== null) && B.total(m.scores[0]) === B.total(m.scores[1])) return { label: '顯示整輪同分', showTiedRound: true };
     if (i.phase === 'song-result') return i.songIndex < matchSongCount(m) - 1 ? { label: `準備第 ${i.songIndex + 2} 首`, cue: productionCue('double-elimination-waiting', i.songIndex + 1) } : { label: '核對並確認整輪賽果', result: true, disabled: m.scores.flat().some(n => n === null) };
     return { label: `${m.id} · 等待選手準備`, cue: productionCue('double-elimination-waiting', 0) };
   }
@@ -939,16 +943,17 @@
     if (fixedFinal(m) && info.phase === 'waiting' && finalSequencePhase(m).stage === 'sealed') return `<div class="production-context-head"><h2>最後一首 · 亂碼等待</h2></div>`;
     if (info.phase === 'final-totals') return `<div class="production-context-head"><h2>前兩首中途總成績</h2></div>${finalTwoTotals(m)}`;
     if (info.phase === 'final-video') return `<div class="production-context-head"><h2>最後一首曲目公布</h2></div>`;
-    if (['round-result', 'bracket'].includes(info.phase) || m.status === 'complete') return `<div class="production-context-head"><h2>${info.phase === 'bracket' ? 'Bracket 現況與下一場' : '整輪賽果'}</h2>${state.result ? `<p>${e(state.result.matchId)} · ${BroadcastResultPresentation.pending(m) ? '同分 · ACC 判定中' : '勝者 ' + e(B.name(state, state.result.winnerId))}</p>` : ''}</div>${info.phase === 'round-result' ? productionResultSummary(m) : ''}${productionMatches()}`;
+    if (['round-result', 'bracket'].includes(info.phase) || m.status === 'complete') return `<div class="production-context-head"><h2>${info.phase === 'bracket' ? 'Bracket 現況與下一場' : '整輪賽果'}</h2>${state.result ? `<p>${e(m.id)} · ${BroadcastResultPresentation.pending(m) ? '同分 · ACC 判定中' : '勝者 ' + e(B.name(state, state.result.winnerId))}</p>` : ''}</div>${info.phase === 'round-result' ? productionResultSummary(m) : ''}${productionMatches()}`;
     return `<div class="production-context-head"><h2>${info.phase === 'processing' ? '結果統計與錄入' : info.phase === 'song-result' ? '本曲統計與錄分' : info.phase === 'match' ? '比賽中' : m.songs.length ? '比賽準備' : '選曲前準備'}</h2></div>${!m.songs.length ? productionMatches() : `<div class="production-song-card"><span class="micro">SONG ${info.songIndex + 1} / ${matchSongCount(m)}</span><h3>${e(m.songs[info.songIndex]?.title || '待公開')}</h3></div>${fixedFinal(m) ? button('重新公布決賽曲目', 'data-final-announcement-index="0"') : ''}${m.id === 'GF' && !fixedFinal(m) && m.hostPick && !m.hostRevealed ? button('公開主持人曲目', 'data-reveal-host') : ''}${['match', 'processing', 'song-result'].includes(info.phase) ? productionStats(info) : ''}${info.phase === 'song-result' && info.songIndex === matchSongCount(m) - 1 ? productionResultForm(m) : info.tie ? matchTiebreakPanel(m, '') : ''}`}`;
   }
   function productionResultSummary(match) {
-    const recorded = state.result?.matchId === match.id && state.result.type === 'score';
+    const recorded = state.result?.matchId === match.id && state.result.type === 'score' || !!match.resultPresentation;
     const presentation = BroadcastResultPresentation.phase(match), pending = presentation !== 'verdict';
-    return `<div class="production-result-cards">${match.players.filter(Boolean).map(id => {
+    const needsAccuracy = match.status !== 'complete' && [0, 1].some(index => !Number.isFinite(BroadcastResultPresentation.accuracy(match, index)));
+    return (needsAccuracy ? button('補錄各曲 ACC', 'data-tab="bracket"') : '') + `<div class="production-result-cards">${match.players.filter(Boolean).map(id => {
       const pi = match.players.indexOf(id), won = !pending && id === match.winnerId;
       const counts = recorded ? ScoreRules.sumJudgements(match.judgements?.[pi]) : {};
-      return `<article class="production-result-card ${won ? 'is-winner' : ''}"><header><span>${pending ? presentation === 'scores' ? '同分 · 待 ACC 判定' : '平均 ACC ' + BroadcastResultPresentation.format(BroadcastResultPresentation.accuracy(match, pi)) : state.result?.placements[id] || (won ? '勝出' : '落敗')}</span><h3>${e(B.name(state, id))}</h3></header><div class="production-result-total"><span>${match.songs.length === 3 ? '三曲總分' : '兩曲總分'}</span><strong>${recorded ? B.score(state.result.totals[pi]) : '—'}</strong></div>${recorded ? `<div class="production-result-songs">${match.scores[pi].map((score, index) => `<div><span>SONG ${index + 1}</span><b>${B.score(score)}</b></div>`).join('')}</div><dl>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class="judgement-${key}"><dt>${key.toUpperCase()}</dt><dd>${B.score(counts[key])}</dd></div>`).join('')}</dl>` : ''}</article>`;
+      return `<article class="production-result-card ${won ? 'is-winner' : ''}"><header><span>${pending ? presentation === 'scores' ? '同分 · 待 ACC 判定' : '平均 ACC ' + BroadcastResultPresentation.format(BroadcastResultPresentation.accuracy(match, pi)) : state.result?.placements[id] || (won ? '勝出' : '落敗')}</span><h3>${e(B.name(state, id))}</h3></header><div class="production-result-total"><span>${match.songs.length === 3 ? '三曲總分' : '兩曲總分'}</span><strong>${recorded ? B.score(B.total(match.scores[pi])) : '—'}</strong></div>${recorded ? `<div class="production-result-songs">${match.scores[pi].map((score, index) => `<div><span>SONG ${index + 1}</span><b>${B.score(score)}</b></div>`).join('')}</div><dl>${['perfect', 'good', 'bad', 'miss'].map(key => `<div class="judgement-${key}"><dt>${key.toUpperCase()}</dt><dd>${B.score(counts[key])}</dd></div>`).join('')}</dl>` : ''}</article>`;
     }).join('')}</div>`;
   }
   function productionMatches() {
@@ -995,7 +1000,13 @@
   }
   async function advanceProduction() {
     const next = nextProductionAction(); if (next.disabled) return;
-    if (next.advanceResult) { const m = productionInfo().match; return send('advance-result-presentation', { matchId: m.id, expectedPhase: BroadcastResultPresentation.phase(m) }); }
+    if (next.showTiedRound) { const m = productionInfo().match; assertScoresSaved('match', m.id); return send('show-tied-round-result', { matchId: m.id, ...($('result-note') ? { note: $('result-note').value } : {}) }); }
+    if (next.advanceResult) {
+      const m = productionInfo().match, expectedPhase = BroadcastResultPresentation.phase(m);
+      const verifies = m.status !== 'complete' && expectedPhase === 'accuracy' && ScoreRules.matchDecision(m).reason === 'accuracy';
+      if (verifies && !confirm('裁判已核對雙方每首分數與 ACC，公布最終判定？')) return;
+      return send('advance-result-presentation', { matchId: m.id, expectedPhase, ...(verifies ? { verified: true } : {}) });
+    }
     if (next.finalSequence) return takeFinalSequence(next.finalSequence);
     if (next.finalAnnouncementIndex !== undefined) return takeFinalAnnouncement(next.finalAnnouncementIndex);
     if (next.startQualifierTie) {
