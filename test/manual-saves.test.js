@@ -70,6 +70,29 @@ test('manual saves reject unknown selections and changed bytes before starting a
   assert.throws(() => loadManualSave(entries[0].id, { directory: dir }), /checksum differs/);
 });
 
+test('all manual saves load with Windows newlines and UTF-8 BOMs', async t => {
+  for (const [label, newline, bom] of [['CRLF', '\r\n', ''], ['BOM + LF', '\n', '\uFEFF'], ['BOM + CRLF', '\r\n', '\uFEFF']]) {
+    await t.test(label, inner => {
+      const dir = directory(inner), entries = listManualSaves();
+      for (const file of ['manifest.json', ...entries.map(entry => entry.file)]) {
+        const contents = fs.readFileSync(path.join(DIRECTORY, file), 'utf8').replace(/\r\n/g, '\n');
+        fs.writeFileSync(path.join(dir, file), bom + contents.replace(/\n/g, newline));
+      }
+      for (const entry of entries) {
+        const { state } = loadManualSave(entry.id, { directory: dir });
+        assert.equal(state.scene, entry.scene, entry.id);
+        assert.equal(state.stage, entry.stage, entry.id);
+        assert.ok(state.event.title.startsWith('[TEST ' + entry.id + ']'), entry.id);
+      }
+      const file = path.join(dir, entries[0].file);
+      const changed = fs.readFileSync(file, 'utf8').replace('TEST Player 01', 'TEST Player Changed');
+      fs.writeFileSync(file, changed);
+      assert.throws(() => loadManualSave(entries[0].id, { directory: dir }),
+        /checksum differs:.*node scripts\/build-manual-saves\.js/);
+    });
+  }
+});
+
 test('manual saves can be reproduced byte for byte without changing the parent clock or RNG', t => {
   const dir = directory(t), started = Date.now(), uuid = require('node:crypto').randomUUID;
   execFileSync(process.execPath, ['scripts/build-manual-saves.js', '--output', dir], { cwd: ROOT, timeout: 30000 });

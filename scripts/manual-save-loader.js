@@ -8,8 +8,14 @@ const Waiting = require('../public/js/waiting-preview');
 
 const DIRECTORY = path.join(__dirname, '../test/manual-saves');
 
+function readManualText(file) {
+  // Git on Windows and UTF-8 editors may change the text envelope without
+  // changing any saved data. The catalog hashes UTF-8 text with LF newlines.
+  return fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+}
+
 function listManualSaves(directory = DIRECTORY) {
-  const catalog = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+  const catalog = JSON.parse(readManualText(path.join(directory, 'manifest.json')));
   if (catalog.format !== 'acahku-manual-saves' || catalog.version !== 1 ||
       !Array.isArray(catalog.scenarios) || catalog.scenarioCount !== catalog.scenarios.length)
     throw new Error('Invalid manual-save catalog.');
@@ -30,10 +36,11 @@ function loadManualSave(id, { directory = DIRECTORY, now = Date.now() } = {}) {
   const entries = listManualSaves(directory), key = String(id).trim().toUpperCase();
   const entry = /^\d+$/.test(key) ? entries[Number(key) - 1] : entries.find(item => item.id === key);
   if (!entry) throw new Error('Unknown test case: ' + key + '. Use --list to see the available saves.');
-  const bytes = fs.readFileSync(path.join(directory, entry.file));
-  if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256)
-    throw new Error('Manual-save checksum differs: ' + entry.file);
-  const state = validateState(JSON.parse(bytes.toString('utf8')));
+  const contents = readManualText(path.join(directory, entry.file));
+  if (createHash('sha256').update(contents, 'utf8').digest('hex') !== entry.sha256)
+    throw new Error('Manual-save checksum differs: ' + entry.file +
+      '. Regenerate the bundled test saves with: node scripts/build-manual-saves.js');
+  const state = validateState(JSON.parse(contents));
   if (!Number.isSafeInteger(now) || now < 0) throw new Error('Invalid test clock.');
   // Each run is a separate event, so browser drafts from an earlier rehearsal
   // cannot be offered as edits to this one.

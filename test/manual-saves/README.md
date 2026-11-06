@@ -30,6 +30,16 @@ iPad 等设备使用启动日志中的局域网地址。按 Ctrl+C 关闭测试�
 
 命令别名尚未添加时，直接运行 python3 test/manual-saves-browser.py --case Q05。
 
+## 校验失败时
+
+加载器兼容 Windows CRLF 换行和 UTF-8 BOM；实际内容变化仍会阻止加载。
+出现 Manual-save checksum differs 时，在项目根目录重新生成整套测试存档及清单，再启动：
+
+    node scripts/build-manual-saves.js
+    node scripts/manual-rehearsal.js --case Q05
+
+生成器只写入 test/manual-saves，不修改正式赛事 data。存档与 manifest.json 应一起更新。
+
 ## 建议优先检查
 
 Q04、Q05、Q07、B02、D03、D08、D10、D12、D14、F04、F09。
