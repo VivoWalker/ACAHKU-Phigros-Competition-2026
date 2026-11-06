@@ -114,6 +114,7 @@ Decoded Phigros and club logos stay attached to one persistent top branding plan
 | --- | --- |
 | Event final standings: individual podium, unordered 4th–8th and 9th onward | `/overlay/final-standings.html` |
 | Start screen / default source that follows scene controls | `/overlay/start.html` |
+| Double Elimination tiebreak song reveal | `/overlay/double-elimination-tiebreak-announcement.html` |
 | Qualifier waiting | `/overlay/qualifier-waiting.html` |
 | Double elimination waiting / next-song preview loop | `/overlay/double-elimination-waiting.html` |
 | Double elimination results processing, before each single-song reveal | `/overlay/double-elimination-processing.html` |
@@ -219,14 +220,18 @@ In legacy roster setup, removing an unscored player also removes that player's r
 1. Select a ready match in **Bracket**. Pending matches cannot start until both incoming paths resolve.
 2. In **Song selection**, draw six distinct candidates from songs marked eligible for regular draws and not formally selected by another DE match. Official events use the R1–R5 difficulty gradient below; candidates, bans and songs not selected for play may reappear in another match.
 3. In proposal mode, P1 and P2 each record a ban or explicit **Pass**. A ban can be changed before the final draw. Legacy events retain their required two-ban flow.
-4. **Draw 2 match songs** randomly chooses two of the remaining candidates after both decisions. These songs automatically populate the match overlay and scoring fields. Picks lock further bans.
+4. **Draw 2 match songs** commits two distinct random choices on the server and locks further bans. The shared selection screen rolls its highlight among the available unbanned songs (normally four), reveals and previews song one, then rolls among the remaining songs before revealing and previewing song two. Jackets and backgrounds change only when a song settles. Both staff views and OBS follow the same saved clock; refresh, reconnect and volume changes do not reroll or replay the sequence. A passed ban simply leaves a larger rolling pool. The next-step button becomes available after the second preview.
 5. Enter both players' two scores and select Song 1 / 2 or Song 2 / 2. The winner is determined by the two-song total.
-6. In **Record result**, confirm the result. In proposal mode, equal totals compare mean ACC, then repeated DE-pool tiebreaks if necessary. The arbiter confirms every tiebreak and the final result. Only legacy events retain the referee-winner selector. All base scores are required; partial totals cannot win.
+6. In **Record result**, confirm the result. In proposal mode, equal totals compare mean ACC, then repeated DE-pool tiebreaks if necessary. A newly confirmed result decided by mean ACC first shows the tied round totals with no winner. Use **公布平均 ACC** to show both four-decimal averages and per-song ACC, then **公布最終判定** to show the winner and advancement routes. These presentation steps survive refresh and do not change the recorded scores or scoring rule. Historical results retain their saved direct-result behavior. The arbiter confirms every tiebreak and the final result. Only legacy events retain the referee-winner selector. All base scores are required; partial totals cannot win.
 7. The result opens incoming winner/loser paths. The live scene changes to result announcement. Select the next ready match to continue.
 
 **Reset current match** clears candidates, bans, picks and scores only for the unfinished current match. Its durable song-use history stays reserved: resetting, redrawing, restoring a backup or reopening a result does not release previously selected base/tiebreak songs for another match. It preserves entrants, seeding, every other result and durable rematch allowances. Score entries and other match commands carry the displayed match ID; a command for a different selected match is rejected. Switching matches keeps their drafts separate. Unsaved form fields, dropdowns and checkboxes survive live updates and tab changes. If another operator edits the same field, the panel retains the draft and requires an explicit conflict review.
 
 Completed results lock against ordinary editing. To correct one, preview its downstream impact in the result-correction panel, enter a reason, and explicitly confirm any affected selections, scores and results that must be cleared. Reopening retains the chosen match's base songs and scores, invalidates its old tiebreak decision, and includes whole reseeded fields in the downstream review. It selects it as the active match, and clears its dependent matches before the result is confirmed again. An unrelated newer update invalidates the reviewed preview and requires another review. The automatic backup and private correction log retain the previous data. A result belonging to a vacancy lottery with reassigned entrants must instead be corrected by restoring a backup from before that lottery. There is no one-click whole-tournament reset.
+
+The rolling highlight uses the Phigros 4.0.1 `Tap3` selection sound from the same community audio collection as the menu BGM; [asset provenance and level](public/assets/sfx/README.md) are recorded locally. It follows the saved master volume, stays silent in staff previews, and stops on mute or scene exit. Reduce motion keeps the timed two-song reveal without rapid highlights or switch ticks.
+
+Double Elimination tiebreaks now follow concealed two-player waiting → **公布加賽曲目** (jacket, title, chart and one preview) → named waiting → match → processing → single-song result → arbiter confirmation. The dedicated source is `/overlay/double-elimination-tiebreak-announcement.html`; the scorer sheet conceals and locks the extra song until announcement. Existing tiebreak saves without a concealment flag remain compatible.
 
 ### Prepare a DE song list with no cross-match repeats
 
@@ -542,3 +547,5 @@ public/js/                Shared display helpers, sockets and overlay rendering
 public/assets/            Local fonts, graphics, mesh and icons
 test/                     Isolated rule, integration and optional browser tests
 ```
+
+To record the staged draw regression as an OBS-sized WebM, set `BROADCAST_RECORD_VIDEO=1` when running `test/staged-broadcast-browser.py`; Playwright video capture requires its FFmpeg helper. The WebM records visuals only; real preview and selection-sound playback are checked through browser media probes. Normal CI runs use screenshots and these probes without recording a video.

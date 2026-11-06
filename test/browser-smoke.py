@@ -107,6 +107,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             revision = state()['revision']; crew.click('[data-scene="song-selection"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="song-selection"]')
             motion_idle(live, 'song-selection')
+            live.wait_for_function("()=>document.querySelector('#canvas').dataset.roulettePhase==='complete'", timeout=45000)
             m = state()['tournament']['matches'][0]; assert len(m['songs']) == 2
             for song in m['songs']:
                 assert song['title'] in live.locator('.selection-detail').inner_text()

@@ -276,3 +276,7 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 .round-result-card[data-song-count="3"] .round-result-track>[data-stat="song-score"]{font-size:42px}
 .round-result-card .round-result-route{font-size:26px;line-height:1.3;margin-top:auto;padding-top:18px;color:#d4ccd9}
 .round-result-card.is-winner .round-result-route{color:#b4f3d5}.round-result-card.result-loss .round-result-route{color:#efc38d}
+.round-result-heading>p small{display:block;font-size:19px;line-height:1.4;letter-spacing:.04em;color:#d7dce5;margin-top:6px}
+.round-result-card.result-pending{background:#101722e6;border-color:#d9c697}
+.round-result-card[data-result-phase="accuracy"]{border-color:#cddce9}
+.round-result-track>[data-stat="accuracy"]{font-size:34px;line-height:1.6;white-space:nowrap;text-align:right}

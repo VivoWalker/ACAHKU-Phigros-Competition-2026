@@ -73,6 +73,8 @@ def current(page):
 
 
 def cards(main, live, phase):
+    if phase in ['picked', 'standalone-picked']:
+        live.wait_for_function("()=>document.querySelector('#canvas').dataset.roulettePhase==='complete'", timeout=45000)
     idle(live, 'song-selection')
     match = current(main)
     for index, song in enumerate(match['candidates']):
@@ -102,7 +104,9 @@ def cards(main, live, phase):
             }''', arg={'selector': selector, 'index': index}).json_value()
             assert all(value >= 4.5 for value in contrast), (phase, song['id'], contrast)
         status = live.locator('.candidate-status').nth(index).inner_text()
-        expected = 'BAN' if song['id'] in match['bans'] else 'PICK' if any(item['id'] == song['id'] for item in match['songs']) else ''
+        pick_index = next((i for i, item in enumerate(match['songs']) if item['id'] == song['id']), None)
+        pick_label = f'PICK {pick_index + 1}' if pick_index is not None and match.get('selectionPreviewCue', {}).get('roulette') else 'PICK'
+        expected = 'BAN' if song['id'] in match['bans'] else pick_label if pick_index is not None else ''
         assert status == expected, (phase, song['id'], status, expected)
     assert 'COMPOSER_FIELD' not in main.locator('.song-grid').inner_text()
     boxes = live.locator('.candidate').evaluate_all('''rows=>rows.map(row=>{

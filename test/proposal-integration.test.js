@@ -194,7 +194,7 @@ test('countdown context changes for repeat tiebreaks even when the same song is 
   act(state, 'set-scene', { scene: 'double-elimination-match' });
   for (const song of [...state.library]) act(state, 'upsert-song', { song: { ...song, eligible: song.id === 'song-1' } });
   const base = Countdown.context(state);
-  act(state, 'draw-match-tiebreak'); const first = Countdown.context(state);
+  act(state, 'draw-match-tiebreak'); act(state, 'set-scene', { scene: 'double-elimination-tiebreak-announcement' }); act(state, 'set-scene', { scene: 'double-elimination-match' }); const first = Countdown.context(state);
   assert.equal(first.songId, 'song-1'); assert.equal(first.tiebreakIndex, 0);
   assert.notEqual(first.key, base.key);
   for (const playerIndex of [0, 1]) act(state, 'set-match-tiebreak-score', {
@@ -202,7 +202,7 @@ test('countdown context changes for repeat tiebreaks even when the same song is 
   });
   act(state, 'confirm-match-tiebreak', { index: 0, verified: true });
   assert.notEqual(Countdown.context(state).key, first.key);
-  act(state, 'draw-match-tiebreak'); const repeated = Countdown.context(state);
+  act(state, 'draw-match-tiebreak'); act(state, 'set-scene', { scene: 'double-elimination-tiebreak-announcement' }); act(state, 'set-scene', { scene: 'double-elimination-match' }); const repeated = Countdown.context(state);
   assert.equal(repeated.songId, first.songId); assert.equal(repeated.tiebreakIndex, 1);
   assert.notEqual(repeated.key, first.key);
 });

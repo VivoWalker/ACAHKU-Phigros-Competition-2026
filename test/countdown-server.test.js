@@ -167,6 +167,7 @@ test('double-elimination cues need complete song selection and cancel when the c
   const candidates = f.app.store.state.tournament.matches.find(match => match.id === matchId).candidates;
   for (const playerIndex of [0, 1]) assert.equal((await f.command('ban-song', { matchId, playerIndex, songId: candidates[playerIndex].id })).ok, true);
   assert.equal((await f.command('pick-songs', { matchId })).ok, true);
+  assert.equal((await f.command('set-scene', { scene: 'double-elimination-match' })).ok, true);
   assert.equal((await f.cue()).ok, true); const first = (await sync(overlay)).cue;
   assert.equal(first.context.matchId, matchId); assert.equal(first.context.songIndex, 0);
   let stopped = event(overlay, 'countdown', value => value.cue === null);

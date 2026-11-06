@@ -118,6 +118,7 @@ test('double-elimination sheets expose the same base lock and leave only the pen
     assert.equal((await f.score('set-match-score', { matchId: 'W1', playerIndex, songIndex, score: 900000, judgements: { accuracy: 98 } })).ok, true);
   }
   f.command('draw-match-tiebreak', { matchId: 'W1' });
+  f.command('set-scene', { scene: 'double-elimination-tiebreak-announcement' });
   const view = scorekeeperState(f.app.store.state);
   assert.equal(view.match.baseLocked, true); assert.equal(view.match.locked, false);
   assert.match(view.match.baseLockedReason, /主控/); assert.equal(view.match.tiebreak.index, 0);

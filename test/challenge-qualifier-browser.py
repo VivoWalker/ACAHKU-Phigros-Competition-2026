@@ -626,6 +626,8 @@ def exercise_new(browser, base, data_dir):
             command(main, 'set-match-score', {'matchId': 'W1', 'playerIndex': pi, 'songIndex': si,
                     'score': 990000, 'judgements': {'accuracy': 99}})
     command(main, 'draw-match-tiebreak', {'matchId': 'W1'})
+    command(main, 'set-scene', {'scene': 'double-elimination-tiebreak-announcement'})
+    command(main, 'set-scene', {'scene': 'double-elimination-match'})
     scorer.wait_for_function('document.querySelectorAll("input[data-score-key]").length===2')
     assert scorer.locator('input[data-judgement-name="perfect"]').count() == 2
     form = score_form(scorer, '0')
