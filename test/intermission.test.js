@@ -62,7 +62,7 @@ test('bundled trailer works without configuration; restart, replay, stop and oth
   assert.throws(() => commit('end-intermission'), /no longer on air/);
   commit('set-scene', { scene: 'intermission' }); assert.equal(store.state.broadcast.intermission.cue, null);
   commit('set-scene', { scene: 'arcaea-trailer' }); assert.ok(store.state.broadcast.intermission.cue);
-  commit('configure-intermission', { ...options, loop: false }); assert.equal(store.state.broadcast.intermission.cue, null);
+  commit('configure-intermission', { ...options, videoPath: 'assets/intermission/replacement.mp4' }); assert.equal(store.state.broadcast.intermission.cue, null);
   assert.equal(store.state.scene, 'intermission');
 });
 

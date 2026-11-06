@@ -20,9 +20,10 @@
     "audioVolume": 0.25,
     "intermission": {
       "videoPath": "assets/intermission/arcaea-trailer.mp4",
-      "loop": true,
+      "loop": false,
       "resumeTime": "",
-      "cue": null
+      "cue": null,
+      "videoDuration": 29.566341
     }
   },
   "library": [
