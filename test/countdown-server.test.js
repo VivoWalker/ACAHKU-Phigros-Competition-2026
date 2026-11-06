@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const vm = require('node:vm');
+const { createRequire } = require('node:module');
 const { io } = require('socket.io-client');
 const { createBroadcastServer } = require('../server');
 const { initialiseLegacyStore } = require('./helpers/legacy-state');
@@ -22,9 +24,9 @@ function emit(socket, name, body) {
 function sync(socket) {
   return new Promise((resolve, reject) => socket.timeout(5000).emit('countdown-sync', (error, reply) => error ? reject(error) : resolve(reply)));
 }
-async function fixture(t) {
+async function fixture(t, factory = createBroadcastServer) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'acahku-countdown-'));
-  let app = createBroadcastServer({ dataDir: directory, pin: 'countdown-fixture-code' }); initialiseLegacyStore(app.store);
+  let app = factory({ dataDir: directory, pin: 'countdown-fixture-code' }); initialiseLegacyStore(app.store);
   const sockets = [];
   t.after(async () => { sockets.forEach(socket => socket.close()); await app.close(); fs.rmSync(directory, { recursive: true, force: true }); });
   app.store.commit({ type: 'set-scene', payload: { scene: 'qualifier-match' } }, 0);
@@ -44,7 +46,7 @@ async function fixture(t) {
     action, expectedRevision: app.store.state.revision, contextKey: context(app.store.state)?.key, ...overrides
   });
   return { get app() { return app; }, directory, base, token, control, connect, command, cue,
-    async restart() { const port = address.port; await app.close(); app = createBroadcastServer({ dataDir: directory, pin: 'countdown-fixture-code' }); await app.listen(port, '127.0.0.1'); }
+    async restart() { const port = address.port; await app.close(); app = factory({ dataDir: directory, pin: 'countdown-fixture-code' }); await app.listen(port, '127.0.0.1'); }
   };
 }
 
@@ -121,6 +123,36 @@ test('live match context and source changes cancel a cue, but score updates keep
   const stopped = event(overlay, 'countdown', value => value.cue === null);
   assert.equal((await f.command('set-qualifier-display', { group: 'B' })).ok, true); await stopped;
   assert.equal((await f.cue()).code, 'INVALID', 'A group with no selected entrants cannot be started');
+});
+
+test('an early timer callback keeps the cue until its shared deadline', async t => {
+  const filename = require.resolve('../server'), timers = new Map();
+  let clock = Date.now(), serial = 0;
+  const sandbox = { ...globalThis, Buffer, process, console, __filename: filename, __dirname: path.dirname(filename),
+    require: createRequire(filename), module: { exports: {} },
+    Date: class extends Date { static now() { return clock; } },
+    setTimeout(callback, delay) { const id = ++serial; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); }
+  };
+  vm.runInNewContext(fs.readFileSync(filename, 'utf8'), sandbox, { filename });
+  const f = await fixture(t, sandbox.module.exports.createBroadcastServer);
+  assert.equal((await f.cue()).ok, true);
+  const original = (await sync(f.control)).cue;
+  function wakeTimer() {
+    assert.equal(timers.size, 1);
+    const [id, timer] = timers.entries().next().value;
+    timers.delete(id); timer.callback();
+  }
+  clock = original.endsAt - 1;
+  wakeTimer();
+  assert.deepEqual((await sync(f.control)).cue, original, 'The shared cue must stay active before its deadline');
+  assert.equal(timers.size, 1);
+  const ended = event(f.control, 'countdown', value => value.cue === null);
+  clock = original.endsAt;
+  wakeTimer();
+  const finish = await ended;
+  assert.equal(finish.serverNow, original.endsAt);
+  assert.equal(timers.size, 0);
 });
 
 test('refresh synchronizes to the same timestamp, completed cues expire, and restart does not replay them', async t => {
