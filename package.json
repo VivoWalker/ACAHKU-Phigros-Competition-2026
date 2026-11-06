@@ -13,6 +13,9 @@
     "postinstall": "node scripts/copy-fonts.js",
     "pretest": "node scripts/check-node-version.js",
     "test": "node --test test/*.test.js",
+    "test:manual": "node scripts/manual-rehearsal.js",
+    "test:manual:build": "node scripts/build-manual-saves.js",
+    "test:manual:browser": "python3 test/manual-saves-browser.py",
     "test:runtime": "node --test test/node-version.test.js",
     "test:python": "python3 scripts/test-regressions.py --suite python",
     "test:browser:smoke": "python3 scripts/test-regressions.py --suite browser-smoke"

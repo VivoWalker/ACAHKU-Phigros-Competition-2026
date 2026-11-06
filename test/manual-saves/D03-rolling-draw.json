@@ -1,0 +1,3403 @@
+{
+  "schemaVersion": 1,
+  "eventId": "7a35ffa9-a7e6-4f49-8137-3e9503aa05d9",
+  "revision": 64,
+  "updatedAt": "2026-01-01T00:08:30.000Z",
+  "event": {
+    "title": "[TEST D03] 滚动抽曲与两首预览",
+    "competitionVersion": "competition-2026-20261014",
+    "organiser": "ACAHKU — The Animation and Comics Association",
+    "organiserZH": "香港大學動漫聯盟",
+    "date": "2026-11-07",
+    "time": "13:00–19:30",
+    "venue": "UG201",
+    "message": "A new rhythm. A new champion."
+  },
+  "scene": "song-selection",
+  "stage": "double-elimination",
+  "broadcast": {
+    "showHandcams": false,
+    "audioVolume": 0.25
+  },
+  "library": [
+    {
+      "id": "competition-2026-q1-01",
+      "title": "Secret Illumination",
+      "artist": "Yooh",
+      "difficulty": "IN",
+      "level": 14,
+      "art": "assets/song/song-list-2026/01-secret-illumination.png",
+      "previewAudio": "assets/song-preview/competition-2026-q1-01.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-q1-02",
+      "title": "On And On!!",
+      "artist": "ETIA. feat. Jenga",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/song-list-2026/02-on-and-on.png",
+      "previewAudio": "assets/song-preview/competition-2026-q1-02.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-q1-03",
+      "title": "白と黒のバケモノ",
+      "artist": "テヅカ",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/song-list-2026/03-song.png",
+      "previewAudio": "assets/song-preview/competition-2026-q1-03.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-q2-01",
+      "title": "INFiNiTE ENERZY -Overdoze-",
+      "artist": "Reku Mochizuki",
+      "difficulty": "IN",
+      "level": 14,
+      "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
+      "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-q2-02",
+      "title": "Stasis",
+      "artist": "Maozon",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/song-list-2026/05-stasis.png",
+      "previewAudio": "assets/song-preview/competition-2026-q2-02.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-q2-03",
+      "title": "Re：End of a Dream",
+      "artist": "uma vs. モリモリあつし",
+      "difficulty": "IN",
+      "level": 15,
+      "art": "assets/song/song-list-2026/06-re-end-of-a-dream.png",
+      "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-de-01",
+      "title": "Cthugha",
+      "artist": "USAO",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.1,
+      "art": "assets/song/song-list-2026/23-cthugha.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-01.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-02",
+      "title": "Rrhar'il",
+      "artist": "Team Grimoire",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.1,
+      "art": "assets/song/song-list-2026/26-rrhar-il.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-02.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-03",
+      "title": "Retribution ~ Cycle of Redemption ~",
+      "artist": "Ardolf vs. Daily天利",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.2,
+      "art": "assets/song/song-list-2026/28-retribution-cycle-of-redemption.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-03.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-04",
+      "title": "Retribution",
+      "artist": "nm-y & Kry.exe",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.2,
+      "art": "assets/song/song-list-2026/29-retribution.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-04.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-05",
+      "title": "Chronos Collapse - La Campanella",
+      "artist": "SunsetRay",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.3,
+      "art": "assets/song/song-list-2026/30-chronos-collapse-la-campanella.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-05.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-06",
+      "title": "QZKago Requiem",
+      "artist": "t+pazolite",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.3,
+      "art": "assets/song/song-list-2026/33-qzkago-requiem.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-06.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-07",
+      "title": "Fractured Angel",
+      "artist": "DJ Raisei",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.3,
+      "art": "assets/song/song-list-2026/34-fractured-angel.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-07.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-08",
+      "title": "Ad astra per aspera",
+      "artist": "Rabbit House",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.3,
+      "art": "assets/song/song-list-2026/37-ad-astra-per-aspera.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-08.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-09",
+      "title": "Ark",
+      "artist": "kanoryo",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.4,
+      "art": "assets/song/song-list-2026/10-ark.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-09.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-10",
+      "title": "彩",
+      "artist": "MisoilePunch♪",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.4,
+      "art": "assets/song/song-list-2026/38-song.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-10.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-11",
+      "title": "KIZUNA Resolution",
+      "artist": "TAG",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.4,
+      "art": "assets/song/song-list-2026/39-kizuna-resolution.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-11.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-12",
+      "title": "CROSS†SOUL",
+      "artist": "HyuN feat. Syepias",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.4,
+      "art": "assets/song/song-list-2026/41-crosssoul.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-12.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-13",
+      "title": "Indelible Scar",
+      "artist": "Noah",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.5,
+      "art": "assets/song/song-list-2026/12-indelible-scar.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-13.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-14",
+      "title": "Lyrith -迷宮リリス-",
+      "artist": "ユメミド",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.5,
+      "art": "assets/song/song-list-2026/27-lyrith.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-14.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-15",
+      "title": "Verrückt",
+      "artist": "Raimukun",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.5,
+      "art": "assets/song/song-list-2026/42-verruckt.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-15.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-16",
+      "title": "Stardust:RAY",
+      "artist": "kanone vs. BlackY",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.5,
+      "art": "assets/song/song-list-2026/43-stardust-ray.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-16.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-17",
+      "title": "Avataar ~Reincarnation of Kalpa~",
+      "artist": "Scarlette a.k.a CrYmson",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/07-avataar-reincarnation-of-kalpa.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-17.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-18",
+      "title": "volcanic",
+      "artist": "DETRO a.k.a. ルゼ",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/09-volcanic.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-18.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-19",
+      "title": "ATHAZA",
+      "artist": "LeaF",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/18-athaza.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-19.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-20",
+      "title": "PRAGMATISM -RESURRECTION-",
+      "artist": "Laur",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/20-pragmatism-resurrection.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-20.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-21",
+      "title": "夢の降る日に",
+      "artist": "seatrus",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/44-song.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-21.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-22",
+      "title": "Gungnir Fracture",
+      "artist": "Kry.exe",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.6,
+      "art": "assets/song/song-list-2026/45-gungnir-fracture.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-22.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-23",
+      "title": "Cuvism³",
+      "artist": "Fl00t vs Halv",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.7,
+      "art": "assets/song/song-list-2026/08-cuvism3.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-23.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-24",
+      "title": "Diamond Dust",
+      "artist": "Masahiro “Godspeed” Aoki",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.7,
+      "art": "assets/song/song-list-2026/11-diamond-dust.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-24.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-25",
+      "title": "Spasmodic",
+      "artist": "姜米條☆颶風 ~ ♫元力上人♫",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.7,
+      "art": "assets/song/song-list-2026/14-spasmodic.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-25.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-26",
+      "title": "BANGING STRIKE",
+      "artist": "Dew Pleiades",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.8,
+      "art": "assets/song/song-list-2026/19-banging-strike.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-26.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-27",
+      "title": "sølips",
+      "artist": "rintaro soma",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.8,
+      "art": "assets/song/song-list-2026/21-solips.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-27.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-28",
+      "title": "Entrance to the Chaos",
+      "artist": "打打だいず vs. siromaru",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.8,
+      "art": "assets/song/song-list-2026/46-entrance-to-the-chaos.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-28.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-29",
+      "title": "Exoplanetary Mirage",
+      "artist": "Camellia",
+      "difficulty": "IN",
+      "level": 16,
+      "constant": 16.8,
+      "art": "assets/song/song-list-2026/47-exoplanetary-mirage.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-29.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-30",
+      "title": "INFiNiTE ENERZY -Overdoze-",
+      "artist": "Reku Mochizuki",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.9,
+      "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
+      "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-31",
+      "title": "Der Richter",
+      "artist": "Ωμεγα",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.9,
+      "art": "assets/song/song-list-2026/15-der-richter.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-31.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-32",
+      "title": "Archidoxen",
+      "artist": "Se_IRA",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.9,
+      "art": "assets/song/song-list-2026/16-archidoxen.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-32.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-33",
+      "title": "Re：End of a Dream",
+      "artist": "uma vs. モリモリあつし",
+      "difficulty": "AT",
+      "level": 16,
+      "constant": 16.9,
+      "art": "assets/song/song-list-2026/06-re-end-of-a-dream.png",
+      "previewAudio": "assets/song-preview/competition-2026-q2-03.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-34",
+      "title": "玩具狂奏曲 -終焉-",
+      "artist": "きくお",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17,
+      "art": "assets/song/song-list-2026/22-song.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-34.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-35",
+      "title": "Hydra",
+      "artist": "James Landino X Akira Complex",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.1,
+      "art": "assets/song/song-list-2026/13-hydra.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-35.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-36",
+      "title": "AbsoluTe disoRdeR",
+      "artist": "Acute Disarray",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.2,
+      "art": "assets/song/song-list-2026/35-absolute-disorder.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-36.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-37",
+      "title": "DESTRUCTION 3,2,1",
+      "artist": "Normal1zer vs. Broken Nerdz",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.3,
+      "art": "assets/song/song-list-2026/31-destruction-3-2-1.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-37.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-38",
+      "title": "+ERABY+E CONNEC+10N",
+      "artist": "かめりあ",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.3,
+      "art": "assets/song/song-list-2026/36-eraby-e-connec-10n.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-38.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-39",
+      "title": "祈 -我ら神祖と共に歩む者なり-",
+      "artist": "光吉猛修 VS 穴山大輔 VS Kai VS 水野健治 VS 大国奏音",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.3,
+      "art": "assets/song/song-list-2026/40-song.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-39.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-40",
+      "title": "Igallta",
+      "artist": "Se-U-Ra",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.4,
+      "art": "assets/song/song-list-2026/25-igallta.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-40.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-41",
+      "title": "Distorted Fate",
+      "artist": "Sakuzyo",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.4,
+      "art": "assets/song/song-list-2026/32-distorted-fate.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-41.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-de-42",
+      "title": "Der Schneid",
+      "artist": "Ωμεγα",
+      "difficulty": "AT",
+      "level": 17,
+      "constant": 17.5,
+      "art": "assets/song/song-list-2026/24-der-schneid.png",
+      "previewAudio": "assets/song-preview/competition-2026-de-42.mp3",
+      "eligible": true
+    },
+    {
+      "id": "competition-2026-gf-01",
+      "title": "Desultory Signals",
+      "artist": "technoplanet",
+      "difficulty": "IN",
+      "level": 17,
+      "art": "assets/song/grand-final-2026/desultory-signals.png",
+      "previewAudio": "assets/song-preview/competition-2026-gf-01.mp3",
+      "eligible": false
+    },
+    {
+      "id": "competition-2026-gf-02",
+      "title": "Petrichor",
+      "artist": "void (Mournfinale)",
+      "difficulty": "AT",
+      "level": 17,
+      "art": "assets/song/grand-final-2026/petrichor.png",
+      "previewAudio": "assets/song-preview/competition-2026-gf-02.mp3",
+      "eligible": false
+    }
+  ],
+  "qualifier": {
+    "scoringMode": "challenge-total",
+    "activeGroup": "B",
+    "currentSong": 2,
+    "activePlayers": [
+      "1124543e-bc30-4101-9593-718815f875de",
+      "0d68fe86-fd33-4189-a6ef-80f40682da17",
+      "da410cfd-2ca1-4934-af4f-dd243aacab7e"
+    ],
+    "groups": {
+      "A": {
+        "songs": [
+          "competition-2026-q1-01",
+          "competition-2026-q1-02",
+          "competition-2026-q1-03"
+        ]
+      },
+      "B": {
+        "songs": [
+          "competition-2026-q2-01",
+          "competition-2026-q2-02",
+          "competition-2026-q2-03"
+        ]
+      }
+    },
+    "players": [
+      {
+        "id": "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+        "name": "TEST Player 01",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 1
+      },
+      {
+        "id": "1124543e-bc30-4101-9593-718815f875de",
+        "name": "TEST Player 02",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 2
+      },
+      {
+        "id": "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+        "name": "TEST Player 03",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 3
+      },
+      {
+        "id": "0d68fe86-fd33-4189-a6ef-80f40682da17",
+        "name": "TEST Player 04",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 4
+      },
+      {
+        "id": "95fe0248-9e1f-4a89-9989-562a70a2e120",
+        "name": "TEST Player 05",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 5
+      },
+      {
+        "id": "da410cfd-2ca1-4934-af4f-dd243aacab7e",
+        "name": "TEST Player 06",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 6
+      },
+      {
+        "id": "c5f07d1c-06b1-4c5e-80cf-362f7550332e",
+        "name": "TEST Player 07",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 7
+      },
+      {
+        "id": "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963",
+        "name": "TEST Player 08",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 8
+      },
+      {
+        "id": "dba39e32-88c9-4239-8f68-41ab6d2bf8d1",
+        "name": "TEST Player 09",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 9
+      },
+      {
+        "id": "a9ee37bf-a802-4333-bcd1-730f643dc64b",
+        "name": "TEST Player 10",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 10
+      },
+      {
+        "id": "026d1acd-d689-489a-a65d-7fdf44e4f0af",
+        "name": "TEST Player 11",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 11
+      },
+      {
+        "id": "c32f17d7-bd6f-4981-806b-c86c489eb083",
+        "name": "TEST Player 12",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 12
+      },
+      {
+        "id": "0b4f1ace-404b-401a-bb1e-75843cfbc5aa",
+        "name": "TEST Player 13",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 13
+      },
+      {
+        "id": "1efeac11-077a-42c2-892e-b83ddb1345c1",
+        "name": "TEST Player 14",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 14
+      },
+      {
+        "id": "63c7eb27-305b-4357-8bbf-c11cde465793",
+        "name": "TEST Player 15",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 15
+      },
+      {
+        "id": "777dd98a-95ac-4b0f-b46a-025c563b4556",
+        "name": "TEST Player 16",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 16
+      },
+      {
+        "id": "270c7515-9d1e-4d58-ae8a-4e84e04e1f9a",
+        "name": "TEST Player 17",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 17
+      },
+      {
+        "id": "e4bd0ce2-316f-423f-8f4c-4e44b531c449",
+        "name": "TEST Player 18",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 18
+      },
+      {
+        "id": "8297c010-15f1-4ec3-84ab-4fa68ee38320",
+        "name": "TEST Player 19",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 19
+      },
+      {
+        "id": "ac0c6c76-e27c-4dbb-92e7-6e8f736a1863",
+        "name": "TEST Player 20",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 20
+      },
+      {
+        "id": "4d8faf08-ed4f-4ee6-9ce1-48b365a7b388",
+        "name": "TEST Player 21",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 21
+      },
+      {
+        "id": "5fa8a728-2245-4f7a-b4cc-35a2f3bfc931",
+        "name": "TEST Player 22",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 22
+      },
+      {
+        "id": "7142b0ee-6153-4e09-a9ad-69442ab0dbc6",
+        "name": "TEST Player 23",
+        "group": "A",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 23
+      },
+      {
+        "id": "6d010de1-1152-4e5e-bf0f-b446f0b2da26",
+        "name": "TEST Player 24",
+        "group": "B",
+        "scores": [
+          null,
+          null,
+          null
+        ],
+        "judgements": [
+          null,
+          null,
+          null
+        ],
+        "challengeTotal": null,
+        "tiePriority": null,
+        "number": 24
+      }
+    ],
+    "plan": "B",
+    "rounds": {
+      "A": {
+        "playerIds": [
+          "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+          "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+          "95fe0248-9e1f-4a89-9989-562a70a2e120",
+          "c5f07d1c-06b1-4c5e-80cf-362f7550332e",
+          "dba39e32-88c9-4239-8f68-41ab6d2bf8d1",
+          "026d1acd-d689-489a-a65d-7fdf44e4f0af",
+          "0b4f1ace-404b-401a-bb1e-75843cfbc5aa",
+          "63c7eb27-305b-4357-8bbf-c11cde465793",
+          "270c7515-9d1e-4d58-ae8a-4e84e04e1f9a",
+          "8297c010-15f1-4ec3-84ab-4fa68ee38320",
+          "4d8faf08-ed4f-4ee6-9ce1-48b365a7b388",
+          "7142b0ee-6153-4e09-a9ad-69442ab0dbc6"
+        ],
+        "results": {
+          "63005fe0-5943-43b3-9bb8-a6d619ad2aa9": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2990000,
+            "songStats": [
+              {
+                "score": 996667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 996667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 996666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "31cede0e-0a56-4c17-bda6-2ba383d9678d": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2980000,
+            "songStats": [
+              {
+                "score": 993334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 993333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 993333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "95fe0248-9e1f-4a89-9989-562a70a2e120": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2970000,
+            "songStats": [
+              {
+                "score": 990000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 990000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 990000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "c5f07d1c-06b1-4c5e-80cf-362f7550332e": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2960000,
+            "songStats": [
+              {
+                "score": 986667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 986667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 986666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "dba39e32-88c9-4239-8f68-41ab6d2bf8d1": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2950000,
+            "songStats": [
+              {
+                "score": 983334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 983333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 983333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "026d1acd-d689-489a-a65d-7fdf44e4f0af": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2940000,
+            "songStats": [
+              {
+                "score": 980000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 980000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 980000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "0b4f1ace-404b-401a-bb1e-75843cfbc5aa": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2930000,
+            "songStats": [
+              {
+                "score": 976667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 976667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 976666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "63c7eb27-305b-4357-8bbf-c11cde465793": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2920000,
+            "songStats": [
+              {
+                "score": 973334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 973333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 973333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "270c7515-9d1e-4d58-ae8a-4e84e04e1f9a": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2910000,
+            "songStats": [
+              {
+                "score": 970000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 970000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 970000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "8297c010-15f1-4ec3-84ab-4fa68ee38320": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2900000,
+            "songStats": [
+              {
+                "score": 966667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 966667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 966666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "4d8faf08-ed4f-4ee6-9ce1-48b365a7b388": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2890000,
+            "songStats": [
+              {
+                "score": 963334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 963333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 963333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "7142b0ee-6153-4e09-a9ad-69442ab0dbc6": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2880000,
+            "songStats": [
+              {
+                "score": 960000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 960000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 960000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          }
+        },
+        "qualifiedIds": [
+          "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+          "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+          "95fe0248-9e1f-4a89-9989-562a70a2e120",
+          "c5f07d1c-06b1-4c5e-80cf-362f7550332e"
+        ],
+        "locked": true,
+        "tiebreaks": [],
+        "scoringStarted": true
+      },
+      "B": {
+        "playerIds": [
+          "1124543e-bc30-4101-9593-718815f875de",
+          "0d68fe86-fd33-4189-a6ef-80f40682da17",
+          "da410cfd-2ca1-4934-af4f-dd243aacab7e",
+          "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963",
+          "a9ee37bf-a802-4333-bcd1-730f643dc64b",
+          "c32f17d7-bd6f-4981-806b-c86c489eb083",
+          "1efeac11-077a-42c2-892e-b83ddb1345c1",
+          "777dd98a-95ac-4b0f-b46a-025c563b4556",
+          "e4bd0ce2-316f-423f-8f4c-4e44b531c449",
+          "ac0c6c76-e27c-4dbb-92e7-6e8f736a1863",
+          "5fa8a728-2245-4f7a-b4cc-35a2f3bfc931",
+          "6d010de1-1152-4e5e-bf0f-b446f0b2da26"
+        ],
+        "results": {
+          "1124543e-bc30-4101-9593-718815f875de": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2989000,
+            "songStats": [
+              {
+                "score": 996334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 996333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 996333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "0d68fe86-fd33-4189-a6ef-80f40682da17": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2979000,
+            "songStats": [
+              {
+                "score": 993000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 993000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 993000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "da410cfd-2ca1-4934-af4f-dd243aacab7e": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2969000,
+            "songStats": [
+              {
+                "score": 989667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 989667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 989666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2959000,
+            "songStats": [
+              {
+                "score": 986334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 986333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 986333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "a9ee37bf-a802-4333-bcd1-730f643dc64b": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2949000,
+            "songStats": [
+              {
+                "score": 983000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 983000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 983000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "c32f17d7-bd6f-4981-806b-c86c489eb083": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2939000,
+            "songStats": [
+              {
+                "score": 979667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 979667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 979666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "1efeac11-077a-42c2-892e-b83ddb1345c1": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2929000,
+            "songStats": [
+              {
+                "score": 976334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 976333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 976333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "777dd98a-95ac-4b0f-b46a-025c563b4556": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2919000,
+            "songStats": [
+              {
+                "score": 973000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 973000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 973000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "e4bd0ce2-316f-423f-8f4c-4e44b531c449": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2909000,
+            "songStats": [
+              {
+                "score": 969667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 969667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 969666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "ac0c6c76-e27c-4dbb-92e7-6e8f736a1863": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2899000,
+            "songStats": [
+              {
+                "score": 966334,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 966333,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 966333,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "5fa8a728-2245-4f7a-b4cc-35a2f3bfc931": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2889000,
+            "songStats": [
+              {
+                "score": 963000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 963000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 963000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          },
+          "6d010de1-1152-4e5e-bf0f-b446f0b2da26": {
+            "scores": [
+              null,
+              null,
+              null
+            ],
+            "judgements": [
+              null,
+              null,
+              null
+            ],
+            "challengeTotal": 2879000,
+            "songStats": [
+              {
+                "score": 959667,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 959667,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 959666,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ],
+            "songStatsRecorded": true
+          }
+        },
+        "qualifiedIds": [
+          "1124543e-bc30-4101-9593-718815f875de",
+          "0d68fe86-fd33-4189-a6ef-80f40682da17",
+          "da410cfd-2ca1-4934-af4f-dd243aacab7e",
+          "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963"
+        ],
+        "locked": true,
+        "tiebreaks": [],
+        "scoringStarted": true
+      }
+    },
+    "readiness": {
+      "63005fe0-5943-43b3-9bb8-a6d619ad2aa9": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:03.000Z"
+      },
+      "1124543e-bc30-4101-9593-718815f875de": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:04.000Z"
+      },
+      "31cede0e-0a56-4c17-bda6-2ba383d9678d": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:05.000Z"
+      },
+      "0d68fe86-fd33-4189-a6ef-80f40682da17": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:06.000Z"
+      },
+      "95fe0248-9e1f-4a89-9989-562a70a2e120": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:07.000Z"
+      },
+      "da410cfd-2ca1-4934-af4f-dd243aacab7e": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:08.000Z"
+      },
+      "c5f07d1c-06b1-4c5e-80cf-362f7550332e": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:09.000Z"
+      },
+      "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:10.000Z"
+      },
+      "dba39e32-88c9-4239-8f68-41ab6d2bf8d1": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:11.000Z"
+      },
+      "a9ee37bf-a802-4333-bcd1-730f643dc64b": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:12.000Z"
+      },
+      "026d1acd-d689-489a-a65d-7fdf44e4f0af": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:13.000Z"
+      },
+      "c32f17d7-bd6f-4981-806b-c86c489eb083": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:14.000Z"
+      },
+      "0b4f1ace-404b-401a-bb1e-75843cfbc5aa": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:15.000Z"
+      },
+      "1efeac11-077a-42c2-892e-b83ddb1345c1": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:16.000Z"
+      },
+      "63c7eb27-305b-4357-8bbf-c11cde465793": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:17.000Z"
+      },
+      "777dd98a-95ac-4b0f-b46a-025c563b4556": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:18.000Z"
+      },
+      "270c7515-9d1e-4d58-ae8a-4e84e04e1f9a": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:19.000Z"
+      },
+      "e4bd0ce2-316f-423f-8f4c-4e44b531c449": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:20.000Z"
+      },
+      "8297c010-15f1-4ec3-84ab-4fa68ee38320": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:21.000Z"
+      },
+      "ac0c6c76-e27c-4dbb-92e7-6e8f736a1863": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:22.000Z"
+      },
+      "4d8faf08-ed4f-4ee6-9ce1-48b365a7b388": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:23.000Z"
+      },
+      "5fa8a728-2245-4f7a-b4cc-35a2f3bfc931": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:24.000Z"
+      },
+      "7142b0ee-6153-4e09-a9ad-69442ab0dbc6": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:25.000Z"
+      },
+      "6d010de1-1152-4e5e-bf0f-b446f0b2da26": {
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true,
+        "at": "2026-01-01T00:00:26.000Z"
+      }
+    },
+    "adjudications": [
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:03.000Z",
+        "playerId": "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:04.000Z",
+        "playerId": "1124543e-bc30-4101-9593-718815f875de",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:05.000Z",
+        "playerId": "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:06.000Z",
+        "playerId": "0d68fe86-fd33-4189-a6ef-80f40682da17",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:07.000Z",
+        "playerId": "95fe0248-9e1f-4a89-9989-562a70a2e120",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:08.000Z",
+        "playerId": "da410cfd-2ca1-4934-af4f-dd243aacab7e",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:09.000Z",
+        "playerId": "c5f07d1c-06b1-4c5e-80cf-362f7550332e",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:10.000Z",
+        "playerId": "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:11.000Z",
+        "playerId": "dba39e32-88c9-4239-8f68-41ab6d2bf8d1",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:12.000Z",
+        "playerId": "a9ee37bf-a802-4333-bcd1-730f643dc64b",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:13.000Z",
+        "playerId": "026d1acd-d689-489a-a65d-7fdf44e4f0af",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:14.000Z",
+        "playerId": "c32f17d7-bd6f-4981-806b-c86c489eb083",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:15.000Z",
+        "playerId": "0b4f1ace-404b-401a-bb1e-75843cfbc5aa",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:16.000Z",
+        "playerId": "1efeac11-077a-42c2-892e-b83ddb1345c1",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:17.000Z",
+        "playerId": "63c7eb27-305b-4357-8bbf-c11cde465793",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:18.000Z",
+        "playerId": "777dd98a-95ac-4b0f-b46a-025c563b4556",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:19.000Z",
+        "playerId": "270c7515-9d1e-4d58-ae8a-4e84e04e1f9a",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:20.000Z",
+        "playerId": "e4bd0ce2-316f-423f-8f4c-4e44b531c449",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:21.000Z",
+        "playerId": "8297c010-15f1-4ec3-84ab-4fa68ee38320",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:22.000Z",
+        "playerId": "ac0c6c76-e27c-4dbb-92e7-6e8f736a1863",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:23.000Z",
+        "playerId": "4d8faf08-ed4f-4ee6-9ce1-48b365a7b388",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:24.000Z",
+        "playerId": "5fa8a728-2245-4f7a-b4cc-35a2f3bfc931",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:25.000Z",
+        "playerId": "7142b0ee-6153-4e09-a9ad-69442ab0dbc6",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      },
+      {
+        "type": "set-player-readiness",
+        "at": "2026-01-01T00:00:26.000Z",
+        "playerId": "6d010de1-1152-4e5e-bf0f-b446f0b2da26",
+        "device": true,
+        "globalVersion": true,
+        "headphones": true,
+        "charts": true,
+        "streamConsent": true
+      }
+    ],
+    "scoringStarted": true
+  },
+  "tournament": {
+    "seeded": true,
+    "seeds": [
+      "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+      "1124543e-bc30-4101-9593-718815f875de",
+      "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+      "0d68fe86-fd33-4189-a6ef-80f40682da17",
+      "95fe0248-9e1f-4a89-9989-562a70a2e120",
+      "da410cfd-2ca1-4934-af4f-dd243aacab7e",
+      "c5f07d1c-06b1-4c5e-80cf-362f7550332e",
+      "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963"
+    ],
+    "currentMatchId": "W1",
+    "drawLog": [],
+    "ruleset": "proposal-2026",
+    "seedingPlan": "B",
+    "matches": [
+      {
+        "id": "W1",
+        "round": 1,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 1",
+        "sources": [
+          {
+            "type": "seed",
+            "value": 1
+          },
+          {
+            "type": "seed",
+            "value": 8
+          }
+        ],
+        "players": [
+          "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+          "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963"
+        ],
+        "status": "live",
+        "candidates": [
+          {
+            "id": "competition-2026-de-30",
+            "title": "INFiNiTE ENERZY -Overdoze-",
+            "artist": "Reku Mochizuki",
+            "difficulty": "AT",
+            "level": 16,
+            "constant": 16.9,
+            "art": "assets/song/song-list-2026/04-infinite-enerzy-overdoze.png",
+            "previewAudio": "assets/song-preview/competition-2026-q2-01.mp3",
+            "eligible": true
+          },
+          {
+            "id": "competition-2026-de-04",
+            "title": "Retribution",
+            "artist": "nm-y & Kry.exe",
+            "difficulty": "IN",
+            "level": 16,
+            "constant": 16.2,
+            "art": "assets/song/song-list-2026/29-retribution.png",
+            "previewAudio": "assets/song-preview/competition-2026-de-04.mp3",
+            "eligible": true
+          },
+          {
+            "id": "competition-2026-de-17",
+            "title": "Avataar ~Reincarnation of Kalpa~",
+            "artist": "Scarlette a.k.a CrYmson",
+            "difficulty": "AT",
+            "level": 16,
+            "constant": 16.6,
+            "art": "assets/song/song-list-2026/07-avataar-reincarnation-of-kalpa.png",
+            "previewAudio": "assets/song-preview/competition-2026-de-17.mp3",
+            "eligible": true
+          },
+          {
+            "id": "competition-2026-de-15",
+            "title": "Verrückt",
+            "artist": "Raimukun",
+            "difficulty": "IN",
+            "level": 16,
+            "constant": 16.5,
+            "art": "assets/song/song-list-2026/42-verruckt.png",
+            "previewAudio": "assets/song-preview/competition-2026-de-15.mp3",
+            "eligible": true
+          },
+          {
+            "id": "competition-2026-de-02",
+            "title": "Rrhar'il",
+            "artist": "Team Grimoire",
+            "difficulty": "IN",
+            "level": 16,
+            "constant": 16.1,
+            "art": "assets/song/song-list-2026/26-rrhar-il.png",
+            "previewAudio": "assets/song-preview/competition-2026-de-02.mp3",
+            "eligible": true
+          },
+          {
+            "id": "competition-2026-de-11",
+            "title": "KIZUNA Resolution",
+            "artist": "TAG",
+            "difficulty": "IN",
+            "level": 16,
+            "constant": 16.4,
+            "art": "assets/song/song-list-2026/39-kizuna-resolution.png",
+            "previewAudio": "assets/song-preview/competition-2026-de-11.mp3",
+            "eligible": true
+          }
+        ],
+        "bans": [
+          "competition-2026-de-30",
+          "competition-2026-de-04"
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          true,
+          true
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": [],
+        "usedSongs": [],
+        "selectionPreviewCue": {
+          "id": "f7603806-cc70-4793-b8b9-8d176a549286",
+          "kind": "ban",
+          "songIds": [
+            "competition-2026-de-04"
+          ],
+          "startedAt": 1767226110000
+        }
+      },
+      {
+        "id": "W2",
+        "round": 1,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 1",
+        "sources": [
+          {
+            "type": "seed",
+            "value": 4
+          },
+          {
+            "type": "seed",
+            "value": 7
+          }
+        ],
+        "players": [
+          "0d68fe86-fd33-4189-a6ef-80f40682da17",
+          "c5f07d1c-06b1-4c5e-80cf-362f7550332e"
+        ],
+        "status": "ready",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "W3",
+        "round": 1,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 1",
+        "sources": [
+          {
+            "type": "seed",
+            "value": 2
+          },
+          {
+            "type": "seed",
+            "value": 5
+          }
+        ],
+        "players": [
+          "1124543e-bc30-4101-9593-718815f875de",
+          "95fe0248-9e1f-4a89-9989-562a70a2e120"
+        ],
+        "status": "ready",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "W4",
+        "round": 1,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 1",
+        "sources": [
+          {
+            "type": "seed",
+            "value": 3
+          },
+          {
+            "type": "seed",
+            "value": 6
+          }
+        ],
+        "players": [
+          "31cede0e-0a56-4c17-bda6-2ba383d9678d",
+          "da410cfd-2ca1-4934-af4f-dd243aacab7e"
+        ],
+        "status": "ready",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "W5",
+        "round": 2,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 2",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "W1"
+          },
+          {
+            "type": "winner",
+            "value": "W2"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "W6",
+        "round": 2,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Round 2",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "W3"
+          },
+          {
+            "type": "winner",
+            "value": "W4"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L1",
+        "round": 2,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Entry",
+        "sources": [
+          {
+            "type": "loser",
+            "value": "W1"
+          },
+          {
+            "type": "loser",
+            "value": "W2"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L2",
+        "round": 2,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Entry",
+        "sources": [
+          {
+            "type": "loser",
+            "value": "W3"
+          },
+          {
+            "type": "loser",
+            "value": "W4"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "W7",
+        "round": 3,
+        "bracket": "WB",
+        "label": "Winners’ Bracket Final",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "W5"
+          },
+          {
+            "type": "winner",
+            "value": "W6"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L3",
+        "round": 3,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Round 2",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "L1"
+          },
+          {
+            "type": "loser",
+            "value": "W6"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L4",
+        "round": 3,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Round 2",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "L2"
+          },
+          {
+            "type": "loser",
+            "value": "W5"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L5",
+        "round": 4,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Round 3",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "L3"
+          },
+          {
+            "type": "winner",
+            "value": "L4"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "L6",
+        "round": 5,
+        "bracket": "LB",
+        "label": "Losers’ Bracket Final",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "L5"
+          },
+          {
+            "type": "loser",
+            "value": "W7"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      },
+      {
+        "id": "GF",
+        "round": 6,
+        "bracket": "GF",
+        "label": "Grand Finals",
+        "sources": [
+          {
+            "type": "winner",
+            "value": "W7"
+          },
+          {
+            "type": "winner",
+            "value": "L6"
+          }
+        ],
+        "players": [
+          null,
+          null
+        ],
+        "status": "pending",
+        "candidates": [],
+        "bans": [
+          null,
+          null
+        ],
+        "songs": [
+          {
+            "id": "competition-2026-gf-01",
+            "title": "Desultory Signals",
+            "artist": "technoplanet",
+            "difficulty": "IN",
+            "level": 17,
+            "art": "assets/song/grand-final-2026/desultory-signals.png",
+            "previewAudio": "assets/song-preview/competition-2026-gf-01.mp3",
+            "eligible": false
+          },
+          {
+            "id": "competition-2026-gf-02",
+            "title": "Petrichor",
+            "artist": "void (Mournfinale)",
+            "difficulty": "AT",
+            "level": 17,
+            "art": "assets/song/grand-final-2026/petrichor.png",
+            "previewAudio": "assets/song-preview/competition-2026-gf-02.mp3",
+            "eligible": false
+          }
+        ],
+        "finalMode": "fixed-two",
+        "usedSongs": [
+          {
+            "id": "competition-2026-gf-01",
+            "title": "Desultory Signals",
+            "artist": "technoplanet",
+            "difficulty": "IN",
+            "level": 17,
+            "art": "assets/song/grand-final-2026/desultory-signals.png",
+            "previewAudio": "assets/song-preview/competition-2026-gf-01.mp3",
+            "eligible": false
+          },
+          {
+            "id": "competition-2026-gf-02",
+            "title": "Petrichor",
+            "artist": "void (Mournfinale)",
+            "difficulty": "AT",
+            "level": 17,
+            "art": "assets/song/grand-final-2026/petrichor.png",
+            "previewAudio": "assets/song-preview/competition-2026-gf-02.mp3",
+            "eligible": false
+          }
+        ],
+        "audiencePicks": [],
+        "hostPick": null,
+        "hostRevealed": false,
+        "currentSong": 0,
+        "scores": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "winnerId": null,
+        "loserId": null,
+        "resultType": null,
+        "note": "",
+        "overridePlayers": null,
+        "bansConfirmed": [
+          false,
+          false
+        ],
+        "judgements": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ],
+        "tiebreaks": []
+      }
+    ]
+  },
+  "result": null,
+  "correctionLog": []
+}

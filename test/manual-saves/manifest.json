@@ -1,0 +1,1464 @@
+{
+  "version": 1,
+  "format": "acahku-manual-saves",
+  "scenarioCount": 45,
+  "fixtureClock": "2026-01-01T00:00:00.000Z",
+  "scenarios": [
+    {
+      "id": "Q01",
+      "title": "预选赛准备与开赛倒计时",
+      "file": "Q01-ready-countdown.json",
+      "group": "Q",
+      "scene": "qualifier-waiting",
+      "stage": "qualifier",
+      "sha256": "f635880b0f7e7085fa11053c0fb8ae19755632fbe1ab0e23ea61cb10bb14c460",
+      "steps": [
+        "打开 OBS 测试源，核对三位选手及 4:3 窗口。",
+        "进入比赛画面，按「開始倒計時 · 3 2 1 START」。"
+      ],
+      "expected": [
+        "三位选手各占一路 webcam。",
+        "完整显示 3、2、1、START 后返回比赛；刷新来源不从头重播。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "qualifier",
+            "scene": "qualifier-match",
+            "group": "A",
+            "players": [
+              "fe7c26c1-bd45-45d7-8228-5dfbdfb2c561",
+              "ccbafcb9-724e-4e2b-9f07-d5ee2c2ad591",
+              "a98bd87b-c3b4-42ee-a9b0-edf7c6e70fb2"
+            ],
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "qualifier-match"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "title": "Challenge 三曲录分",
+      "file": "Q02-challenge-entry.json",
+      "group": "Q",
+      "scene": "qualifier-processing",
+      "stage": "qualifier",
+      "sha256": "8f1b182a3f32cc902d5e9f302ef49db9763822cf8c8fc7a83848b3d218da9fa2",
+      "steps": [
+        "用记分员页面录入一名选手的三首分数、P/G/B/M 和官方总分。",
+        "先留空一项尝试保存，再补齐保存。"
+      ],
+      "expected": [
+        "缺项不能作为完整成绩保存；0 是合法数值。",
+        "保存后主控与记分员显示同一套 16 项数据。"
+      ],
+      "probes": [
+        {
+          "type": "set-qualifier-challenge-result",
+          "payload": {
+            "group": "A",
+            "playerId": "fe7c26c1-bd45-45d7-8228-5dfbdfb2c561",
+            "total": 2955000,
+            "songStats": [
+              {
+                "score": 985000,
+                "perfect": 940,
+                "good": 12,
+                "bad": 2,
+                "miss": 3
+              },
+              {
+                "score": 985000,
+                "perfect": 951,
+                "good": 13,
+                "bad": 2,
+                "miss": 2
+              },
+              {
+                "score": 985000,
+                "perfect": 962,
+                "good": 14,
+                "bad": 2,
+                "miss": 1
+              }
+            ]
+          },
+          "expected": {
+            "state.qualifier.rounds.A.results.fe7c26c1-bd45-45d7-8228-5dfbdfb2c561.challengeTotal": 2955000
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "title": "预选三曲统计结果",
+      "file": "Q03-challenge-results.json",
+      "group": "Q",
+      "scene": "song-result",
+      "stage": "qualifier",
+      "sha256": "05549a519596a6e831549ad2224c1a41e00389ba883eddb042d57252fdaec345",
+      "steps": [
+        "检查当前三名选手的三首歌曲成绩、判定及官方总分。",
+        "进入当前排名。"
+      ],
+      "expected": [
+        "分数和官方总分都已预填，可直接核对。",
+        "切入当前排名从第一页开始；Round 1 尚未确认时只显示本轮。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "qualifier",
+            "scene": "result",
+            "group": "A",
+            "players": [
+              "19ada7bd-5615-4082-a3dc-69e1fde655d7",
+              "65d51aca-0560-4891-bd81-373fe9b54ca2",
+              "407e4a7d-55c8-491e-bb9b-9678c8bdb726"
+            ],
+            "songIndex": 2
+          },
+          "expected": {
+            "state.scene": "result"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q04",
+      "title": "非晋级线同分",
+      "file": "Q04-harmless-tie.json",
+      "group": "Q",
+      "scene": "result",
+      "stage": "qualifier",
+      "sha256": "34d685b692ae6fdd20ff4ef97f02054bb936a2f4bd7044adbc1ad3701e9632f3",
+      "steps": [
+        "观察前两名同分。",
+        "核对本轮，继续复活轮。"
+      ],
+      "expected": [
+        "同分双方都在晋级区，不要求加赛。",
+        "比赛可以正常推进，前四名仍有绿色标记。"
+      ],
+      "probes": [
+        {
+          "type": "finalize-qualifier-round",
+          "payload": {
+            "group": "A",
+            "verified": true
+          },
+          "expected": {
+            "state.qualifier.rounds.A.locked": true,
+            "state.qualifier.activeGroup": "B"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q05",
+      "title": "第四第五名同分",
+      "file": "Q05-cutoff-tie.json",
+      "group": "Q",
+      "scene": "result",
+      "stage": "qualifier",
+      "sha256": "f538019a2601269620d4985c34032c043f9b893fe68cd713547dffee3e6492ff",
+      "steps": [
+        "查看当前排名的晋级线。",
+        "按主要操作按钮准备加赛。"
+      ],
+      "expected": [
+        "第四、第五名为黄色，未提前判定谁晋级。",
+        "本轮确认受阻，随后只安排这两位选手加赛。"
+      ],
+      "probes": [
+        {
+          "type": "finalize-qualifier-round",
+          "payload": {
+            "group": "A",
+            "verified": true
+          },
+          "expected": {},
+          "reject": "tiebreak"
+        },
+        {
+          "type": "draw-qualifier-tiebreak",
+          "payload": {
+            "group": "A",
+            "playerIds": [
+              "02a6b488-92e5-4b8d-a117-da64ee77361b",
+              "d5d9760c-fe61-4a04-b85c-9113b7fa71df"
+            ]
+          },
+          "expected": {
+            "state.scene": "qualifier-waiting"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q06",
+      "title": "三人同分争夺晋级位",
+      "file": "Q06-three-way-cutoff.json",
+      "group": "Q",
+      "scene": "result",
+      "stage": "qualifier",
+      "sha256": "780058361255248f936f2a311b7b35da2b7553212406a1cfe5e9d2dc160d5b0d",
+      "steps": [
+        "检查第四到第六名的同分标记。",
+        "准备晋级加赛。"
+      ],
+      "expected": [
+        "全部三位相关选手都被标记，不遗漏第三人。",
+        "加赛准备名单包含这三人。"
+      ],
+      "probes": [
+        {
+          "type": "draw-qualifier-tiebreak",
+          "payload": {
+            "group": "A",
+            "playerIds": [
+              "5d69a46e-6a1d-422d-b75e-beaa866ba3fa",
+              "6ba7ac96-6c8e-4426-8bc8-458bd4037388",
+              "6814a743-d7b8-45e5-8cf1-84a44e753039"
+            ]
+          },
+          "expected": {
+            "state.qualifier.activePlayers.length": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q07",
+      "title": "Round 1 加赛曲公布",
+      "file": "Q07-round-one-tiebreak-reveal.json",
+      "group": "Q",
+      "scene": "qualifier-waiting",
+      "stage": "qualifier",
+      "sha256": "e69acb9881925f5a2e0ad9d3253e4e32efe5d11ca1199d3bef52da9c24e9f279",
+      "steps": [
+        "先观察准备页和记分员页面。",
+        "按「公布加賽曲目」，听完预览后返回准备页。"
+      ],
+      "expected": [
+        "公布前只显示两位选手，曲目保密且记分员锁定。",
+        "公布 Aleph-0、IN 16、曲绘和中英文标题，并播放一次预览。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "qualifier",
+            "scene": "qualifier-tiebreak-announcement",
+            "group": "A",
+            "players": [
+              "02a6b488-92e5-4b8d-a117-da64ee77361b",
+              "d5d9760c-fe61-4a04-b85c-9113b7fa71df"
+            ],
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "qualifier-tiebreak-announcement",
+            "state.qualifier.rounds.A.tiebreaks.0.revealed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q08",
+      "title": "预选加赛判定录入",
+      "file": "Q08-tiebreak-score-entry.json",
+      "group": "Q",
+      "scene": "qualifier-processing",
+      "stage": "qualifier",
+      "sha256": "7ec26e1393ad50fa51668029e0f0d90320079c31eeed9dc8f3a3b223c1b1094c",
+      "steps": [
+        "在主控和记分员页面分别检查加赛录分表。",
+        "为两人填写分数和 Perfect、Good、Bad、Miss 后保存。"
+      ],
+      "expected": [
+        "两端都有四类判定字段，只显示本场加赛选手。",
+        "保存后统计结果与输入一致。"
+      ],
+      "probes": [
+        {
+          "type": "set-qualifier-tiebreak-score",
+          "payload": {
+            "group": "A",
+            "index": 0,
+            "playerId": "02a6b488-92e5-4b8d-a117-da64ee77361b",
+            "score": 987654,
+            "judgements": {
+              "perfect": 940,
+              "good": 12,
+              "bad": 1,
+              "miss": 2
+            }
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "Q09",
+      "title": "加赛后确认晋级名单",
+      "file": "Q09-confirmed-qualifiers.json",
+      "group": "Q",
+      "scene": "song-result",
+      "stage": "qualifier",
+      "sha256": "f15f3bcbb9e5b57df47ecab01edab646c987bb1a9bd1a9b7a12cf13c724dc4a2",
+      "steps": [
+        "核对加赛成绩：右侧选手分数较高。",
+        "确认加赛，再查看晋级名单。"
+      ],
+      "expected": [
+        "加赛胜者进入前四，绿色标记恢复。",
+        "没有黄色未决晋级线；可以确认本轮。"
+      ],
+      "probes": [
+        {
+          "type": "confirm-qualifier-tiebreak",
+          "payload": {
+            "group": "A",
+            "index": 0,
+            "verified": true
+          },
+          "expected": {
+            "state.scene": "result"
+          }
+        },
+        {
+          "type": "finalize-qualifier-round",
+          "payload": {
+            "group": "A",
+            "verified": true
+          },
+          "expected": {
+            "state.qualifier.rounds.A.locked": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "title": "复活轮加赛曲公布",
+      "file": "Q10-revival-tiebreak-reveal.json",
+      "group": "Q",
+      "scene": "qualifier-waiting",
+      "stage": "qualifier",
+      "sha256": "ef51802dd0a59f4ec24e13bfb7191a162dd2c511b9c23ad5e3dbff87247b0a89",
+      "steps": [
+        "按「公布加賽曲目」。",
+        "检查难度、曲绘、标题和乐曲片段。"
+      ],
+      "expected": [
+        "公布 ぱぴぷぴぷぴぱ、IN 15。",
+        "展示的是复活轮加赛，不沿用 Aleph-0。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "qualifier",
+            "scene": "qualifier-tiebreak-announcement",
+            "group": "B",
+            "players": [
+              "686bf539-d75b-4a59-866b-ba29fecc736e",
+              "5374adaf-ec63-484b-a1f6-b0c13e397cfc"
+            ],
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "qualifier-tiebreak-announcement"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q11",
+      "title": "Plan B 排名循环与重入",
+      "file": "Q11-ranking-pagination.json",
+      "group": "Q",
+      "scene": "result",
+      "stage": "qualifier",
+      "sha256": "8251b0883faa5033710c53e5d8a406527eb079424670f8f8a1097437bf72d5c3",
+      "steps": [
+        "停留排名页至少 12 秒。",
+        "离开排名页，再切回来。"
+      ],
+      "expected": [
+        "每组 12 人，按 8 人一页循环。",
+        "每次进入都从第一页开始，分数更新不把页码强制重置。"
+      ],
+      "probes": []
+    },
+    {
+      "id": "B01",
+      "title": "中场休息看板",
+      "file": "B01-intermission-poster.json",
+      "group": "B",
+      "scene": "intermission",
+      "stage": "double-elimination",
+      "sha256": "74499dbc07bdbb915c70f105414be62b4834d8d0ef1697f24187a1a84c3a6ff0",
+      "steps": [
+        "查看休息画面。",
+        "核对左侧文字和右侧主视觉。"
+      ],
+      "expected": [
+        "左侧显示繁体中文及英文休息标题，右侧为主视觉。",
+        "进入休息页不自动播放预告。"
+      ],
+      "probes": [
+        {
+          "type": "end-intermission",
+          "payload": {},
+          "expected": {
+            "state.stage": "double-elimination"
+          }
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "title": "中场 Arcaea 视频",
+      "file": "B02-arcaea-trailer.json",
+      "group": "B",
+      "scene": "intermission",
+      "stage": "double-elimination",
+      "sha256": "67d3652d4f08bdfe7331b146b4df339885b09e6e3be1ed1f738e7d9cd7825669",
+      "steps": [
+        "切到「Arcaea 預告」标签，按「播放預告」。",
+        "调节全局音量、静音，再刷新一个 OBS 测试源。"
+      ],
+      "expected": [
+        "另一个页面播放 Arcaea 预告；工作人员预览静音。",
+        "视频与菜单音频不叠加，刷新按同一播放时钟恢复。"
+      ],
+      "probes": [
+        {
+          "type": "play-intermission-video",
+          "payload": {},
+          "expected": {
+            "state.scene": "arcaea-trailer"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D01",
+      "title": "双淘汰赛签表",
+      "file": "D01-seeded-bracket.json",
+      "group": "D",
+      "scene": "bracket",
+      "stage": "double-elimination",
+      "sha256": "7ab86167d279bc88b392cf733205ee76cefae64fc980ca10a92d43d0f62ad6d2",
+      "steps": [
+        "查看 24 人预选产生的八人签表。",
+        "选择 W1，进入准备。"
+      ],
+      "expected": [
+        "八个晋级席位和种子有对应选手。",
+        "待定上游场次不能提前比赛。"
+      ],
+      "probes": [
+        {
+          "type": "select-match",
+          "payload": {
+            "matchId": "W1"
+          },
+          "expected": {
+            "state.tournament.currentMatchId": "W1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "title": "BAN 曲卡片与难度",
+      "file": "D02-ban-cards.json",
+      "group": "D",
+      "scene": "song-selection",
+      "stage": "double-elimination",
+      "sha256": "5d055fab3ea6acc5483761bc90fc7bb1f8a2812eed3cc05b8fd2c3ccfa955d56",
+      "steps": [
+        "给左侧选手 BAN 一首候选曲。",
+        "核对整块变红、难度等级和 BAN 标记。"
+      ],
+      "expected": [
+        "六首候选都可辨认曲名与难度。",
+        "BAN 标记不覆盖等级，被禁曲面板明显变红。"
+      ],
+      "probes": [
+        {
+          "type": "ban-song",
+          "payload": {
+            "matchId": "W1",
+            "playerIndex": 0,
+            "songId": "competition-2026-de-16"
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "title": "滚动抽曲与两首预览",
+      "file": "D03-rolling-draw.json",
+      "group": "D",
+      "scene": "song-selection",
+      "stage": "double-elimination",
+      "sha256": "65d2225920ff0a4226e087fb25b4aca854cac78891811b8335a42a4cf2df5f16",
+      "steps": [
+        "OBS 测试源准备好后按「Draw 2 match songs」。",
+        "观察整段高亮抽选和音乐预览。"
+      ],
+      "expected": [
+        "四首滚动高亮 → 第一首公布及预览 → 剩三首滚动 → 第二首公布及预览。",
+        "选曲音效跟随全局音量，已 BAN 曲不会被抽中；刷新不重抽。"
+      ],
+      "probes": [
+        {
+          "type": "pick-songs",
+          "payload": {
+            "matchId": "W1"
+          },
+          "expected": {
+            "state.scene": "song-selection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D04",
+      "title": "下一首准备预览循环",
+      "file": "D04-upcoming-song-loop.json",
+      "group": "D",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "6988e59aed905796677c4be648ee705e0c2a5385dfed71b26abc000825eebb0d",
+      "steps": [
+        "听准备页正在循环的乐曲片段。",
+        "切换到第二首准备，再进入比赛。"
+      ],
+      "expected": [
+        "只循环下一首要比赛的歌曲。",
+        "进入比赛或统计中后停止片段，音量与其他界面一致。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "double-elimination-waiting",
+            "matchId": "W1",
+            "songIndex": 1
+          },
+          "expected": {
+            "state.tournament.matches.0.currentSong": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "title": "双淘汰 webcam 与倒计时",
+      "file": "D05-webcam-countdown.json",
+      "group": "D",
+      "scene": "double-elimination-match",
+      "stage": "double-elimination",
+      "sha256": "0611bbcaffebbb054d41b4f63016e0bf60398bf59af1b8bbe4734ac59ff96764",
+      "steps": [
+        "核对左右选手各一路 4:3 webcam。",
+        "开始倒计时，并在倒数期间刷新一个来源。"
+      ],
+      "expected": [
+        "主画布 1920×1080，视频窗口各为 872×654。",
+        "姓名、总分及曲目不遮挡视频；所有来源显示同一倒数。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "double-elimination-processing",
+            "matchId": "W1",
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "double-elimination-processing"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D06",
+      "title": "单曲结果统计中",
+      "file": "D06-processing.json",
+      "group": "D",
+      "scene": "double-elimination-processing",
+      "stage": "double-elimination",
+      "sha256": "e5427b83e78a44a8f4d9b1f5384bd2f44dfed293c983569bc87189f70b7c6a3c",
+      "steps": [
+        "查看统计中画面。",
+        "按主要操作按钮显示本曲统计。"
+      ],
+      "expected": [
+        "左边是「統計中」及英文，右边为主视觉。",
+        "统计中与单曲结果是两个独立步骤。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "song-result",
+            "matchId": "W1",
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "song-result"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D07",
+      "title": "双淘汰单曲成绩",
+      "file": "D07-single-song-results.json",
+      "group": "D",
+      "scene": "song-result",
+      "stage": "double-elimination",
+      "sha256": "3880f9452eeb8409a64cba090071248c7be2ed5456992a59c8fa88245f65a624",
+      "steps": [
+        "核对双方当前单曲的分数和 P/G/B/M。",
+        "按主要操作按钮准备下一首。"
+      ],
+      "expected": [
+        "本页只对应第一首，而非两曲总和。",
+        "下一步切到第二首准备，歌曲标题同步。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "double-elimination-waiting",
+            "matchId": "W1",
+            "songIndex": 1
+          },
+          "expected": {
+            "state.scene": "double-elimination-waiting"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D08",
+      "title": "两曲总分与胜败分流",
+      "file": "D08-round-advancement.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "bf6d30c7edb55e36b0abdb9422a825c1341ff4ec60df1a5259653c30ad5a6956",
+      "steps": [
+        "查看已确认的 W1 整轮赛果。",
+        "打开 Bracket，核对胜者与败者下一场。"
+      ],
+      "expected": [
+        "显示两首歌、难度、各自分数和总分。",
+        "胜者为绿色，败者转入败者组；整轮结果不显示总 P/G/B/M。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "bracket",
+            "matchId": "W1"
+          },
+          "expected": {
+            "state.scene": "bracket"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "title": "败者组淘汰",
+      "file": "D09-second-loss-elimination.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "49d6931eec30ff494a9951766ef3a73e4c3823d6d0e7217890d9253cc6bac6f3",
+      "steps": [
+        "查看 L1 结果和下一场流向。",
+        "确认落败选手的显示状态。"
+      ],
+      "expected": [
+        "第二次失利者标为淘汰，使用红色。",
+        "胜者继续败者组；淘汰者不再进入后续对阵。"
+      ],
+      "probes": []
+    },
+    {
+      "id": "D10",
+      "title": "总分同分与补录 ACC",
+      "file": "D10-tied-total-missing-acc.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "748acd399b07562ec6a4ccf7256ecb7f73b05e602fd94082da71cda343369ca0",
+      "steps": [
+        "观察整轮总分相同的中性结果页。",
+        "通过「補錄各曲 ACC」补齐双方两首 ACC。"
+      ],
+      "expected": [
+        "没有提前显示胜者。",
+        "ACC 缺失时不能跳过比较直接宣布胜负。"
+      ],
+      "probes": [
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "W1",
+            "expectedPhase": "scores"
+          },
+          "expected": {},
+          "reject": "accuracy"
+        }
+      ]
+    },
+    {
+      "id": "D11",
+      "title": "公布平均 ACC",
+      "file": "D11-reveal-average-acc.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "e20caffb9575e12ad1d5c343e15fc6b4e4eb5b9d9ff6543ddb406b70736b5bba",
+      "steps": [
+        "先核对相同的两曲总分，再按「公布平均 ACC」。",
+        "查看两首 ACC 和四位小数的平均值。"
+      ],
+      "expected": [
+        "平均值由两首 ACC 算出。",
+        "公布平均值时双方仍保持中性，胜者尚未发布。"
+      ],
+      "probes": [
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "W1",
+            "expectedPhase": "scores"
+          },
+          "expected": {
+            "state.tournament.matches.0.resultPresentation": "accuracy"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D12",
+      "title": "ACC 最终判定",
+      "file": "D12-acc-verdict.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "fc568774553b82fb9a1d62697e90711dbb3f39abd5ac6e9aa97e7819612f51b8",
+      "steps": [
+        "核对左侧平均 ACC 较高。",
+        "按「公布最終判定」并确认裁判核对。"
+      ],
+      "expected": [
+        "确认之后才显示绿色胜者和晋级流向。",
+        "Bracket 按 ACC 判定结果推进。"
+      ],
+      "probes": [
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "W1",
+            "expectedPhase": "accuracy",
+            "verified": true
+          },
+          "expected": {
+            "state.tournament.matches.0.status": "complete",
+            "state.tournament.matches.0.resultPresentation": "verdict"
+          }
+        }
+      ]
+    },
+    {
+      "id": "D13",
+      "title": "平均 ACC 仍然相同",
+      "file": "D13-equal-acc-tiebreak.json",
+      "group": "D",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "33ecc204429c4afa125301c8c38097106bcb3e3e0b44846870affd9f787eb8ab",
+      "steps": [
+        "查看双方相同的平均 ACC。",
+        "按「平均 ACC 相同 · 準備加賽」。"
+      ],
+      "expected": [
+        "明确提示需要加赛，没有虚构胜者。",
+        "进入只显示两位选手、暂不公布加赛曲的准备页。"
+      ],
+      "probes": [
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "W1",
+            "expectedPhase": "accuracy"
+          },
+          "expected": {
+            "state.scene": "double-elimination-waiting",
+            "state.tournament.matches.0.tiebreaks.length": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "D14",
+      "title": "双淘汰加赛曲公布",
+      "file": "D14-tiebreak-reveal.json",
+      "group": "D",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "8835d307a1ca30d383a93c9a4d880d4bff42e6655fa76a4cdd4f9b2aa09ca91e",
+      "steps": [
+        "先查看准备页与记分员锁定状态。",
+        "按「公布加賽曲目」，听预览，再回准备页。"
+      ],
+      "expected": [
+        "公布前曲目保密；公布页有中英文大标题、曲绘、歌名、难度与等级。",
+        "返回准备页后保留歌名和难度。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "double-elimination-tiebreak-announcement",
+            "matchId": "W1"
+          },
+          "expected": {
+            "state.scene": "double-elimination-tiebreak-announcement",
+            "state.tournament.matches.0.tiebreaks.0.revealed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "D15",
+      "title": "双淘汰加赛判定录入",
+      "file": "D15-tiebreak-score-entry.json",
+      "group": "D",
+      "scene": "double-elimination-processing",
+      "stage": "double-elimination",
+      "sha256": "1a61a54988b3a6daafccca7bfa524afdf9e838975a618728e1c7f0fedbcfc76b",
+      "steps": [
+        "打开主控与记分员，填写双方加赛分数和 P/G/B/M。",
+        "保存后进入本曲统计。"
+      ],
+      "expected": [
+        "两端都有四类判定输入。",
+        "当前仅有这一首加赛，不会误写基础两曲成绩。"
+      ],
+      "probes": [
+        {
+          "type": "set-match-tiebreak-score",
+          "payload": {
+            "matchId": "W1",
+            "index": 0,
+            "playerIndex": 0,
+            "score": 987654,
+            "judgements": {
+              "accuracy": 99,
+              "perfect": 950,
+              "good": 12,
+              "bad": 1,
+              "miss": 2
+            }
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "D16",
+      "title": "加赛确认后整轮赛果",
+      "file": "D16-tiebreak-confirmation.json",
+      "group": "D",
+      "scene": "song-result",
+      "stage": "double-elimination",
+      "sha256": "9237c8884a4168a5102c77323c3c58b2a80f46f225ff4ba37eec5cab4c3138c2",
+      "steps": [
+        "核对右侧选手赢得加赛。",
+        "确认加赛并确认整轮赛果。"
+      ],
+      "expected": [
+        "确认后右侧选手晋级。",
+        "基础两曲仍是同分；判定依据标为加赛，不篡改原始成绩。"
+      ],
+      "probes": [
+        {
+          "type": "confirm-match-tiebreak",
+          "payload": {
+            "matchId": "W1",
+            "index": 0,
+            "verified": true
+          },
+          "expected": {}
+        },
+        {
+          "type": "record-result",
+          "payload": {
+            "matchId": "W1",
+            "verified": true
+          },
+          "expected": {
+            "state.result.decisionReason": "tiebreak"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F01",
+      "title": "决赛前两曲依次公布",
+      "file": "F01-fixed-song-announcement.json",
+      "group": "F",
+      "scene": "grand-final-announcement",
+      "stage": "double-elimination",
+      "sha256": "c5051c84a7427c5a03cccac036a646376bb0f7ef77d3796d81e2f6879fb0710f",
+      "steps": [
+        "准备 OBS 测试源，按「公布決賽第一首」。",
+        "观察两首固定曲依次公布与预览。"
+      ],
+      "expected": [
+        "Cthugha 与 Petrichor 使用同一时钟依次公布。",
+        "当前比赛歌曲与公布流程不会互相覆盖。"
+      ],
+      "probes": [
+        {
+          "type": "start-final-announcement",
+          "payload": {
+            "matchId": "GF",
+            "songIndex": 0
+          },
+          "expected": {
+            "state.scene": "grand-final-announcement"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "决赛前两首中途总成绩",
+      "file": "F02-provisional-two-totals.json",
+      "group": "F",
+      "scene": "grand-final-totals",
+      "stage": "double-elimination",
+      "sha256": "e419491cc2dcd9a158d098f34460b9cda068f1a1e8282dc00128429556140079",
+      "steps": [
+        "核对双方前两首分数与小计。",
+        "进入最后一首的神秘准备。"
+      ],
+      "expected": [
+        "这里只是中途成绩，没有宣布冠军。",
+        "第三首仍须比赛并计入最终总分。"
+      ],
+      "probes": [
+        {
+          "type": "start-final-finale",
+          "payload": {
+            "matchId": "GF"
+          },
+          "expected": {
+            "state.scene": "double-elimination-waiting",
+            "state.tournament.matches.13.finale.stage": "sealed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F03",
+      "title": "最后一首保密准备",
+      "file": "F03-concealed-final-song.json",
+      "group": "F",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "2c566043e0c31c90d4269928301d114d829e0831db59582cf1641c22f59a54f0",
+      "steps": [
+        "查看 OBS 和记分员页面。",
+        "检查第三首信息与输入权限。"
+      ],
+      "expected": [
+        "OBS 使用神秘曲等待表现。",
+        "公布前记分员看不到歌曲真实标题，第三首录分被锁定。"
+      ],
+      "probes": [
+        {
+          "type": "set-match-score",
+          "payload": {
+            "matchId": "GF",
+            "playerIndex": 0,
+            "songIndex": 2,
+            "score": 990000
+          },
+          "expected": {},
+          "reject": "Reveal"
+        }
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "新版 Ending Song Video",
+      "file": "F04-final-version-pv.json",
+      "group": "F",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "96e1b48fee748b14433c368fb310576d69ad6a0195cd098f2a1bb69a3f3df9cb",
+      "steps": [
+        "准备好 OBS 测试源，按「播放公布視頻」。",
+        "完整播放，期间检查音量、静音和工作人员预览。"
+      ],
+      "expected": [
+        "播放新版 1080p/24fps PV，按 88.512 秒计时。",
+        "播完自动回到准备页并公布 What do you want more than a Happy ending? / AT 17。"
+      ],
+      "probes": [
+        {
+          "type": "play-final-finale-video",
+          "payload": {
+            "matchId": "GF"
+          },
+          "expected": {
+            "state.scene": "grand-final-video",
+            "state.tournament.matches.13.finale.videoCue.duration": 88.512
+          }
+        }
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "最后一首净化效果",
+      "file": "F05-purification-effects.json",
+      "group": "F",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "09b24e516da64540cdf5c253994ce1b814b748d59abd2216392da6e80243bac6",
+      "steps": [
+        "检查公布后的歌曲与难度。",
+        "按顺序尝试三阶段净化，再恢复普通效果。"
+      ],
+      "expected": [
+        "红色侵入效果逐步清除，文字抖动逐步减弱。",
+        "最终阶段清除附加效果；视频与信息层位置保持正确。"
+      ],
+      "probes": [
+        {
+          "type": "set-final-finale-effect",
+          "payload": {
+            "matchId": "GF",
+            "level": 1
+          },
+          "expected": {}
+        },
+        {
+          "type": "set-final-finale-effect",
+          "payload": {
+            "matchId": "GF",
+            "level": 2
+          },
+          "expected": {}
+        },
+        {
+          "type": "set-final-finale-effect",
+          "payload": {
+            "matchId": "GF",
+            "level": 3
+          },
+          "expected": {
+            "state.tournament.matches.13.finale.effectLevel": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "F06",
+      "title": "决赛第三首录分",
+      "file": "F06-third-song-entry.json",
+      "group": "F",
+      "scene": "double-elimination-processing",
+      "stage": "double-elimination",
+      "sha256": "7aad4e0c93d88db0246fa6deead9a47f9d66c6a1dbdd2025714b15f036d5e9c7",
+      "steps": [
+        "在记分员页面录入第三首分数及判定。",
+        "主控检查三首累计，再核对整轮赛果。"
+      ],
+      "expected": [
+        "第三首已经解锁，可正常录分。",
+        "三首全部完成前不能确认最终胜者。"
+      ],
+      "probes": [
+        {
+          "type": "record-result",
+          "payload": {
+            "matchId": "GF",
+            "verified": true
+          },
+          "expected": {},
+          "reject": "every"
+        },
+        {
+          "type": "set-match-score",
+          "payload": {
+            "matchId": "GF",
+            "playerIndex": 0,
+            "songIndex": 2,
+            "score": 997000,
+            "judgements": {
+              "accuracy": 99.7,
+              "perfect": 980,
+              "good": 8,
+              "bad": 0,
+              "miss": 1
+            }
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "决赛整轮三曲赛果",
+      "file": "F07-three-song-result.json",
+      "group": "F",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "21a0df8eaa92f574f57da9df30ea69304cccc61c522dcb818ceb31cea597bf11",
+      "steps": [
+        "核对三首分数及总和。",
+        "进入赛事总排名。"
+      ],
+      "expected": [
+        "三首成绩一起决定冠军。",
+        "结果页包含三首歌曲与难度，没有总 P/G/B/M 行。"
+      ],
+      "probes": [
+        {
+          "type": "set-broadcast-cue",
+          "payload": {
+            "stage": "double-elimination",
+            "scene": "final-standings"
+          },
+          "expected": {
+            "state.scene": "final-standings"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "决赛三曲平均 ACC",
+      "file": "F08-three-song-average-acc.json",
+      "group": "F",
+      "scene": "result",
+      "stage": "double-elimination",
+      "sha256": "621d3195b50f0e0058288fefd0a542a1b1cc436bcefe882a8d540d14e4afc5ce",
+      "steps": [
+        "公布双方平均 ACC。",
+        "核对三首都计入平均，再发布最终判定。"
+      ],
+      "expected": [
+        "总分相同，先展示同分再展示 ACC。",
+        "平均值使用三首，不会只算前两首。"
+      ],
+      "probes": [
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "GF",
+            "expectedPhase": "scores"
+          },
+          "expected": {}
+        },
+        {
+          "type": "advance-result-presentation",
+          "payload": {
+            "matchId": "GF",
+            "expectedPhase": "accuracy",
+            "verified": true
+          },
+          "expected": {
+            "state.tournament.matches.13.status": "complete"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F09",
+      "title": "总排名与无序名次组",
+      "file": "F09-final-standings.json",
+      "group": "F",
+      "scene": "final-standings",
+      "stage": "double-elimination",
+      "sha256": "809780d8cbc823f25fee35fdc862874c29683d35da7148ed8172cc643b98dbc8",
+      "steps": [
+        "核对冠军、亚军、季军。",
+        "等待第九名以后名单翻页，离开后再返回。"
+      ],
+      "expected": [
+        "前三名分别显示；第四至第八名没有内部排序。",
+        "第九名至最后一名也不排序，16 人名单按页循环，重入从第一页开始。"
+      ],
+      "probes": []
+    },
+    {
+      "id": "O01",
+      "title": "取消资格与自动判负",
+      "file": "O01-disqualification.json",
+      "group": "O",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "a2b9c8ff5eadf3e76b06b294693471255ffbcd889c0f3613e64aea9dc488c365",
+      "steps": [
+        "本场已记录一首成绩；在「裁判工具」选择左侧选手，填写决定记录并取消资格。",
+        "查看本场结果和 Bracket。"
+      ],
+      "expected": [
+        "当前对手获得判负胜利。",
+        "被取消资格者不再进入后续有效对阵，已记录成绩仍可核对。"
+      ],
+      "probes": [
+        {
+          "type": "disqualify-player",
+          "payload": {
+            "playerId": "63005fe0-5943-43b3-9bb8-a6d619ad2aa9",
+            "reason": "other",
+            "note": "Manual rehearsal adjudication decision."
+          },
+          "expected": {
+            "state.result.type": "forfeit"
+          }
+        }
+      ]
+    },
+    {
+      "id": "O02",
+      "title": "重开赛果与下游清除",
+      "file": "O02-result-correction.json",
+      "group": "O",
+      "scene": "bracket",
+      "stage": "double-elimination",
+      "sha256": "783284e74a0d7f0018a57e7c9df0ea0340f384d96c2eda46041a3fc6db672f5f",
+      "steps": [
+        "在赛果纠错工具选择 W1 并查看影响。",
+        "核对受影响场次、填写理由并确认重开。"
+      ],
+      "expected": [
+        "先展示影响清单；重新打开后根场成绩保留为待核对数据。",
+        "相关下游赛果被清除，总排名撤回；无关支线保留。"
+      ],
+      "probes": [
+        {
+          "type": "reopen-result",
+          "payload": {
+            "matchId": "W1",
+            "reason": "Manual rehearsal reviewed result correction.",
+            "confirmClear": true,
+            "affectedMatchIds": [
+              "W5",
+              "W6",
+              "L1",
+              "L2",
+              "W7",
+              "L3",
+              "L4",
+              "L5",
+              "L6",
+              "GF"
+            ]
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "O03",
+      "title": "主控与记分员并发草稿",
+      "file": "O03-two-device-conflict.json",
+      "group": "O",
+      "scene": "double-elimination-processing",
+      "stage": "double-elimination",
+      "sha256": "39d44b87c6d7034c5397eae521d0e1c8c8c91d5e9f9665036f24ae8d8c023920",
+      "steps": [
+        "主控和记分员同时打开，主控改左侧第一首分数但暂不保存。",
+        "记分员改同一分数并保存，再回主控查看草稿。"
+      ],
+      "expected": [
+        "主控未保存内容仍在。",
+        "同一字段冲突需要明确核对，不静默覆盖另一端的新成绩。"
+      ],
+      "probes": [
+        {
+          "type": "set-match-score",
+          "payload": {
+            "matchId": "W1",
+            "playerIndex": 0,
+            "songIndex": 0,
+            "score": 991000,
+            "judgements": {
+              "accuracy": 99.1,
+              "perfect": 960,
+              "good": 12,
+              "bad": 1,
+              "miss": 2
+            }
+          },
+          "expected": {}
+        }
+      ]
+    },
+    {
+      "id": "O04",
+      "title": "Webcam 来源人工核对",
+      "file": "O04-obs-source-check.json",
+      "group": "O",
+      "scene": "qualifier-waiting",
+      "stage": "qualifier",
+      "sha256": "773168b9f7cf1de7a03e0e3bf47939e22044225402ef27b397ae05233a03355b",
+      "steps": [
+        "将三路来源名称改成实际 OBS 名称，保存并人工核对。",
+        "切换本批选手，再检查确认状态。"
+      ],
+      "expected": [
+        "单画面填写 Webcam 来源，手元输入隐藏。",
+        "选手或来源变化后，原人工确认失效。"
+      ],
+      "probes": [
+        {
+          "type": "confirm-broadcast-sources",
+          "payload": {
+            "signature": "{\"layout\":\"qualifier\",\"context\":\"A\",\"showHandcams\":false,\"captureProfile\":\"webcam-4:3-720p30\",\"slots\":[{\"index\":0,\"playerId\":\"080e8b95-9de9-410f-950d-deb2846c2703\",\"playerName\":\"TEST Player 01\",\"capture\":\"TEST Webcam 1\",\"handcam\":\"\"},{\"index\":1,\"playerId\":\"962acb99-737f-4856-9dd2-ca772d18af52\",\"playerName\":\"TEST Player 02\",\"capture\":\"TEST Webcam 2\",\"handcam\":\"\"},{\"index\":2,\"playerId\":\"5883099a-a711-4ef4-8d6d-e56876c7ec25\",\"playerName\":\"TEST Player 03\",\"capture\":\"TEST Webcam 3\",\"handcam\":\"\"}]}"
+          },
+          "expected": {
+            "sources.confirmed": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "O05",
+      "title": "缺席等待即将届满",
+      "file": "O05-absence-deadline.json",
+      "group": "O",
+      "scene": "qualifier-waiting",
+      "stage": "qualifier",
+      "sha256": "451c318b49f4212c0650397236264e8ebe0907ae031697fd8e8115ffc41f0b50",
+      "steps": [
+        "打开「裁判工具」，观察剩余约 30 秒的等待。",
+        "等待届满，核对是否仍需人工决定。"
+      ],
+      "expected": [
+        "届满仅提示等待结束。",
+        "系统不会自动取消选手资格；人工核对后才能决定。"
+      ],
+      "probes": [
+        {
+          "type": "disqualify-player",
+          "payload": {
+            "playerId": "b80a2a9f-1aca-4bab-8c41-65e23e7cd46e",
+            "reason": "absence",
+            "note": "Manual rehearsal wait review."
+          },
+          "expected": {},
+          "reject": "waiting period"
+        }
+      ],
+      "waitRemainingMs": 30000
+    },
+    {
+      "id": "O06",
+      "title": "裁判授权单曲重赛",
+      "file": "O06-rematch-authorization.json",
+      "group": "O",
+      "scene": "qualifier-processing",
+      "stage": "qualifier",
+      "sha256": "8394c6e254f828a33a737b247a2cdd3749b76e357ba44873c97783c1483823d3",
+      "steps": [
+        "为当前一位选手第一首填写游戏错误理由，并核对录像和同意项。",
+        "授权后查看该选手官方 Challenge 总分。"
+      ],
+      "expected": [
+        "重赛额度被记录，不能重复授权同一曲。",
+        "该选手本轮总分撤回等待重录，其他选手成绩保留。"
+      ],
+      "probes": [
+        {
+          "type": "authorize-song-rematch",
+          "payload": {
+            "stage": "qualifier",
+            "group": "A",
+            "playerId": "a0d5dcc5-666d-40a5-ad54-942c6768c1d0",
+            "songIndex": 0,
+            "reason": "game-error",
+            "videoChecked": true,
+            "unintentional": true,
+            "allAgree": true,
+            "note": "Manual rehearsal approved after video review."
+          },
+          "expected": {
+            "state.qualifier.rounds.A.results.a0d5dcc5-666d-40a5-ad54-942c6768c1d0.challengeTotal": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "O07",
+      "title": "开赛前空缺与三人抽签",
+      "file": "O07-vacancy-lottery.json",
+      "group": "O",
+      "scene": "song-selection",
+      "stage": "double-elimination",
+      "sha256": "0cdcd58be1588e691cbae55022c4fe71542de41b20989a83e856b42480805935",
+      "steps": [
+        "查看 W1/W2 四人分区中仅余三人的提示。",
+        "记录现场轮空抽签，核对并清除该分区尚未开赛的选曲。"
+      ],
+      "expected": [
+        "不能跳过抽签直接判轮空。",
+        "抽签后仅一人轮空晋级，另两人重配；不存在虚构败者。"
+      ],
+      "probes": [
+        {
+          "type": "record-bye",
+          "payload": {
+            "matchId": "W1"
+          },
+          "expected": {},
+          "reject": "lottery"
+        },
+        {
+          "type": "lottery-bye",
+          "payload": {
+            "matchId": "W1",
+            "playerId": "5de85bfc-8b2a-4e1e-8a7e-7da7faab8963",
+            "confirmClear": true,
+            "note": "Manual rehearsal reviewed the three-player draw."
+          },
+          "expected": {
+            "state.tournament.matches.0.status": "complete",
+            "state.tournament.matches.0.loserId": null
+          }
+        }
+      ]
+    }
+  ]
+}
