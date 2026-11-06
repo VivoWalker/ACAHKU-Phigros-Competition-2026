@@ -4,6 +4,8 @@ data/.control-pin
 data/.control-pin.*.tmp
 data/.scorekeeper-pin
 data/.scorekeeper-pin.*.tmp
+data/.host-pin
+data/.host-pin.*.tmp
 data/.session-key
 data/.session-key.*.tmp
 data/.server-lock/

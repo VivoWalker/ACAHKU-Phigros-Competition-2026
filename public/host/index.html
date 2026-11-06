@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101319">
+  <title>ACAHKU · 主持人選曲</title>
+  <link rel="stylesheet" href="./host.css">
+</head>
+<body>
+  <header><strong>SONG SELECTION</strong><span id="connection" role="status">未連線</span></header>
+  <main>
+    <section id="pairing">
+      <h1>主持人登入</h1>
+      <form id="pair-form"><label for="pin">主持人配對碼</label><input id="pin" type="password" autocomplete="current-password" required><button type="submit">登入</button></form>
+      <p id="pair-error" role="alert"></p>
+    </section>
+    <section id="workspace" hidden>
+      <div class="match-heading"><h1 id="match-id">等待主控</h1><div id="players"></div></div>
+      <div class="draw-actions"><button id="draw-six" data-command="draw-candidates" type="button">Draw 6 candidates</button><button id="draw-two" data-command="pick-songs" type="button">Draw 2 match songs</button></div>
+      <div id="candidates" class="candidates"></div>
+      <p id="message" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script src="../socket.io/socket.io.js"></script>
+  <script src="../js/display-media.js"></script>
+  <script src="./host.js"></script>
+</body>
+</html>
