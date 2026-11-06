@@ -54,6 +54,10 @@ jobs:
       - name: Install audio regression tools
         timeout-minutes: 5
         run: |
+          # Azure's Ubuntu mirror has stalled FFmpeg dependency downloads.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i -E 's|https?://azure\.archive\.ubuntu\.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          fi
           media_apt_options=(
             -o Acquire::Retries=2
             -o Acquire::http::Timeout=30
