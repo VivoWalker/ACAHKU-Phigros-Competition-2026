@@ -6,6 +6,19 @@ const { applyBroadcastCheckAction, sourceStatus } = require('../lib/broadcast-ch
 const sources = count => Array.from({ length: count }, (_, i) => ({ capture: `Capture ${i + 1}`, handcam: `Handcam ${i + 1}` }));
 const apply = (state, type, payload) => applyBroadcastCheckAction(state, { type, payload });
 
+test('the 4:3 webcam profile withdraws an old 16:9 source check without losing source names', () => {
+  const state = createDefaultState();
+  apply(state, 'set-broadcast-sources', { layout: 'qualifier', slots: sources(3).map(slot => ({ ...slot, handcam: '' })) });
+  const current = sourceStatus(state), old = JSON.parse(current.signature);
+  delete old.captureProfile;
+  state.broadcast.sourceCheck = { signature: JSON.stringify(old), confirmedAt: new Date().toISOString() };
+  assert.equal(sourceStatus(state).confirmed, false);
+  assert.equal(sourceStatus(state).captureProfile, 'webcam-4:3-720p30');
+  assert.deepEqual(sourceStatus(state).slots.map(slot => slot.capture), ['Capture 1', 'Capture 2', 'Capture 3']);
+  apply(state, 'confirm-broadcast-sources', { signature: current.signature });
+  assert.equal(sourceStatus(state).confirmed, true);
+});
+
 test('manual source check is invalidated by entrant, name, layout, mode and source changes', () => {
   const original = createDefaultState();
   apply(original, 'set-broadcast-sources', { layout: 'qualifier', slots: sources(3) });

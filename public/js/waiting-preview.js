@@ -10,6 +10,7 @@
     if (!match || !['ready', 'live'].includes(match.status) || !match.players.every(Boolean)) return null;
     const index = (match.tiebreaks?.length || 0) - 1, tie = match.tiebreaks?.[index];
     const pending = tie && !tie.confirmed ? tie : null, song = pending?.song || match.songs[match.currentSong];
+    if (pending?.revealed === false) return null;
     if (tie && !pending) return null;
     const concealedFinal = !pending && match.id === 'GF' && match.currentSong === 2 &&
       (match.finalMode === 'fixed-two' ? FinalSequence?.phase(match, now).concealed : !match.hostRevealed);

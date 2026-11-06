@@ -19,9 +19,11 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(os.environ.get('BROADCAST_TEST_OUTPUT', ROOT / 'test-results'))
 OUT.mkdir(exist_ok=True, parents=True)
-QUALIFIER_CARDS = [(64, 300, 576, 324), (672, 300, 576, 324), (1280, 300, 576, 324)]
+QUALIFIER_CARDS = {False: [(64, 300, 576, 432), (672, 300, 576, 432), (1280, 300, 576, 432)],
+                   True: [(64, 300, 576, 324), (672, 300, 576, 324), (1280, 300, 576, 324)]}
 QUALIFIER_HANDCAMS = [(64, 800, 240, 135), (672, 800, 240, 135), (1280, 800, 240, 135)]
-DOUBLE_CARDS = [(64, 280, 872, 490.5), (984, 280, 872, 490.5)]
+DOUBLE_CARDS = {False: [(64, 280, 872, 654), (984, 280, 872, 654)],
+                True: [(64, 280, 872, 490.5), (984, 280, 872, 490.5)]}
 DOUBLE_HANDCAMS = [(64, 846, 224, 126), (1632, 846, 224, 126)]
 
 
@@ -31,15 +33,19 @@ def assert_rect(actual, expected):
 
 
 def check_sources(page, players, cards, handcams, enabled):
+    cards = cards[enabled]
     page.wait_for_function('(count) => document.querySelectorAll("[data-feed=handcam]").length === count',
                            arg=len(players) if enabled else 0)
-    game = page.locator('[data-feed="capture-card"]')
-    page.wait_for_function('(players) => JSON.stringify(Array.from(document.querySelectorAll("[data-feed=capture-card]"),el=>el.dataset.playerId)) === JSON.stringify(players)', arg=players)
+    game = page.locator('[data-capture="gameplay"]')
+    page.wait_for_function('(players) => JSON.stringify(Array.from(document.querySelectorAll("[data-capture=gameplay]"),el=>el.dataset.playerId)) === JSON.stringify(players)', arg=players)
     assert game.count() == len(players)
     for index, player in enumerate(players):
         card = game.nth(index)
         assert card.get_attribute('data-player-id') == player, (index, player)
-        assert card.get_attribute('data-capture') == 'gameplay'
+        assert card.get_attribute('data-feed') == ('capture-card' if enabled else 'webcam')
+        if not enabled:
+            assert card.get_attribute('data-input-profile') == '960x720@30'
+            assert abs(card.bounding_box()['width'] / card.bounding_box()['height'] - 4/3) < .001
         assert_rect(card.bounding_box(), cards[index])
         paired = page.locator(f'[data-player-id="{player}"][data-capture]')
         assert paired.count() == (2 if enabled else 1), (player, paired.count())
@@ -51,7 +57,9 @@ def check_sources(page, players, cards, handcams, enabled):
 
 
 def check_pixels(page, cards, handcams, enabled, image_name):
+    cards = cards[enabled]
     page.evaluate('document.fonts.ready')
+    page.wait_for_function('document.querySelector("#scene").dataset.motionPhase === "idle"')
     png = page.screenshot(path=str(OUT / image_name), omit_background=True, animations='disabled')
     image = Image.open(io.BytesIO(png)).convert('RGBA')
     samples = 0
@@ -60,7 +68,8 @@ def check_pixels(page, cards, handcams, enabled, image_name):
         for fraction_x in [.15, .5, .85]:
             for fraction_y in [.15, .5, .85]:
                 point = (int(x + width * fraction_x), int(y + height * fraction_y))
-                assert image.getpixel(point)[3] == expected_alpha, (image_name, point, expected_alpha)
+                alpha = 0 if any(cx + 2 < point[0] < cx + cw - 2 and cy + 2 < point[1] < cy + ch - 2 for cx, cy, cw, ch in cards) else expected_alpha
+                assert image.getpixel(point)[3] == alpha, (image_name, point, alpha)
                 samples += 1
     assert image.getpixel((0, 0))[3] == 0
     return samples
@@ -145,6 +154,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 
             def set_handcams(enabled):
                 assert state().get('broadcast', {}).get('showHandcams', False) != enabled
+                crew.locator('#production-advanced').evaluate('details => details.open = true')
                 revision = state()['revision']
                 crew.locator(f'[data-broadcast-handcams="{str(enabled).lower()}"]').click()
                 wait_revision(revision)
@@ -161,6 +171,9 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             assert state().get('broadcast', {}).get('showHandcams', False) is False
             players = state()['qualifier']['activePlayers']
             baseline = check_sources(live, players, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, False)
+            crew.locator('#production-advanced').evaluate('details => details.open = true')
+            assert 'Webcam' in crew.locator('label[for="source-capture-0"]').inner_text()
+            assert not crew.locator('#source-handcam-0').is_visible()
             samples = check_pixels(live, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, False, 'display-qualifier-single-source.png')
             text_outside_captures(live)
 
@@ -170,7 +183,8 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                 page.wait_for_selector('[data-rendered-scene="qualifier-match"]')
                 check_sources(page, players, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, bool(value))
             set_handcams(True)
-            assert check_sources(live, players, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, True) == baseline
+            assert crew.locator('#source-handcam-0').is_visible()
+            check_sources(live, players, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, True)
             preview.locator('[data-feed="handcam"]').first.wait_for()
             samples += check_pixels(live, QUALIFIER_CARDS, QUALIFIER_HANDCAMS, True, 'display-qualifier-dual-source.png')
             text_outside_captures(live)
@@ -196,6 +210,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             revision = state()['revision']; crew.click('#seed-form button[type="submit"]'); wait_revision(revision)
             crew.wait_for_function('fetch("../api/state").then(r=>r.json()).then(s=>s.tournament.seeded)')
             crew.click('.tabs [data-tab="broadcast"]')
+            crew.locator('#production-advanced').evaluate('details => details.open = true')
             revision = state()['revision']; crew.click('[data-scene="double-elimination-match"]'); wait_revision(revision)
             live.wait_for_selector('[data-rendered-scene="double-elimination-match"]')
             current = state()['tournament']
@@ -207,7 +222,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             samples += check_pixels(live, DOUBLE_CARDS, DOUBLE_HANDCAMS, True, 'display-double-dual-source.png')
             text_outside_captures(live)
             set_handcams(False)
-            assert check_sources(live, players, DOUBLE_CARDS, DOUBLE_HANDCAMS, False) == double_baseline
+            check_sources(live, players, DOUBLE_CARDS, DOUBLE_HANDCAMS, False)
             samples += check_pixels(live, DOUBLE_CARDS, DOUBLE_HANDCAMS, False, 'display-double-single-source.png')
             text_outside_captures(live)
             set_handcams(True)
@@ -234,7 +249,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             external = [url for url in requests if urlsplit(url).hostname not in ['127.0.0.1', None]]
             assert not external, external
             report = {'result': 'PASS', 'legacy_state_fallback': True, 'source_pairing': True,
-                      'unchanged_capture_card_positions': True, 'live_and_preview_no_reload': True,
+                      'single_webcam_4_3': True, 'dual_capture_card_16_9': True, 'live_and_preview_no_reload': True,
                       'url_overrides': [0, 1], 'restart_persistence': True, 'alpha_samples': samples,
                       'font_faces': font_faces, 'important_text_fonts': font_sizes,
                       'external_requests': 0, 'browser_errors': errors}

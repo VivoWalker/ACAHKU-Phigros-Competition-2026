@@ -261,3 +261,17 @@
 .tiebreak-versus{font-size:24px;line-height:1;letter-spacing:.14em;color:#c7cdd5}
 .waiting-song .waiting-chart{font-size:30px;margin-top:12px;line-height:1.2}
 @media (prefers-reduced-motion: reduce) { .selection-ambience { transition: none; } }
+.selection-stage .candidate.roulette-highlight,
+.selection-stage .candidate.roulette-highlight .index,
+.selection-stage .candidate.roulette-highlight h3{color:#18202a}
+.selection-stage .candidate.roulette-highlight::before{background:#fff}
+.selection-stage .candidate.roulette-highlight h3{font-size:32px}
+.selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight)::before{background:#244940}
+.selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight){color:#d9f5e9}
+.selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight) :is(.index,.candidate-status){color:#c3ead9}
+.song-grid.phi-song-select[data-roulette-stage="rolling"] .candidate-row.picked:not(.roulette-highlight)::before{background:#244940}
+.song-grid.phi-song-select[data-roulette-stage="rolling"] .candidate-row.picked:not(.roulette-highlight),
+.song-grid.phi-song-select[data-roulette-stage="rolling"] .candidate-row.picked:not(.roulette-highlight) :is(.song-preview-button,.index,.candidate-state){color:#d9f5e9}
+.song-grid.phi-song-select .candidate-row.roulette-highlight::before{background:#fff}
+.song-grid.phi-song-select .candidate-row.roulette-highlight,
+.song-grid.phi-song-select .candidate-row.roulette-highlight :is(.song-preview-button,.index){color:#18202a}

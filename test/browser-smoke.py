@@ -107,6 +107,7 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
             revision = state()['revision']; crew.click('[data-scene="song-selection"]'); saved_after(revision)
             live.wait_for_selector('[data-rendered-scene="song-selection"]')
             motion_idle(live, 'song-selection')
+            live.wait_for_function("()=>document.querySelector('#canvas').dataset.roulettePhase==='complete'", timeout=45000)
             m = state()['tournament']['matches'][0]; assert len(m['songs']) == 2
             for song in m['songs']:
                 assert song['title'] in live.locator('.selection-detail').inner_text()
@@ -215,13 +216,13 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
 
             # Check the documented capture coordinates, optional cameras and score detail.
             layouts = {
-                ('qualifier-match', ''): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
-                ('qualifier-match', '&details=1'): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
-                ('qualifier-match', '&cameras=0'): [(64,300,576,324),(672,300,576,324),(1280,300,576,324)],
+                ('qualifier-match', ''): [(64,300,576,432),(672,300,576,432),(1280,300,576,432)],
+                ('qualifier-match', '&details=1'): [(64,300,576,432),(672,300,576,432),(1280,300,576,432)],
+                ('qualifier-match', '&cameras=0'): [(64,300,576,432),(672,300,576,432),(1280,300,576,432)],
                 ('qualifier-match', '&cameras=1&details=1'): [(64,300,576,324),(64,800,240,135),(672,300,576,324),(672,800,240,135),(1280,300,576,324),(1280,800,240,135)],
-                ('double-elimination-match', ''): [(64,280,872,490.5),(984,280,872,490.5)],
-                ('double-elimination-match', '&details=1'): [(64,280,872,490.5),(984,280,872,490.5)],
-                ('double-elimination-match', '&cameras=0'): [(64,280,872,490.5),(984,280,872,490.5)],
+                ('double-elimination-match', ''): [(64,280,872,654),(984,280,872,654)],
+                ('double-elimination-match', '&details=1'): [(64,280,872,654),(984,280,872,654)],
+                ('double-elimination-match', '&cameras=0'): [(64,280,872,654),(984,280,872,654)],
                 ('double-elimination-match', '&cameras=1&details=1'): [(64,280,872,490.5),(64,846,224,126),(984,280,872,490.5),(1632,846,224,126)]
             }
             for (scene, options), expected in layouts.items():
@@ -239,8 +240,10 @@ process.on('SIGTERM',()=>s.close().then(()=>process.exit()));
                     box = el.bounding_box()
                     for key, value in zip(['x','y','width','height'], rect): assert abs(box[key]-value) < .1, (scene,key,box,rect)
                     assert el.get_attribute('data-player-id'), 'Each capture must identify its on-stage player'
-                    assert el.get_attribute('data-feed') == ('capture-card' if el.get_attribute('data-capture') == 'gameplay' else 'handcam')
-                    if el.get_attribute('data-capture') == 'gameplay': assert abs(box['width']/box['height'] - 16/9) < .001
+                    assert el.get_attribute('data-feed') == (('capture-card' if 'cameras=1' in options else 'webcam') if el.get_attribute('data-capture') == 'gameplay' else 'handcam')
+                    if el.get_attribute('data-capture') == 'gameplay':
+                        assert abs(box['width']/box['height'] - (16/9 if 'cameras=1' in options else 4/3)) < .001
+                        if 'cameras=1' not in options: assert el.get_attribute('data-input-profile') == '960x720@30'
                     for fraction_x in [.1,.5,.9]:
                         for fraction_y in [.1,.5,.9]:
                             assert image.getpixel((int(box['x']+box['width']*fraction_x),int(box['y']+box['height']*fraction_y)))[3] == 0, (scene,options,'opaque capture')

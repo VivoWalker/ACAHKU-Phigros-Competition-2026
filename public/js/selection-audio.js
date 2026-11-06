@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof module === 'object' && module.exports ? require('./selection-roulette') : root.BroadcastSelectionRoulette);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.BroadcastSelectionAudio = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (Roulette) {
   'use strict';
   const FADE_MS = 500, DEFAULT_DURATION = 12, TICK_MS = 25;
   const clamp = value => Math.max(0, Math.min(1, value));
@@ -17,6 +17,14 @@
   // A shared clock also keeps a reloaded OBS source from replaying finished picks.
   function phase(cue, songs, now, fadeMs = FADE_MS) {
     if (!validCue(cue)) return null;
+    if (cue.roulette) {
+      const draw = Roulette?.phase(cue, now);
+      if (!draw) return null;
+      const songId = cue.songIds[draw.index], duration = cue.durations[draw.index];
+      if (draw.stage === 'complete') return { complete: true, songId, index: draw.index, offset: duration, duration, cycle: 0 };
+      if (draw.stage !== 'preview') return { pending: true, songId, index: draw.index, offset: 0, duration, cycle: 0, rolling: true };
+      return { songId, index: draw.index, offset: draw.offset, duration, cycle: 0 };
+    }
     const catalog = new Map((songs || []).map(song => [song.id, song]));
     // A staged reveal can own fixed clip windows independently of a custom
     // audio file's decoded length. Regular selection cues retain file timing.
@@ -208,7 +216,10 @@
         if (progress >= 1) { release(retiring); retiring = null; }
       }
       const currentPhase = context && phase(context.cue, context.songs, time, fadeMs);
-      if (currentPhase?.pending) { prepare(currentPhase.songId); report('waiting'); }
+      if (currentPhase?.pending) {
+        if (currentPhase.rolling) { release(current); current = null; }
+        prepare(currentPhase.songId); report('waiting');
+      }
       else if (currentPhase?.complete) {
         release(current); current = null;
         release(prepared); prepared = null;

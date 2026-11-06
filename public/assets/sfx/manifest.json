@@ -1,0 +1,24 @@
+{
+  "sourceRepository": "https://github.com/DDZmumo/Phiguess",
+  "sourceCommit": "3840ad52fbd121f90ed0dec69f29702114f58925",
+  "sourceAsset": "apps/web/public/audio/phigros-4.0.1/Tap3.wav",
+  "sourceSha256": "8630ab0741db6a80c2f4314158e47c970f5389ecd9842c242a26995178e9b1b1",
+  "path": "assets/sfx/song-switch.ogg",
+  "sha256": "d488440d712edd982a53f2eb2e01f9f514d48d5d7d7e5ff85294bd1614c7020e",
+  "bytes": 8763,
+  "gainDb": -11.6,
+  "media": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "vorbis",
+        "sample_rate": "44100",
+        "channels": 2
+      }
+    ],
+    "format": {
+      "duration": "0.457483"
+    }
+  }
+}
