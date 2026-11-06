@@ -55,7 +55,7 @@ async function main(args = process.argv.slice(2)) {
   };
   try {
     fs.writeFileSync(path.join(directory, 'match-state.json'), JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
-    broadcast = require('../server').createBroadcastServer({ dataDir: directory, pin: 'test-main', scorekeeperPin: 'test-score' });
+    broadcast = require('../server').createBroadcastServer({ dataDir: directory, pin: 'test-main', scorekeeperPin: 'test-score', hostPin: 'test-host' });
     const address = await broadcast.listen(options.port, options.host);
     // Publish readiness only after a caller can safely stop the test server.
     for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
@@ -63,12 +63,13 @@ async function main(args = process.argv.slice(2)) {
     });
     const base = 'http://localhost:' + address.port;
     const ready = { caseId: entry.id, port: address.port, dataDir: directory,
-      controlUrl: base + '/control/', scorekeeperUrl: base + '/scorekeeper/', overlayUrl: base + '/overlay/live.html' };
+      controlUrl: base + '/control/', scorekeeperUrl: base + '/scorekeeper/', hostUrl: base + '/host/', overlayUrl: base + '/overlay/live.html' };
     if (options.json) console.log(JSON.stringify(ready));
     else {
       console.log('\n' + entry.id + ' · ' + entry.title);
       console.log('主控：' + ready.controlUrl + '    测试配对码：test-main');
       console.log('记分员：' + ready.scorekeeperUrl + '    测试配对码：test-score');
+      console.log('主持人：' + ready.hostUrl + '    测试配对码：test-host');
       console.log('OBS：' + ready.overlayUrl + '    1920×1080');
       if (options.host === '0.0.0.0') {
         for (const network of Object.values(os.networkInterfaces())) for (const item of network || []) {

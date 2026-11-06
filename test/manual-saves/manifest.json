@@ -1,7 +1,7 @@
 {
   "version": 1,
   "format": "acahku-manual-saves",
-  "scenarioCount": 45,
+  "scenarioCount": 46,
   "fixtureClock": "2026-01-01T00:00:00.000Z",
   "scenarios": [
     {
@@ -1457,6 +1457,36 @@
           "expected": {
             "state.tournament.matches.0.status": "complete",
             "state.tournament.matches.0.loserId": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "O08",
+      "title": "主持人独立选曲权限",
+      "file": "O08-host-song-selection.json",
+      "group": "O",
+      "scene": "double-elimination-waiting",
+      "stage": "double-elimination",
+      "sha256": "a496a80cb5570374ce3e6be7c08f7f6629598ab4f6fe0336a2c30a0abd833fc2",
+      "steps": [
+        "打开 /host/，使用 test-host 配对。",
+        "依次抽六首、为 P1/P2 各 Ban 一首，再抽出两首比赛曲。"
+      ],
+      "expected": [
+        "主持人只有抽曲和 Ban 操作，主控与 OBS 同步更新。",
+        "抽出两首后操作锁定；不能切换场次、录分、切画面、调音量或开始倒数。"
+      ],
+      "probes": [
+        {
+          "type": "draw-candidates",
+          "payload": {
+            "matchId": "W1",
+            "showSelection": true
+          },
+          "expected": {
+            "state.scene": "song-selection",
+            "state.tournament.matches.0.candidates.length": 6
           }
         }
       ]

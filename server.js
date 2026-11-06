@@ -15,6 +15,7 @@ const { FILE_NAME: INTERMISSION_FILE, createIntermissionMedia } = require('./lib
 const { createIntermissionPlayback } = require('./lib/intermission-playback');
 const { context: countdownContext, DURATION: COUNTDOWN_CUE_DURATION } = require('./public/js/countdown');
 const { scorekeeperState, scorekeeperAction, SCORE_ACTIONS } = require('./lib/scorekeeper');
+const { hostState, hostAction, HOST_ACTIONS } = require('./lib/host');
 const { loadPairingCredentials } = require('./lib/pairing-credentials');
 const { PairingAttempts } = require('./lib/pairing-attempts');
 const { acquireDataDirectoryLock } = require('./lib/data-directory-lock');
@@ -28,7 +29,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   const publicDir = options.publicDir || path.join(__dirname, 'public');
   const displayAssets = createDisplayAssetsReader({ publicDir });
   const store = new StateStore(dataDir, { assertWritable: () => dataLock.assertHeld() });
-  const { pin, scorekeeperPin, sessionKey } = loadPairingCredentials(dataDir, options);
+  const { pin, scorekeeperPin, hostPin, sessionKey } = loadPairingCredentials(dataDir, options);
   const intermissionMedia = createIntermissionMedia(dataDir, { assertWritable: () => dataLock.assertHeld() });
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
   const validToken = token => {
@@ -43,12 +44,19 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(scorekeeperSign(nonce), 'hex'));
   };
   const attempts = new PairingAttempts();
+  const hostSign = nonce => createHmac('sha256', sessionKey).update('host:' + nonce + ':' + hostPin).digest('hex');
+  const validHostToken = token => {
+    if (typeof token !== 'string' || !/^host\.[a-f0-9]{64}\.[a-f0-9]{64}$/.test(token)) return false;
+    const [, nonce, signature] = token.split('.');
+    return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(hostSign(nonce), 'hex'));
+  };
   const app = express(); const server = http.createServer(app);
   const io = new Server(server, { maxHttpBufferSize: 100000, cors: false });
   // Staff panels send plain JSON; keep request bodies out of native decompressors.
   app.disable('x-powered-by'); app.use(express.json({ limit: '100kb', inflate: false }));
   app.use((req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Cache-Control', 'no-store'); next(); });
   const controls = io.of('/control'); const overlays = io.of('/overlay'); const scorekeepers = io.of('/scorekeeper');
+  const hosts = io.of('/host');
   const intermissionPlayback = createIntermissionPlayback({ store, onChange: publishState });
   // A start cue belongs to the live connection, never to a saved match or backup.
   let countdownCue = null, countdownTimer = null, countdownSources = null, countdownSequence = 0;
@@ -78,24 +86,25 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
       JSON.stringify(store.state.broadcast?.sourceSlots || null) !== countdownSources)) clearCountdown();
   }
   function controlState() { return { ...store.state, broadcast: { ...store.state.broadcast, sourceStatus: sourceStatus(store.state) } }; }
-  function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, scorekeepers: scorekeepers.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
+  function connectionStatus() { return { overlays: overlays.sockets.size, controls: controls.sockets.size, scorekeepers: scorekeepers.sockets.size, hosts: hosts.sockets.size, obs: 'not-configured', revision: store.state.revision }; }
   function notifyStatus() { controls.emit('connections', connectionStatus()); }
   function publishState(beforeScene) {
     intermissionPlayback.sync();
     cancelChangedCountdown();
     controls.emit('state', controlState()); overlays.emit('state', publicState(store.state)); scorekeepers.emit('state', scorekeeperState(store.state));
+    hosts.emit('state', hostState(store.state));
     if (beforeScene !== store.state.scene) obsAdapter.emit('sceneChanged', store.state.scene);
     notifyStatus();
   }
   function requestFailure(res, error) { return res.status(error.code === 'STALE' ? 409 : 400).json({ error: error.message, code: error.code || 'INVALID', revision: store.state.revision }); }
   function authenticated(req, res, next) {
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
-    if (validScorekeeperToken(token)) return res.status(403).json({ error: 'This operation requires the main control panel.', code: 'FORBIDDEN' });
+    if (validScorekeeperToken(token) || validHostToken(token)) return res.status(403).json({ error: 'This operation requires the main control panel.', code: 'FORBIDDEN' });
     if (!validToken(token)) return res.status(401).json({ error: 'Control pairing required.' }); next();
   }
   function scorekeeperAuthenticated(req, res, next) {
     const token = (req.headers.authorization || '').replace(/^Bearer /, '');
-    if (validToken(token)) return res.status(403).json({ error: 'Use the scorekeeper pairing code for this panel.', code: 'FORBIDDEN' });
+    if (validToken(token) || validHostToken(token)) return res.status(403).json({ error: 'Use the scorekeeper pairing code for this panel.', code: 'FORBIDDEN' });
     if (!validScorekeeperToken(token)) return res.status(401).json({ error: 'Scorekeeper pairing required.' }); next();
   }
   app.post('/api/intermission/video', authenticated, async (req, res) => {
@@ -120,19 +129,25 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   app.get('/api/display-assets', async (req, res) => res.json(await displayAssets.read()));
   app.post('/api/session', (req, res) => {
     const role = req.body?.role === undefined ? 'control' : req.body.role;
-    if (!['control', 'scorekeeper'].includes(role)) return res.status(400).json({ error: 'Unknown panel role.', code: 'INVALID' });
+    if (!['control', 'scorekeeper', 'host'].includes(role)) return res.status(400).json({ error: 'Unknown panel role.', code: 'INVALID' });
     const key = role + ':' + req.ip;
     if (attempts.blocked(key)) return res.status(429).json({ error: 'Too many pairing attempts. Wait one minute.' });
-    const expectedPin = role === 'control' ? pin : scorekeeperPin;
+    const expectedPin = role === 'control' ? pin : role === 'host' ? hostPin : scorekeeperPin;
     const candidate = String(req.body?.pin || '');
     if (Buffer.byteLength(candidate) !== Buffer.byteLength(expectedPin) || !timingSafeEqual(Buffer.from(candidate), Buffer.from(expectedPin))) {
       attempts.fail(key); return res.status(401).json({ error: 'Incorrect pairing code.' });
     }
     attempts.clear(key); const nonce = randomBytes(32).toString('hex');
-    res.json({ token: role === 'control' ? nonce + '.' + sign(nonce) : 'scorekeeper.' + nonce + '.' + scorekeeperSign(nonce), role });
+    res.json({ token: role === 'control' ? nonce + '.' + sign(nonce) : role === 'host' ? 'host.' + nonce + '.' + hostSign(nonce) : 'scorekeeper.' + nonce + '.' + scorekeeperSign(nonce), role });
   });
   app.get('/api/control-state', authenticated, (req, res) => res.json(controlState()));
   app.get('/api/scorekeeper-state', scorekeeperAuthenticated, (req, res) => res.json(scorekeeperState(store.state)));
+  app.get('/api/host-state', (req, res) => {
+    const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+    if (validToken(token) || validScorekeeperToken(token)) return res.status(403).json({ error: 'Host pairing required.', code: 'FORBIDDEN' });
+    if (!validHostToken(token)) return res.status(401).json({ error: 'Host pairing required.' });
+    res.json(hostState(store.state));
+  });
   app.get('/api/export', authenticated, (req, res) => { res.setHeader('Content-Disposition', 'attachment; filename="match-state-backup.json"'); res.json(store.state); });
   app.get('/api/backups', authenticated, async (req, res) => {
     try { res.json({ backups: await store.listBackupsAsync(), recovery: store.state.recovery || null }); }
@@ -162,7 +177,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
       res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
     }
   } }));
-  controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error(validScorekeeperToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
+  controls.use((socket, next) => validToken(socket.handshake.auth?.token) ? next() : next(new Error(validScorekeeperToken(socket.handshake.auth?.token) || validHostToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
   controls.on('connection', socket => {
     socket.emit('state', controlState()); socket.emit('countdown', countdownMessage()); notifyStatus();
     socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
@@ -219,7 +234,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     socket.on('countdown-sync', ack => { if (typeof ack === 'function') ack(countdownMessage()); });
     socket.on('disconnect', notifyStatus);
   });
-  scorekeepers.use((socket, next) => validScorekeeperToken(socket.handshake.auth?.token) ? next() : next(new Error(validToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
+  scorekeepers.use((socket, next) => validScorekeeperToken(socket.handshake.auth?.token) ? next() : next(new Error(validToken(socket.handshake.auth?.token) || validHostToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
   scorekeepers.on('connection', socket => {
     socket.emit('state', scorekeeperState(store.state)); notifyStatus();
     socket.on('command', (request, ack) => {
@@ -240,6 +255,25 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     });
     socket.on('disconnect', notifyStatus);
   });
+  hosts.use((socket, next) => validHostToken(socket.handshake.auth?.token) ? next() : next(new Error(validToken(socket.handshake.auth?.token) || validScorekeeperToken(socket.handshake.auth?.token) ? 'FORBIDDEN' : 'PAIRING_REQUIRED')));
+  hosts.on('connection', socket => {
+    socket.emit('state', hostState(store.state)); notifyStatus();
+    socket.on('command', (request, ack) => {
+      if (typeof ack !== 'function') return;
+      try {
+        if (!HOST_ACTIONS.has(request?.action?.type)) { const error = new Error('Hosts may only select songs.'); error.code = 'FORBIDDEN'; throw error; }
+        store.assertRevision(request.expectedRevision);
+        const action = hostAction(store.state, request), beforeScene = store.state.scene;
+        store.commit(action, request.expectedRevision); publishState(beforeScene);
+        ack({ ok: true, revision: store.state.revision });
+      } catch (error) {
+        if (error.code === 'STALE' || error.code === 'CONTEXT_CHANGED') socket.emit('state', hostState(store.state));
+        ack({ ok: false, error: error.message, code: error.code || 'INVALID', revision: store.state.revision });
+      }
+    });
+    socket.on('countdown-command', (request, ack) => { if (typeof ack === 'function') ack({ ok: false, code: 'FORBIDDEN', error: 'Only main control may start a countdown.' }); });
+    socket.on('disconnect', notifyStatus);
+  });
   app.use((err, req, res, next) => res.status(400).json({ error: 'Invalid request.' }));
   let closing = null;
   function close() {
@@ -252,7 +286,7 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
     return closing;
   }
   intermissionPlayback.sync();
-  return { app, server, io, store, pin, scorekeeperPin,
+  return { app, server, io, store, pin, scorekeeperPin, hostPin,
     listen(port = 3000, host = '0.0.0.0') {
       if (closing) return Promise.reject(new Error('This broadcast server has closed. Create a new server before listening.'));
       return new Promise((resolve, reject) => {
@@ -271,12 +305,15 @@ if (require.main === module) {
     console.log(`ACAHKU broadcast ready on port ${address.port}`);
     console.log(`Control: http://localhost:${address.port}/control/`);
     console.log(`Scorekeeper: http://localhost:${address.port}/scorekeeper/`);
+    console.log(`Host: http://localhost:${address.port}/host/`);
     for (const network of Object.values(os.networkInterfaces())) for (const item of network || []) if (item.family === 'IPv4' && !item.internal) {
       console.log(`Main control iPad: http://${item.address}:${address.port}/control/`);
       console.log(`Scorekeeper iPad: http://${item.address}:${address.port}/scorekeeper/`);
+      console.log(`Host iPad: http://${item.address}:${address.port}/host/`);
     }
     console.log(`Control pairing code: ${broadcast.pin}`);
     console.log(`Scorekeeper pairing code: ${broadcast.scorekeeperPin}`);
+    console.log(`Host pairing code: ${broadcast.hostPin}`);
     console.log('Keep this terminal running. State saves locally after every update.');
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => broadcast.close().then(() => process.exit()));

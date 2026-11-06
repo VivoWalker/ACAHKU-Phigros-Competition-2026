@@ -1,6 +1,6 @@
 # ACAHKU Phigros Broadcast
 
-A local tournament server, transparent OBS overlays and iPad-friendly main-control and scorekeeper panels with separate pairing codes. The broadcast uses a quieter presentation with larger, bold titles, player names and totals, plus one shared current-song line. Single view uses one 4:3 webcam per player, configured in OBS for 720-pixel-high video at 30 fps. The optional dual view retains capture-card and handcam sources. Main control keeps all scoring, tournament and broadcast controls; scorekeepers receive a separate score-entry panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
+A local tournament server, transparent OBS overlays and iPad-friendly main-control, scorekeeper and host panels with separate pairing codes. The broadcast uses a quieter presentation with larger, bold titles, player names and totals, plus one shared current-song line. Single view uses one 4:3 webcam per player, configured in OBS for 720-pixel-high video at 30 fps. The optional dual view retains capture-card and handcam sources. Main control keeps all scoring, tournament and broadcast controls; scorekeepers receive a score-entry panel, and hosts receive a restricted draw/ban panel. HTML, CSS and JavaScript with Express and Socket.IO; no frontend framework, CDN, cloud login or Internet connection is needed while running the show.
 
 ## Quick start
 
@@ -15,17 +15,18 @@ Check `node --version` on the computer running the broadcast. Updating the appli
 
 The downloadable **offline bundle** already includes the verified JavaScript dependencies and local fonts. With Node.js installed, unzip it and run `npm start` directly; `npm install` is only needed to install or refresh dependencies in the source-only package.
 
-Keep that terminal open. It prints the laptop's LAN addresses and **two different six-digit pairing codes**, one for main control and one for scorekeepers. Open the appropriate panel and enter its code:
+Keep that terminal open. It prints the laptop's LAN addresses and **three different six-digit pairing codes**, for main control, scorekeepers and the host. Open the appropriate panel and enter its code:
 
 ```text
 Main control:        http://localhost:3000/control/
 Scorekeeper panel:   http://localhost:3000/scorekeeper/
+Host song selection: http://localhost:3000/host/
 iPad main control:   http://192.168.x.x:3000/control/
 iPad scorekeeper:    http://192.168.x.x:3000/scorekeeper/
 OBS Browser Source:  http://localhost:3000/overlay/start.html
 ```
 
-The codes are created locally in `data/.control-pin` and `data/.scorekeeper-pin`. The laptop and iPad do not need external accounts. The two panels retain separate paired sessions in the browser tab, including server restarts with the same data directory. You can optionally set `CONTROL_PIN` and `SCOREKEEPER_PIN` before starting the server; explicitly configured codes must differ. Existing main-control codes and paired sessions continue to work after upgrading. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
+The codes are created locally in `data/.control-pin`, `data/.scorekeeper-pin` and `data/.host-pin`. Each panel retains its own paired session, including server restarts with the same data directory. You can optionally set `CONTROL_PIN`, `SCOREKEEPER_PIN` and `HOST_PIN`; configured codes must differ. Existing main-control and scorekeeper sessions continue to work after upgrading. `PORT` defaults to `3000`; `HOST` defaults to `0.0.0.0` so the iPad can connect.
 
 HTTP commands accept ordinary JSON bodies, as sent by the bundled staff panels. Compressed JSON request bodies are rejected before a decompressor is created; the existing 100 KiB body limit still applies.
 
@@ -41,7 +42,7 @@ When upgrading an existing installation, preserve the whole `data/` folder, repl
 
 ## 人工测试存档
 
-提供 [45 个关键节点及检查清单](test/manual-saves/README.md)，覆盖晋级线同分、加赛公布、ACC 判定、中场视频、决赛 PV 和赛事总排名。每份 JSON 使用合成数据，可重复加载。
+提供 [46 个关键节点及检查清单](test/manual-saves/README.md)，覆盖晋级线同分、加赛公布、ACC 判定、中场视频、决赛 PV、赛事总排名和主持人选曲。每份 JSON 使用合成数据，可重复加载。
 
 ```sh
 npm run test:manual -- --list
@@ -97,6 +98,12 @@ Both staff panels also keep unsaved drafts in the current tab's browser storage 
 
 Scorekeeper permissions are enforced by the server: its session can only submit qualifier or match scores for the current sheet. It cannot change players or songs, resolve ties, confirm results, advance the bracket, switch scenes, start a countdown, manage sources, export private data, restore backups or open the main-control session. Main control keeps responsibility for those operations.
 
+## 主持人选曲
+
+主持人打开 `/host/`，使用启动日志中的 **Host pairing code**。页面只提供 **Draw 6 candidates**、每首候选曲的 **P1 Ban / P2 Ban** 和 **Draw 2 match songs**。主控负责指定当前双淘汰场次；两首比赛曲抽出后，主持人操作锁定。主控切换场次时，主持人页面自动同步。
+
+主持人拥有独立的会话和服务端权限，不能切换场次或场景、录分、确认赛果、开始倒数、调音量、管理视频或恢复备份。预选赛、中场休息、加赛、总决赛和已完成的场次不开放主持人选曲。手机和 iPad 可使用启动日志中的局域网地址。人工检查点 **O08** 可用 `npm run test:manual -- --case O08` 启动；主持人测试码为 `test-host`。
+
 ## OBS setup
 
 1. Add one **Video Capture Device / webcam** source per player in OBS. Set the effective picture to **4:3, 960×720, 30 fps** and fit each source proportionally to the single-view rectangles below. If the driver calls 1280×720 ‘720p’, that full frame is 16:9: use the camera's 4:3 mode or isolate its actual 4:3 picture before fitting; do not stretch it. Keep the OBS canvas and Browser Source at 1920×1080.
@@ -149,7 +156,7 @@ Single-view webcam rectangles in the 1920×1080 canvas, in player order. All win
 | Three-player qualifier: three equal columns | `(64,300,576,432)`, `(672,300,576,432)`, `(1280,300,576,432)` |
 | Two-player match / final: side by side | `(64,280,872,654)`, `(984,280,872,654)` |
 
-The qualifier's first, second and third selected players occupy the left, middle and right columns. Match displays show each player's name and total, plus a shared current song and progress indicator. Individual song scores stay in the control panel. Append `?details=1` to show a compact per-song score line alongside each player’s capture. **Upgrading from the former 16:9 single view:** realign the qualifier and double-elimination webcam sources once to these 4:3 rectangles and repeat the manual source check. The same geometry applies to tiebreak matches.
+The qualifier's first, second and third selected players occupy the left, middle and right columns. Live qualifier and tiebreak screens show player names without scores. Double Elimination song one also hides scores; song two shows only each player's song-one result. Grand Final song three shows only the completed first-two subtotal. Prefilled scores for the current or later song never enter these live score blocks. `?details=1` adds per-song details only for those completed songs. Statistics and final result pages retain their full scores. **Upgrading from the former 16:9 single view:** realign the qualifier and double-elimination webcam sources once to these 4:3 rectangles and repeat the manual source check. The same geometry applies to tiebreak matches.
 
 Optional dual view retains the previous primary rectangles: qualifier `(64,300,576,324)`, `(672,300,576,324)`, `(1280,300,576,324)`; double elimination `(64,280,872,490.5)`, `(984,280,872,490.5)`. Its handcam rectangles remain paired in the same player order:
 

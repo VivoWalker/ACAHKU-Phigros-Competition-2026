@@ -443,6 +443,14 @@ function main() {
       command('lottery-bye', { playerId: lotteryPlayer, confirmClear: true, note: 'Manual rehearsal reviewed the three-player draw.' },
         { 'state.tournament.matches.0.status': 'complete', 'state.tournament.matches.0.loserId': null })]);
 
+  const host = copy(seededBase);
+  action(host, 'select-match', { matchId: 'W1' });
+  action(host, 'set-scene', { scene: 'double-elimination-waiting' });
+  save('O08', 'host-song-selection', host, '主持人独立选曲权限',
+    ['打开 /host/，使用 test-host 配对。', '依次抽六首、为 P1/P2 各 Ban 一首，再抽出两首比赛曲。'],
+    ['主持人只有抽曲和 Ban 操作，主控与 OBS 同步更新。', '抽出两首后操作锁定；不能切换场次、录分、切画面、调音量或开始倒数。'],
+    [command('draw-candidates', { showSelection: true }, { 'state.scene': 'song-selection', 'state.tournament.matches.0.candidates.length': 6 })]);
+
   const manifest = { version: 1, format: 'acahku-manual-saves', scenarioCount: catalog.length,
     fixtureClock: new NativeDate(Date.UTC(2026, 0, 1)).toISOString(), scenarios: catalog };
   fs.writeFileSync(path.join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
@@ -452,8 +460,9 @@ function main() {
     '## 启动', '', '在项目目录执行：', '', '    npm run test:manual -- --list', '    npm run test:manual -- --case Q05', '',
     '不带参数时可在终端按编号选择。默认测试端口为 3001；可用 --port 3002 更换。',
     '仅解压存档包时，也可直接运行 node scripts/manual-rehearsal.js --case Q05。',
-    '每次加载都创建独立临时测试赛事，配对用测试专用代码：主控 test-main，记分员 test-score。', '',
+    '每次加载都创建独立临时测试赛事，配对用测试专用代码：主控 test-main，记分员 test-score，主持人 test-host。', '',
     '- 主控：http://localhost:3001/control/', '- 记分员：http://localhost:3001/scorekeeper/',
+    '- 主持人：http://localhost:3001/host/',
     '- OBS 浏览器源：http://localhost:3001/overlay/live.html', '',
     'OBS 测试浏览器源使用 1920×1080。需要真实摄像头的检查按项目 README 的 4:3 Webcam 坐标设置。',
     'iPad 等设备使用启动日志中的局域网地址。按 Ctrl+C 关闭测试服务，再选择另一个存档；每次切换重新配对。',

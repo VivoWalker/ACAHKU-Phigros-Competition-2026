@@ -334,11 +334,11 @@
   function finalVideoScene(s) {
     return `<section class='finale-video-placeholder' aria-label='決勝曲公布影片'></section>`;
   }
-  function playerName(s, id, scores, songs, index, kind, directTotal) {
-    const total = directTotal !== undefined ? B.score(directTotal) : scores?.some(score => score !== null && score !== undefined) ? B.score(B.total(scores)) : '—';
-    const scoresLine = details && directTotal === undefined ? `<div class='song-scores'>${songs.map((song, i) => `<span class='score-row' title='${e(song?.title || '待定')}'>S${i + 1} <b>${B.score(scores?.[i])}</b></span>`).join('')}</div>` : '';
-    const totalLabel = kind === 'qualifier-player' && B.challengeQualifier(s) ? 'CHALLENGE TOTAL' : 'TOTAL';
-    return `<section data-motion-block class='player-info ${kind} player-${index + 1}'><div class='player-name'><h2>${entrantText(entrant(s, id))}</h2><div class='player-total'><span>${totalLabel}</span><strong>${total}</strong></div></div>${scoresLine}</section>`;
+  function playerName(s, id, index, kind, previous) {
+    const score = previous?.scores.length && previous.scores.every(Number.isFinite) ? B.score(B.total(previous.scores)) : '—';
+    const scoreBlock = previous ? `<div class='player-total' data-completed-songs='${previous.scores.length}'><span>${e(previous.label)}</span><strong>${score}</strong></div>` : '';
+    const scoresLine = details && previous?.scores.length > 1 ? `<div class='song-scores'>${previous.scores.map((value, i) => `<span class='score-row' title='${e(previous.songs[i]?.title || '待定')}'>S${i + 1} <b>${B.score(value)}</b></span>`).join('')}</div>` : '';
+    return `<section data-motion-block class='player-info ${kind} player-${index + 1}'><div class='player-name'><h2>${entrantText(entrant(s, id))}</h2>${scoreBlock}</div>${scoresLine}</section>`;
   }
   function capture(rect, kind = 'gameplay', player = '', playerId = '', feed = kind === 'webcam' ? 'handcam' : 'capture-card') {
     const [x, y, width, height] = rect;
@@ -361,8 +361,7 @@
     const cams = cameras ? [[64, 800, 240, 135], [672, 800, 240, 135], [1280, 800, 240, 135]].slice(0, frames.length) : [];
     return backdrop([...frames, ...cams]) + header(s, `${B.qualifierLabel(s)}${challenge && !tie ? ' · 課題模式' : ''}`) + `<div class='match-layout qualifier ${cameras ? 'with-cameras' : 'single-webcam'}'>${frames.map((rect, i) => {
       const id = q.activePlayers[i], name = id ? B.name(s, id) : '待定';
-      const directTotal = challenge ? tie ? tie.scores[id] ?? null : B.qualifierTotal(s, B.player(s, id)) : undefined;
-      return playerName(s, id, tie ? [tie.scores[id] ?? null] : B.player(s, id)?.scores, tie ? [tie.song] : songs, i, 'qualifier-player', directTotal) + capture(rect, 'gameplay', name, id, cameras ? 'capture-card' : 'webcam') + (cams[i] ? handcam(cams[i], name, id) : '');
+      return playerName(s, id, i, 'qualifier-player') + capture(rect, 'gameplay', name, id, cameras ? 'capture-card' : 'webcam') + (cams[i] ? handcam(cams[i], name, id) : '');
     }).join('')}${songBand(tie?.song || songs[q.currentSong], q.currentSong, 3, 'qualifier-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
   }
   function doubleMatch(s) {
@@ -374,7 +373,11 @@
     const cams = cameras ? [[64, 846, 224, 126], [1632, 846, 224, 126]] : [];
     const count = B.matchSongCount(m), songs = m.songs.length ? m.songs : Array(count).fill(null);
     const tie = B.matchTiebreak(s);
-    return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : 'single-webcam'}'>${m.players.map((id, i) => playerName(s, id, tie ? [tie.scores[i]] : m.scores[i], tie ? [tie.song] : songs, i, 'double-player') + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定', id, cameras ? 'capture-card' : 'webcam') + (cams[i] ? handcam(cams[i], id ? B.name(s, id) : '待定', id) : '')).join('')}${songBand(tie?.song || m.songs[m.currentSong], m.currentSong, count, 'double-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
+    const previousScores = i => !tie && m.currentSong > 0 ? {
+      scores: m.scores[i].slice(0, m.currentSong), songs: songs.slice(0, m.currentSong),
+      label: m.currentSong === 1 ? 'SONG 1' : `SONGS 1–${m.currentSong}`
+    } : null;
+    return backdrop([...frames, ...cams]) + header(s, `${m.id === 'GF' ? '總決賽' : '雙淘汰賽'} · R${m.round} · ${m.id}`) + `<div class='match-layout double ${cameras ? 'with-cameras' : 'single-webcam'}'>${m.players.map((id, i) => playerName(s, id, i, 'double-player', previousScores(i)) + capture(frames[i], 'gameplay', id ? B.name(s, id) : '待定', id, cameras ? 'capture-card' : 'webcam') + (cams[i] ? handcam(cams[i], id ? B.name(s, id) : '待定', id) : '')).join('')}${songBand(tie?.song || m.songs[m.currentSong], m.currentSong, count, 'double-song', tie ? `TIEBREAK ${tie.index + 1}` : '')}</div>`;
   }
   function rankingGroups(s) {
     return s.qualifier.plan === 'A' && !s.qualifier.rounds?.A?.locked ? ['A'] : ['A', 'B'];

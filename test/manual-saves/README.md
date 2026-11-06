@@ -1,6 +1,6 @@
 # 人工测试存档
 
-共 45 份独立检查点，使用合成选手和成绩。每份聚焦一个功能。
+共 46 份独立检查点，使用合成选手和成绩。每份聚焦一个功能。
 
 ## 启动
 
@@ -11,10 +11,11 @@
 
 不带参数时可在终端按编号选择。默认测试端口为 3001；可用 --port 3002 更换。
 仅解压存档包时，也可直接运行 node scripts/manual-rehearsal.js --case Q05。
-每次加载都创建独立临时测试赛事，配对用测试专用代码：主控 test-main，记分员 test-score。
+每次加载都创建独立临时测试赛事，配对用测试专用代码：主控 test-main，记分员 test-score，主持人 test-host。
 
 - 主控：http://localhost:3001/control/
 - 记分员：http://localhost:3001/scorekeeper/
+- 主持人：http://localhost:3001/host/
 - OBS 浏览器源：http://localhost:3001/overlay/live.html
 
 OBS 测试浏览器源使用 1920×1080。需要真实摄像头的检查按项目 README 的 4:3 Webcam 坐标设置。
@@ -94,6 +95,7 @@ Q04、Q05、Q07、B02、D03、D08、D10、D12、D14、F04、F09。
 | O05 | 缺席等待即将届满 | [O05-absence-deadline.json](O05-absence-deadline.json) | 待检查 |
 | O06 | 裁判授权单曲重赛 | [O06-rematch-authorization.json](O06-rematch-authorization.json) | 待检查 |
 | O07 | 开赛前空缺与三人抽签 | [O07-vacancy-lottery.json](O07-vacancy-lottery.json) | 待检查 |
+| O08 | 主持人独立选曲权限 | [O08-host-song-selection.json](O08-host-song-selection.json) | 待检查 |
 
 ## 预选赛
 
@@ -733,5 +735,19 @@ Q04、Q05、Q07、B02、D03、D08、D10、D12、D14、F04、F09。
 
 - [ ] 不能跳过抽签直接判轮空。
 - [ ] 抽签后仅一人轮空晋级，另两人重配；不存在虚构败者。
+
+结果 / 备注：____________________
+
+### O08 · 主持人独立选曲权限
+
+加载：`npm run test:manual -- --case O08`
+
+1. 打开 /host/，使用 test-host 配对。
+2. 依次抽六首、为 P1/P2 各 Ban 一首，再抽出两首比赛曲。
+
+预期：
+
+- [ ] 主持人只有抽曲和 Ban 操作，主控与 OBS 同步更新。
+- [ ] 抽出两首后操作锁定；不能切换场次、录分、切画面、调音量或开始倒数。
 
 结果 / 备注：____________________

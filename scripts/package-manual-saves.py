@@ -28,6 +28,7 @@ START = '''# 开始人工测试
 
 - 主控：http://localhost:3001/control/，测试配对码 test-main
 - 记分员：http://localhost:3001/scorekeeper/，测试配对码 test-score
+- 主持人：http://localhost:3001/host/，测试配对码 test-host
 - OBS 测试源：http://localhost:3001/overlay/live.html，1920×1080
 
 每次运行创建独立临时测试赛事。按 Ctrl+C 结束后重新加载即可回到原始检查点；需要保留本轮人工录入时先在主控导出备份。

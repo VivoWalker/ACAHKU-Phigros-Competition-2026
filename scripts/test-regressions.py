@@ -30,6 +30,8 @@ SUITES = {
         "final-standings-browser",
         "staged-broadcast-browser",
         "double-elimination-flow-browser",
+        "live-match-scores-browser",
+        "host-browser",
         "selection-motion-browser",
         "control-reconnect-browser",
         "draft-recovery-browser",
