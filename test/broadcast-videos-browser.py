@@ -80,9 +80,21 @@ def run(browser, directory):
         playing(staff, 'video[data-intermission-video]', 0, True)
         volume_checks(main, live, 'video[data-intermission-video]')
         previous_time = live.locator('video[data-intermission-video]').evaluate('video=>video.currentTime')
+        saved_trailer = H.state(main)['broadcast']['intermission']
         live.reload()
         resumed = playing(live, 'video[data-intermission-video]', .25)
-        assert resumed['time'] >= previous_time - .6
+        # A loop may wrap during reload. Check the saved clock in both
+        # directions instead of requiring an always-increasing media time.
+        live.wait_for_function('''({startedAt,loop})=>{
+          const video=document.querySelector('video[data-intermission-video]');
+          if(!video||!Number.isFinite(video.duration)||video.duration<=0)return false;
+          const elapsed=Math.max(0,(Date.now()-startedAt)/1000);
+          const expected=loop?elapsed%video.duration:elapsed;
+          const difference=Math.abs(video.currentTime-expected);
+          return Math.min(difference,loop?video.duration-difference:difference)<.6;
+        }''', arg={'startedAt': saved_trailer['cue']['startedAt'], 'loop': saved_trailer['loop']})
+        assert H.state(main)['broadcast']['intermission']['cue'] == saved_trailer['cue']
+        REPORT['trailer_reload'] = {'previous_time': previous_time, 'resumed_time': resumed['time'], 'same_saved_cue': True}
         live.screenshot(path=str(OUT / 'arcaea-trailer.png'))
         check('Arcaea uses the shared volume and mute without replacing its decoder or cue; refresh resumes and staff preview stays silent')
 
@@ -91,21 +103,29 @@ def run(browser, directory):
         live.wait_for_function("()=>!document.querySelector('video')")
         H.command(main, 'show-final-two-totals')
         H.command(main, 'start-final-finale')
+        H.command(main, 'configure-final-finale', {'videoPath': 'assets/finale/final-song-reveal.mp4', 'videoDuration': 94.333008})
         main.click('.tabs [data-tab="songs"]')
         assert main.input_value('#finale-video-path') == 'assets/finale/final-song-reveal.mp4'
-        assert abs(float(main.input_value('#finale-video-duration')) - 94.333008) < .001
+        assert abs(float(main.input_value('#finale-video-duration')) - 88.512) < .001
         H.command(main, 'play-final-finale-video')
         finale = playing(live, 'video[data-finale-video]', .25)
         assert finale['src'] == '/assets/finale/final-song-reveal.mp4'
-        assert abs(finale['duration'] - 94.333008) < .05
+        assert abs(finale['duration'] - 88.512) < .05
+        current = next(match for match in H.state(main)['tournament']['matches'] if match['id'] == 'GF')
+        assert current['finale']['videoCue']['duration'] == 88.512
         public = context.request.get(base + '/api/state').text()
         assert F.SECRET not in public, 'The final song leaked before the reveal video ended'
         playing(staff, 'video[data-finale-video]', 0, True)
         volume_checks(main, live, 'video[data-finale-video]')
         live.screenshot(path=str(OUT / 'final-song-pv.png'))
-        H.command(main, 'finish-final-finale-video')
+        if os.environ.get('BROADCAST_FULL_FINALE') == '1':
+            live.wait_for_selector('[data-rendered-scene="double-elimination-waiting"]', timeout=110000)
+            check('the complete final-version PV returns to waiting and reveals the song on its measured clock')
+        else:
+            H.command(main, 'finish-final-finale-video')
         H.idle(live, 'double-elimination-waiting')
         live.wait_for_function("()=>!document.querySelector('video[data-finale-video]')")
+        live.screenshot(path=str(OUT / 'final-song-waiting.png'))
         assert F.SECRET in context.request.get(base + '/api/state').text()
         check('H.264 finale plays with the measured default duration, balanced master volume and silent previews; ending it reveals the song')
         assert not REPORT['browser_errors'], REPORT['browser_errors']

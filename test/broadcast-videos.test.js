@@ -38,3 +38,12 @@ test('operator-selected replacement files keep their own duration, loop and cloc
   assert.equal(Videos.finale({ videoPath: finale.videoPath, videoDuration: 0 }).videoDuration, 0,
     'A custom clip must never inherit the bundled clip duration.');
 });
+
+test('saved first-version PV timing upgrades without changing custom timing or an active cue', () => {
+  const old = { videoPath: Videos.clips.finale.videoPath, videoDuration: 94.333008, stage: 'sealed', song: { title: 'Saved final song' } };
+  assert.deepEqual(Videos.finale(old), { ...old, videoDuration: Videos.clips.finale.videoDuration });
+  assert.equal(old.videoDuration, 94.333008);
+  for (const videoDuration of [0, 7.25]) assert.equal(Videos.finale({ ...old, videoDuration }).videoDuration, videoDuration);
+  const playing = { ...old, stage: 'video', videoCue: { id: 'saved-cue', startedAt: 1000, duration: old.videoDuration } };
+  assert.deepEqual(Videos.finale(playing), playing);
+});
