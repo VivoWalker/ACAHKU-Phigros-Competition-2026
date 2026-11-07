@@ -286,7 +286,7 @@
 .selection-stage .candidate.roulette-highlight .index,
 .selection-stage .candidate.roulette-highlight h3{color:#18202a}
 .selection-stage .candidate.roulette-highlight::before{background:#fff}
-.selection-stage .candidate.roulette-highlight h3{font-size:32px}
+.selection-stage .candidate.roulette-highlight h3{font-size:min(var(--song-title-fit,32px),32px)}
 .selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight)::before{background:#244940}
 .selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight){color:#d9f5e9}
 .selection-stage[data-roulette-stage="rolling"] .candidate.picked:not(.roulette-highlight) :is(.index,.candidate-status){color:#c3ead9}

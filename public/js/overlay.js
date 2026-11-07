@@ -485,7 +485,7 @@
     return backdrop() + header(s, `賽程 · ${s.tournament.matches.filter(m => m.status === 'complete').length} / 14`) + BroadcastBracket.render(s, bracketMotion.round);
   }
   // Fit complete titles inside fixed broadcast slots before the scene engine
-  // measures them. Cached fits keep roulette ticks from repeatedly laying out text.
+  // measures them. Cached sizes avoid repeating the fit search on roulette ticks.
   const titleFits = new Map();
   function fitSelectionTitles(root) {
     for (const [selector, ownerSelector] of [
