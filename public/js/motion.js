@@ -52,7 +52,7 @@
     return [...fragment.childNodes].map(materialize);
   }
   const ENTRY_SELECTOR = '.event-title, .topmeta, .event-copy h1, .event-line, .organiser, .key-visual, '
-    + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .waiting-song, '
+    + '.waiting-copy > .section-label, .waiting-copy > h1, .waiting-players > p, .tiebreak-versus, .waiting-song, '
     + '.player-name > h2, .player-total, .song-scores, .handcam-label, .song-band, .scene-head, '
     + '.ranking-tables > section, .qualifier-processing-panel, .song-result-heading, .song-result-card, .finale-total-card, .challenge-set-heading, .challenge-set-card, .song-result-empty, .footer, .winner-panel, .result-row, .bracket-column, .candidate-list, .candidate, '
     + '.bracket-page-heading, .bracket-rail, .bracket-focus, .bracket-destinations, .selection-art, .selection-focus-card, .round-result-heading, .picks, .selection-state, .empty-copy, .final-song-card, '

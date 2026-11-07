@@ -42,6 +42,8 @@ body{font-family:var(--broadcast-font);color:#faf8fc;font-weight:400;font-varian
 
 .ranking-tables h2{display:flex;align-items:baseline;justify-content:space-between}.rank-range{font-size:26px;letter-spacing:0;color:#b8a7c2}
 
+/* Keep title-only waiting cards identical in flow and absolute exit snapshots. */
+.waiting-song>h2:first-child{margin-top:0}
 /* Keep legal long song titles within the waiting scene's fixed safe area. */
 .waiting-song h2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .finale-waiting{grid-template-columns:minmax(0,1fr) 740px}
