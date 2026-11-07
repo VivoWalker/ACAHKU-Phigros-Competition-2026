@@ -484,6 +484,51 @@
     if (!s.tournament.seeded) return backdrop() + header(s, '賽程') + title('等待晉級選手');
     return backdrop() + header(s, `賽程 · ${s.tournament.matches.filter(m => m.status === 'complete').length} / 14`) + BroadcastBracket.render(s, bracketMotion.round);
   }
+  // Fit complete titles inside fixed broadcast slots before the scene engine
+  // measures them. Cached fits keep roulette ticks from repeatedly laying out text.
+  const titleFits = new Map();
+  function fitSelectionTitles(root) {
+    for (const [selector, ownerSelector] of [
+      ['.selection-stage .candidate h3', '.candidate'],
+      ['.selection-stage .selection-focus-card h2', '.selection-focus-card'],
+      ['.selection-stage .picks > span > span', '.picks > span']
+    ]) {
+      for (const node of root.querySelectorAll(selector)) {
+        if (node.closest('[data-motion-exits]')) continue;
+        const owner = node.closest(ownerSelector), css = getComputedStyle(node), box = getComputedStyle(owner);
+        const width = node.clientWidth, height = owner.clientHeight - parseFloat(box.paddingTop) - parseFloat(box.paddingBottom) - 6;
+        const max = parseFloat(css.getPropertyValue('--song-title-max'));
+        if (!(width > 0 && height > 0 && max > 0)) continue;
+        const key = JSON.stringify([node.textContent, width, height, max, css.fontFamily, css.fontWeight,
+          parseFloat(css.lineHeight) / parseFloat(css.fontSize)]);
+        let size = titleFits.get(key);
+        if (size === undefined) {
+          const frame = owner.getBoundingClientRect(), scale = frame.height / owner.offsetHeight;
+          const range = document.createRange(); range.selectNodeContents(node);
+          const fits = value => {
+            node.style.fontSize = value + 'px';
+            const ink = range.getBoundingClientRect();
+            return node.scrollWidth <= width && node.scrollHeight <= height
+              && ink.top >= frame.top + (parseFloat(box.paddingTop) + 1) * scale
+              && ink.bottom <= frame.bottom - (parseFloat(box.paddingBottom) + 1) * scale;
+          };
+          size = max;
+          if (!fits(max)) {
+            let low = 1, high = max;
+            while (high - low > .25) {
+              const middle = (low + high) / 2;
+              if (fits(middle)) low = middle; else high = middle;
+            }
+            size = Math.floor(low * 4) / 4;
+          }
+          node.style.removeProperty('font-size');
+          titleFits.set(key, size);
+          if (titleFits.size > 256) titleFits.delete(titleFits.keys().next().value);
+        }
+        node.style.setProperty('--song-title-fit', size + 'px');
+      }
+    }
+  }
   function selection(s) {
     const m = B.currentMatch(s);
     if (!m) return doubleWaiting(s);
@@ -608,6 +653,7 @@
       committedCover = src;
       const latestDraw = scene === 'song-selection' ? BroadcastSelectionRoulette.context(state, previewNow()) : null;
       BroadcastSelectionRoulette.paint(mount, latestDraw, matchMedia('(prefers-reduced-motion: reduce)').matches);
+      fitSelectionTitles(mount);
       canvas.dataset.roulettePhase = latestDraw?.stage || '';
       canvas.dataset.rouletteIndex = latestDraw ? String(latestDraw.index) : '';
       bracketMotion.afterCommit();

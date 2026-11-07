@@ -34,6 +34,7 @@ SUITES = {
         "live-match-scores-browser",
         "host-browser",
         "selection-motion-browser",
+        "song-titles-browser",
         "control-reconnect-browser",
         "draft-recovery-browser",
         "intermission-browser",
