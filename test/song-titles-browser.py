@@ -25,7 +25,7 @@ const fixture=process.argv[2],m=state.tournament.matches.find(m=>m.id===state.to
 const pool=state.library.filter(s=>s.eligible);
 let songs=fixture.startsWith('official-')?pool.slice(Number(fixture.split('-')[1])*6,Number(fixture.split('-')[1])*6+6):
   [14,6,9,2,20,30].map(n=>state.library.find(s=>s.id==='competition-2026-de-'+String(n).padStart(2,'0')));
-if(fixture==='stress'||fixture==='picked'){
+if(['stress','picked','rolling'].includes(fixture)){
   const titles=[('INFiNiTE ENERZY -Overdoze- / '+ 'Extended title ').repeat(4).slice(0,100),
     '超長中文曲名測試'.repeat(12).slice(0,100),'ぱぴぷぴぷぴぱ・終わりのない音楽'.repeat(6).slice(0,100),
     'W'.repeat(100),('PRAGMATISM -RESURRECTION- / '+ 'Full title ').repeat(4).slice(0,100),
@@ -35,10 +35,11 @@ if(fixture==='stress'||fixture==='picked'){
 songs.forEach((song,i)=>{song.art='assets/song/cover-'+(i%4+1)+'.svg';song.previewAudio=''});
 m.candidates=structuredClone(songs);
 const act=(type,payload={})=>T.applyAction(state,{type,payload:{matchId:m.id,...payload}});
-if(fixture==='picked'){
+if(fixture==='picked'||fixture==='rolling'){
   act('ban-song',{playerIndex:0,songId:m.candidates[0].id});
   act('ban-song',{playerIndex:1,songId:m.candidates[1].id});
-  act('pick-songs');m.selectionPreviewCue.startedAt=Date.now()-120000;
+  act('pick-songs');m.selectionPreviewCue.startedAt=Date.now()+(fixture==='rolling'?10000:-120000);
+  if(fixture==='rolling')m.selectionPreviewCue.durations=[.25,.25];
 }else act('set-broadcast-cue',{stage:'double-elimination',scene:'song-selection',songIndex:0});
 fs.writeFileSync(path.join(process.argv[1],'match-state.json'),JSON.stringify(state));
 const app=require('./server').createBroadcastServer({dataDir:process.argv[1],pin:'production-console-main-fixture',
@@ -58,8 +59,7 @@ GEOMETRY = r"""selector=>[...document.querySelectorAll(selector)].map(node=>{
 })"""
 
 
-def check_titles(page, selector, label, expected=None):
-    items = page.evaluate(GEOMETRY, selector)
+def assert_titles(items, label, expected=None):
     assert items, (label, 'no song titles')
     if expected is not None:
         assert [item['text'] for item in items] == expected, (label, 'title content changed')
@@ -76,6 +76,11 @@ def check_titles(page, selector, label, expected=None):
                 assert line['top'] >= item['box']['top'] - 1 and line['bottom'] <= item['box']['bottom'] + 1, (label, 'clipped title lines', item)
         if item['badge']:
             assert item['box']['right'] <= item['badge']['left'] + 1, (label, 'title overlaps difficulty', item)
+
+
+def check_titles(page, selector, label, expected=None):
+    items = page.evaluate(GEOMETRY, selector)
+    assert_titles(items, label, expected)
     REPORT['geometry'].append({'label': label, 'titles': items})
     REPORT['checks'].append(label)
     print('PASS ' + label, flush=True)
@@ -99,6 +104,27 @@ def run(browser, fixture):
             live = context.new_page()
             live.set_viewport_size({'width': 1920, 'height': 1080})
             live.goto(base + '/overlay/live.html?bgm=0')
+            if fixture == 'rolling':
+                live.evaluate('''()=>{
+                  const measure=TITLE_GEOMETRY;window.__songTitleFrames=[];
+                  function frame(){
+                    const canvas=document.querySelector('#canvas');
+                    if(canvas?.dataset.roulettePhase==='rolling'&&document.querySelector('#scene').dataset.motionPhase==='idle')
+                      window.__songTitleFrames.push({index:canvas.dataset.rouletteIndex,titles:measure('[data-motion-content] .candidate h3')});
+                    window.__songTitleRaf=requestAnimationFrame(frame);
+                  }frame();
+                }'''.replace('TITLE_GEOMETRY', GEOMETRY))
+                live.wait_for_function('document.querySelector("#canvas")?.dataset.roulettePhase==="complete"')
+                idle(live)
+                frames = live.evaluate('cancelAnimationFrame(window.__songTitleRaf);window.__songTitleFrames')
+                REPORT['roulette_frames'] = frames
+                assert {frame['index'] for frame in frames} == {'0', '1'}, 'Both real roulette rolls must be sampled'
+                for frame in frames:
+                    assert_titles(frame['titles'], 'roulette ' + frame['index'], expected)
+                REPORT['checks'].append('Both roulette rolls keep full titles, fixed catalogue rows and separate difficulty badges')
+                print('PASS ' + REPORT['checks'][-1], flush=True)
+                live.screenshot(path=str(OUT / 'rolling-complete-obs.png'))
+                return
             idle(live)
             for width, height in [(1920, 1080), (1280, 720), (960, 540)]:
                 live.set_viewport_size({'width': width, 'height': height})
@@ -155,7 +181,7 @@ def main():
             binary = os.environ.get('CHROME_BINARY') or shutil.which('chromium') or shutil.which('google-chrome')
             browser = pw.chromium.launch(**({'executable_path': binary} if binary else {}), args=['--no-sandbox', '--autoplay-policy=no-user-gesture-required'])
             try:
-                for fixture in ['example', 'stress', 'picked', *[f'official-{i}' for i in range(5)]]:
+                for fixture in ['rolling', 'example', 'stress', 'picked', *[f'official-{i}' for i in range(5)]]:
                     run(browser, fixture)
                 assert not REPORT['browser_errors'], REPORT['browser_errors']
             finally:
