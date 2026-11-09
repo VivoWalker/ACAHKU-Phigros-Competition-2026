@@ -121,3 +121,5 @@ summary{font-size:18px;font-weight:700;flex-wrap:wrap}.secondary,summary .second
 .selected-track>div{flex:1;min-width:0}.selected-track .song-difficulty{--song-difficulty-h:64px;--song-difficulty-w:82px;margin-left:auto}
 @media(max-width:1100px){.candidate-row{grid-template-columns:28px minmax(0,1fr) 88px}.candidate-row .ban-actions{grid-column:2 / 4;justify-content:flex-end}.candidate-row .song-difficulty{--song-difficulty-w:88px}}
 @media(max-width:520px){.candidate-row{grid-template-columns:26px minmax(0,1fr) 80px;padding-inline:12px;gap:8px}.candidate-row .song-difficulty{--song-difficulty-w:80px;}}
+
+.event-template-panel fieldset{border:0;padding:0;min-width:0}.event-template-panel select{max-width:100%}

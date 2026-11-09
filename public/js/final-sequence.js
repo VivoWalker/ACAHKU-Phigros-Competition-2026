@@ -5,7 +5,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
   const STAGES = Object.freeze(['base', 'summary', 'sealed', 'video', 'revealed']);
-  const isEnabled = match => match?.id === 'GF' && match.finalMode === 'fixed-two' &&
+  const isEnabled = match => match?.id === 'GF' && match.presentation !== 'standard' && match.finalMode === 'fixed-two' &&
     !!match.finale && typeof match.finale === 'object' && !Array.isArray(match.finale);
   const songCount = match => match?.id === 'GF' && (match.finalMode !== 'fixed-two' ||
     isEnabled(match) && match.songs?.length === 3) ? 3 : 2;

@@ -253,7 +253,7 @@
     const originalLabels = new WeakMap();
     const phase = () => window.BroadcastFinalAnnouncement.phase(match, now());
     const finalSequence = () => sequencePhase(match, now(), window.BroadcastFinalSequence);
-    const eligible = () => (sequence.involved || window.BroadcastFinalAnnouncement.isFixed(match))
+    const eligible = () => match?.presentation !== 'standard' && (sequence.involved || window.BroadcastFinalAnnouncement.isFixed(match))
       && scene !== 'start' && !scene.startsWith('qualifier-');
     const key = state => `${state.started ? 1 : 0}:${state.pending ? 1 : 0}:${state.index}`;
     const node = (name, attributes) => {

@@ -110,6 +110,18 @@
     onComplete: queueRender,
     onStatus(value) { videoStatus = value; canvas.dataset.finaleVideo = value; refreshAudioPrompt(); }
   });
+  let standardFinalTimer, profileBrandingActive = false;
+  function syncStandardFinalClock(scene) {
+    clearTimeout(standardFinalTimer); standardFinalTimer = undefined;
+    const match = state && B.currentMatch(state);
+    if (scene !== 'grand-final-announcement' || match?.presentation !== 'standard' || !obsActive || !obsVisible || document.hidden) return;
+    const phase = BroadcastFinalAnnouncement.phase(match, previewNow());
+    if (!phase.started || phase.complete) return;
+    const times = BroadcastFinalAnnouncement.durations(match);
+    const next = match.finalAnnouncement.startedAt + BroadcastFinalAnnouncement.LEAD_MS
+      + (phase.pending ? 0 : phase.index === 0 ? times[0] * 1000 : (times[0] + times[1]) * 1000);
+    standardFinalTimer = setTimeout(queueRender, Math.max(20, next - previewNow() + 5));
+  }
   let completedIntermissionCue;
   const intermissionVideo = BroadcastIntermission.createPlayer({ canvas, now: previewNow, enabled: previewEnabled,
     onComplete(id) { completedIntermissionCue = id; queueRender(); },
@@ -263,7 +275,7 @@
     return branding.logo ? `<img data-motion-key='phigros-logo' class='phigros-logo ${className}' src='${e(url(displayPath(branding.logo)))}' alt='Phigros'>` : `<span data-motion-key='phigros-wordmark' class='phigros-wordmark ${className}'>Phigros</span>`;
   }
   function clubLogos(className = '') {
-    const logos = [['soc', branding.socLogo, '香港大學動漫聯盟'], ['kirameki', branding.kiramekiLogo, 'Kirameki']];
+    const logos = [['soc', branding.socLogo, state.eventProfile ? 'Partner logo 1' : '香港大學動漫聯盟'], ['kirameki', branding.kiramekiLogo, state.eventProfile ? 'Partner logo 2' : 'Kirameki']];
     const images = logos.filter(([, path]) => path).map(([kind, path, label]) => `<img data-motion-key='club-${kind}' class='club-logo ${kind}' data-club-logo='${kind}' src='${e(url(displayPath(path)))}' alt='${e(label)}'>`).join('');
     return images ? `<div class='club-logos ${className}' aria-label='社團標誌'>${images}</div>` : '';
   }
@@ -283,7 +295,7 @@
     return `<div data-motion-block class='scene-head'><h1>${e(text)}</h1></div>`;
   }
   function visual(className = '') {
-    return branding.visual ? `<figure data-motion-key='event-art' class='key-visual ${className}'><img src='${e(url(displayPath(branding.visual)))}' alt='ACAHKU Phigros competition artwork'></figure>` : '';
+    return branding.visual ? `<figure data-motion-key='event-art' class='key-visual ${className}'><img src='${e(url(displayPath(branding.visual)))}' alt='Competition artwork'></figure>` : '';
   }
   const entrant = (s, id) => ({ id, name: id ? `${B.player(s, id)?.number ? '#' + B.player(s, id).number + ' · ' : ''}${B.name(s, id)}` : '待定' });
   const entrantText = player => `<span${player.id ? ` data-motion-key='player-${e(player.id)}'` : ''}>${e(player.name)}</span>`;
@@ -572,7 +584,7 @@
     return backdrop() + header(s) + `<div class="intermission-layout ${branding.visual ? 'with-art' : 'without-art'}"><section data-motion-block class="intermission-copy"><h1>休息時間</h1><p>INTERMISSION</p></section>${visual('intermission-art')}</div>`;
   }
   function arcaeaTrailer(s) {
-    return backdrop() + header(s, 'Arcaea 比賽預告') + `<section data-motion-block class="trailer-standby"><h1>ARCAEA</h1><p>比賽預告</p></section>`;
+    return backdrop() + header(s, s.eventProfile ? '中場影片' : 'Arcaea 比賽預告') + `<section data-motion-block class="trailer-standby"><h1>${s.eventProfile ? 'VIDEO' : 'ARCAEA'}</h1><p>比賽預告</p></section>`;
   }
   function finalStandings(s) {
     const standings = BroadcastFinalStandings.build(s);
@@ -606,7 +618,16 @@
   const renderers = { 'double-elimination-tiebreak-announcement': qualifierTiebreakAnnouncement, 'final-standings': finalStandings, 'qualifier-tiebreak-announcement': qualifierTiebreakAnnouncement, start, intermission, 'arcaea-trailer': arcaeaTrailer, 'qualifier-waiting': qualifierWaiting, 'qualifier-processing': qualifierProcessing, 'double-elimination-processing': doubleProcessing, 'double-elimination-waiting': doubleWaiting, 'qualifier-match': qualifierMatch, 'double-elimination-match': doubleMatch, 'song-result': songResult, result, bracket, 'song-selection': selection, 'grand-final-announcement': grandFinalAnnouncement, 'grand-final-totals': finalTwoTotals, 'grand-final-video': finalVideoScene };
   function render() {
     if (pageDisposed || !state || !bootReady) return;
+    if (state.eventProfile) {
+      branding = { ...state.eventProfile.branding }; profileBrandingActive = true;
+    } else if (profileBrandingActive) {
+      profileBrandingActive = false;
+      fetch('/api/branding', {signal:lifecycle.signal}).then(r=>r.ok?r.json():null).then(next=>{
+        if (next && !pageDisposed && !state.eventProfile) { branding=next; render(); }
+      }).catch(()=>{});
+    }
     const scene = shownScene();
+    syncStandardFinalClock(scene);
     const videoOnly = scene === 'grand-final-video';
     canvas.toggleAttribute('data-video-only', videoOnly);
     document.body.classList.toggle('video-only', videoOnly);
@@ -699,7 +720,7 @@
     clearTimeout(rankingTimer); resolveInitialState();
     clearTimeout(finaleProjection?.timer); finaleProjection = null;
     countdownClient?.dispose(); countdownLayer.dispose();
-    rouletteClock.dispose(); rouletteSound.dispose(); selectionAudio.dispose(); sceneBgm.dispose(); finaleVideo.dispose(); intermissionVideo.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
+    clearTimeout(standardFinalTimer); rouletteClock.dispose(); rouletteSound.dispose(); selectionAudio.dispose(); sceneBgm.dispose(); finaleVideo.dispose(); intermissionVideo.dispose(); bracketMotion.dispose(); finaleEffects.dispose(); motion.dispose();
     ambienceRequest++; BroadcastMotion.disposeCovers(ambienceArt); ambienceHost.remove();
     mediaWarmup.dispose(); displayMedia.dispose();
     socket.removeAllListeners(); socket.disconnect();

@@ -183,7 +183,8 @@
     if (disposed || !state) return;
     view = currentView(); rebuildFields(); reconcileRecoveredDrafts(); reviseDrafts();
     $('pairing').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
-    $('event-title').textContent = state.event?.titleZH || state.event?.title || 'ACAHKU / SCORE ENTRY';
+    $('event-title').textContent = state.event?.titleZH || state.event?.title || 'PHIGROS / SCORE ENTRY';
+    document.title = (state.event?.title || 'Phigros') + ' · 計分員面板';
     $('context-title').textContent = view.title;
     $('sync-status').textContent = ready() ? `資料已同步 · #${state.revision}` : '連線中斷，分數草稿已保留';
     $('score-list').classList.toggle('challenge-results', view.challengeTotal);

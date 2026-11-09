@@ -4,6 +4,8 @@ A local tournament server, transparent OBS overlays and iPad-friendly main-contr
 
 ## Quick start
 
+For another Phigros competition, the experimental **standard event mode** supports portable templates, custom qualifier/tiebreak/final charts and branding, with a two-song final that does not require the ACAHKU finale effects or video. Start an isolated event with `npm start -- --standard --data-dir ./data-community`; see [通用賽事設定與限制](docs/reusable-events.md). Existing event data keeps its original rules.
+
 Install **Node.js 24 LTS, version 24.22.1 or newer within the 24.x release line**. The minimum version includes the [October 21, 2026 security fixes](https://nodejs.org/en/blog/release/v24.22.1), including the Brotli decoder fix. Version managers can use the checked-in `.node-version`. From this project folder:
 
 ```sh

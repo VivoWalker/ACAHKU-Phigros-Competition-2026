@@ -20,6 +20,9 @@ const { loadPairingCredentials } = require('./lib/pairing-credentials');
 const { PairingAttempts } = require('./lib/pairing-attempts');
 const { acquireDataDirectoryLock } = require('./lib/data-directory-lock');
 function createBroadcastServer(options = {}) {
+  const preset=options.preset || process.env.EVENT_PRESET || 'acahku-2026';
+  if (!['standard','acahku-2026'].includes(preset)) throw new Error('Choose standard or acahku-2026 as the event preset.');
+  options={...options,preset};
   const dataDir = options.dataDir || path.join(__dirname, 'data');
   const dataLock = acquireDataDirectoryLock(dataDir);
   try { return initialiseBroadcastServer(options, dataDir, dataLock); }
@@ -28,7 +31,7 @@ function createBroadcastServer(options = {}) {
 function initialiseBroadcastServer(options, dataDir, dataLock) {
   const publicDir = options.publicDir || path.join(__dirname, 'public');
   const displayAssets = createDisplayAssetsReader({ publicDir });
-  const store = new StateStore(dataDir, { assertWritable: () => dataLock.assertHeld() });
+  const store = new StateStore(dataDir, { createState: options.preset === 'standard' ? require('./lib/default-state').createStandardState : undefined, assertWritable: () => dataLock.assertHeld() });
   const { pin, scorekeeperPin, hostPin, sessionKey } = loadPairingCredentials(dataDir, options);
   const intermissionMedia = createIntermissionMedia(dataDir, { assertWritable: () => dataLock.assertHeld() });
   const sign = nonce => createHmac('sha256', sessionKey).update(nonce + ':' + pin).digest('hex');
@@ -125,7 +128,17 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   });
   app.get('/api/health', (req, res) => res.json({ ok: true, revision: store.state.revision }));
   app.get('/api/state', (req, res) => res.json(publicState(store.state)));
-  app.get('/api/branding', (req, res) => res.json(getBranding()));
+  app.get('/api/branding', (req, res) => res.json(store.state.eventProfile?.branding || getBranding()));
+  app.get('/api/event-template/check', authenticated, (req,res)=>{
+    const state=store.state, template=require('./lib/event-templates').exportTemplate(state);
+    const resources=new Set([...template.library.flatMap(s=>[s.art,s.previewAudio]),...Object.values(template.profile.branding),template.intermission?.videoPath].filter(Boolean));
+    const missing=[...resources].filter(file=>!require('node:fs').existsSync(path.join(file.startsWith('assets/')?publicDir:dataDir,file)));
+    res.json({regularCharts:require('./public/js/song-pool').distinct(state.library.filter(s=>s.eligible)).length,recommendedMinimum:30,missing});
+  });
+  app.get('/api/event-template', authenticated, (req, res) => {
+    res.setHeader('Content-Disposition', 'attachment; filename="event-template.json"');
+    res.json(require('./lib/event-templates').exportTemplate(store.state));
+  });
   app.get('/api/display-assets', async (req, res) => res.json(await displayAssets.read()));
   app.post('/api/session', (req, res) => {
     const role = req.body?.role === undefined ? 'control' : req.body.role;
@@ -300,9 +313,10 @@ function initialiseBroadcastServer(options, dataDir, dataLock) {
   };
 }
 if (require.main === module) {
-  const broadcast = createBroadcastServer();
+  const args=require('node:util').parseArgs({options:{standard:{type:'boolean'},'data-dir':{type:'string'}}}).values;
+  const broadcast = createBroadcastServer({...(args.standard?{preset:'standard'}:{}),...(args['data-dir']?{dataDir:path.resolve(args['data-dir'])}:{})});
   broadcast.listen(Number(process.env.PORT || 3000), process.env.HOST || '0.0.0.0').then(address => {
-    console.log(`ACAHKU broadcast ready on port ${address.port}`);
+    console.log(`Phigros broadcast ready on port ${address.port}`);
     console.log(`Control: http://localhost:${address.port}/control/`);
     console.log(`Scorekeeper: http://localhost:${address.port}/scorekeeper/`);
     console.log(`Host: http://localhost:${address.port}/host/`);

@@ -120,7 +120,7 @@
         if (!d || !['q', 'qc', 'qd', 'qt', 'm', 'mt'].includes(d.kind) || !['A', 'B'].includes(d.group) || typeof d.id !== 'string' || !d.id
           || typeof d.prefix !== 'string' || !d.prefix || typeof d.context !== 'string' || !Array.isArray(JSON.parse(d.context))
           || ![d.pi, d.si, d.index].every(Number.isSafeInteger) || d.pi < 0 || d.pi > 63 || d.si < 0 || d.si > 2 || d.index < 0 || d.index > 1000) return false;
-      } else if (!['plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'intermission', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
+      } else if (!['event-profile', 'plan', 'competition-roster', 'number', 'readiness', 'wait-form', 'dq-form', 'rematch-form', 'event', 'intermission', 'song', 'group-songs', 'roster', 'seeds', 'result', 'special', 'finale', 'candidates', 'picks', 'sources', 'rename', 'restore', 'correction', 'match-score', 'qualifier-score', 'tie', 'qualifier-display', 'stage'].includes(kind)) return false;
       if (saved.reader.kind === 'form') return saved.reader.scope === saved.scope && saved.reader.id === saved.id;
       if (['match-score', 'qualifier-score', 'tie'].includes(saved.reader.kind)) return saved.reader.kind === kind && saved.reader.id === entity
         && (kind === 'tie' || Number.isInteger(saved.reader.si) && saved.reader.si >= 0 && saved.reader.si < 3)
@@ -162,11 +162,15 @@
     if (form.id === 'readiness-form') return 'readiness:' + form.dataset.playerId;
     if (form.id === 'wait-form' || form.id === 'dq-form' || form.id === 'rematch-form') return `${form.id}:${encodeURIComponent(incidentContext())}`;
     if (form.dataset.renamePlayer) return `rename:${form.dataset.renamePlayer}`;
-    return ({ 'event-form': 'event', 'intermission-form': 'intermission', 'song-form': `song:${editingSongId || 'new'}`, 'group-songs-form': `group-songs:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`, 'roster-form': `roster:${group}`, 'seed-form': `seeds:${encodeURIComponent(seedContext(state))}`, 'result-form': `result:${match}:${signature}`, 'final-finale-form': `finale:${match}`, 'final-candidates-form': `candidates:${match}:${signature}`, 'final-picks-form': `picks:${match}:${signature}`, 'source-form': sourceScope(), 'restore-form': `restore:${selectedBackupId}`, 'correction-form': `correction:${correctionMatchId}`, 'plan-form': 'plan', 'competition-roster-form': 'competition-roster' })[form.id];
+    return ({ 'event-template-form': 'event-profile', 'event-form': 'event', 'intermission-form': 'intermission', 'song-form': `song:${editingSongId || 'new'}`, 'group-songs-form': `group-songs:${group}:${encodeURIComponent(qualifierContext(state, null, group))}`, 'roster-form': `roster:${group}`, 'seed-form': `seeds:${encodeURIComponent(seedContext(state))}`, 'result-form': `result:${match}:${signature}`, 'final-finale-form': `finale:${match}`, 'final-candidates-form': `candidates:${match}:${signature}`, 'final-picks-form': `picks:${match}:${signature}`, 'source-form': sourceScope(), 'restore-form': `restore:${selectedBackupId}`, 'correction-form': `correction:${correctionMatchId}`, 'plan-form': 'plan', 'competition-roster-form': 'competition-roster' })[form.id];
   }
   function formValues(scope, s = state) {
     const [kind, entity] = scope.split(':');
     if (kind === 'score-entry') return scoreValues(scope, s);
+    if (kind === 'event-profile') {
+      const profile=s.eventProfile, ties=profile?.qualifierTiebreakSongs || Object.fromEntries(Object.entries(CompetitionConfig.QUALIFIER_TIEBREAK_SONGS).map(([g,song])=>[g,song.id]));
+      return {...Object.fromEntries(['A','B'].map(g=>['template-tie-'+g,ties[g]])),...Object.fromEntries((profile?.finalSongs || CompetitionConfig.FINAL_SONG_IDS).map((id,i)=>['template-final-'+i,id])),...Object.fromEntries(Object.entries(profile?.branding || {logo:'assets/event/phigros-logo.webp',visual:null,socLogo:null,kiramekiLogo:null}).map(([k,v])=>['template-brand-'+k,v||'']))};
+    }
     if (kind === 'plan') return { 'qualifier-plan': s.qualifier.plan || 'auto' };
     if (kind === 'competition-roster') return { 'competition-roster': s.qualifier.players.map(p => p.name).join('\n') };
     if (kind === 'number') return { [`number-${entity}`]: String(B.player(s, entity)?.number ?? '') };
@@ -305,7 +309,7 @@
     if (state.tournament.currentMatchId !== id || encodeURIComponent(matchContext(state, id)) !== scope.split(':')[2]) throw new Error('当前场次、选手或曲目已变化，请重新核对赛果。');
     const m = state.tournament.matches.find(match => match.id === id);
     assertScoresSaved('match', id);
-    if (fixedFinal(m) && (!finaleSong(m) || m.songs.length !== 3)) throw new Error('決賽按三首總分計算；請先設定並完成最後一首，前兩首只顯示中途總成績。');
+    if (fixedFinal(m) && m.presentation !== 'standard' && (!finaleSong(m) || m.songs.length !== 3)) throw new Error('決賽按三首總分計算；請先設定並完成最後一首，前兩首只顯示中途總成績。');
     if (!m?.scores.flat().every(score => score !== null)) throw new Error('请先保存双方所有曲目的分数。');
     const revision = state.revision, values = { ...formValues(scope), ...Object.fromEntries(snapshotDrafts(scope).map(item => [item.record.id, item.value])) };
     const totals = m.scores.map(B.total), decision = state.tournament.ruleset === 'proposal-2026' ? ScoreRules.matchDecision(m) : null;
@@ -730,10 +734,10 @@
     if (!phase.started) return '尚未公布曲目。';
     if (state.scene !== 'grand-final-announcement') return '目前未顯示曲目公布。';
     if (phase.complete) return '兩首曲目已公布。';
-    return phase.index === 0 ? 'Desultory Signals · IN 17 播放中。' : 'Petrichor · AT 17 播放中。';
+    const song = match.songs[phase.index]; return `${song?.title || ''} · ${song?.difficulty || ''} ${Math.trunc(song?.level || 0)} 播放中。`;
   }
   const finaleSong = match => match?.finale?.song || match?.songs[2] ||
-    (fixedFinal(match) && match.status !== 'complete' ? globalThis.CompetitionConfig?.FINALE_SONG : null);
+    (fixedFinal(match) && match.presentation !== 'standard' && match.status !== 'complete' ? globalThis.CompetitionConfig?.FINALE_SONG : null);
   function finalSequencePhase(match = B.currentMatch(state)) {
     return globalThis.BroadcastFinalSequence?.phase(match, countdownClient?.now() || Date.now()) || { stage: match?.finale?.stage || 'base' };
   }
@@ -844,12 +848,12 @@
       if (fixedFinal(m)) {
         const phase = finalAnnouncementPhase(m);
         if (!phase.started) return { label: '公布決賽第一首', finalAnnouncementIndex: 0 };
-        if (!phase.complete && phase.index === 0) return { label: '立即公布 Petrichor', finalAnnouncementIndex: 1 };
+        if (!phase.complete && phase.index === 0) return { label: `立即公布 ${m.songs[1]?.title || '第二首'}`, finalAnnouncementIndex: 1 };
         return { label: '第一首比賽準備', cue: productionCue('double-elimination-waiting', 0) };
       }
       return { label: '選曲完成 · 第一首準備', cue: productionCue('double-elimination-waiting', 0), disabled: m.songs.length !== matchSongCount(m) };
     }
-    if (fixedFinal(m)) {
+    if (fixedFinal(m) && m.presentation !== 'standard') {
       const finale = finalSequencePhase(m);
       if (i.phase === 'final-totals') return { label: '進入錯誤侵入 · 神秘曲準備', finalSequence: 'start-final-finale' };
       if (i.phase === 'final-video') return finale.stage === 'video'
@@ -867,14 +871,14 @@
   }
   function productionToolbar() {
     if (state.scene === 'final-standings') return `<section class="production-workflow" data-phase="final-standings"><div class="production-next-row"><h2>總排名 · FINAL STANDINGS</h2>${productionCueButton('返回 Bracket', 'bracket')}</div></section>`;
-    if (['intermission', 'arcaea-trailer'].includes(state.scene)) return `<section class="production-workflow" data-phase="intermission"><div class="production-next-row"><h2>${state.scene === 'arcaea-trailer' ? 'Arcaea 預告' : '休息時間'}</h2>${button('繼續雙淘汰賽 →', 'data-intermission-command="end-intermission"', true)}</div></section>`;
+    if (['intermission', 'arcaea-trailer'].includes(state.scene)) return `<section class="production-workflow" data-phase="intermission"><div class="production-next-row"><h2>${state.scene === 'arcaea-trailer' ? (state.eventProfile ? '中場影片' : 'Arcaea 預告') : '休息時間'}</h2>${button('繼續雙淘汰賽 →', 'data-intermission-command="end-intermission"', true)}</div></section>`;
     const i = productionInfo(), next = nextProductionAction(), phases = { standby: '尚未開始', waiting: '等待準備', selection: '抽選 / BAN 曲', match: '比賽中', 'song-result': '本曲統計', processing: '結果正在統計中', 'set-result': '三首總成績', ranking: '晉級排名', 'round-result': '整輪賽果', bracket: 'Bracket 現況', 'final-totals': '前兩首總成績', 'final-video': '最後一首公布視頻' };
     const announcement = !i.qualifier && fixedFinal(i.match) && i.phase === 'selection' ? finalAnnouncementPhase(i.match) : null;
     if (announcement) phases.selection = '決賽曲目逐首公布';
     const title = i.qualifier ? qualifierLabel(state.qualifier.activeGroup) : i.match ? `${i.match.id} · R${i.match.round}` : '尚未建立賽程';
     const allowed = i.qualifier ? !!i.active.length : !!i.match?.songs.length && !['pending', 'complete'].includes(i.match.status);
     const draw = BroadcastSelectionRoulette.context(state, drawNow());
-    const heading = draw ? BroadcastSelectionRoulette.label(draw) : fixedFinal(i.match) && i.phase === 'waiting' && finalSequencePhase(i.match).stage === 'sealed' ? '最後一首 · 亂碼等待' : announcement ? !announcement.started ? '先公布 Desultory Signals · IN 17' : announcement.complete ? '決賽曲目公布完畢' : `第 ${announcement.index + 1} 首公布 · ${i.songs[announcement.index]?.title || '待公布'}` : i.phase === 'waiting' && !i.qualifier && !i.songs.length ? '選曲前準備' : ['processing', 'set-result', 'ranking', 'round-result', 'bracket', 'final-totals', 'final-video'].includes(i.phase) ? phases[i.phase] : `第 ${i.songIndex + 1} 首 · ${i.songs[i.songIndex]?.title || '待選曲'}`;
+    const heading = draw ? BroadcastSelectionRoulette.label(draw) : fixedFinal(i.match) && i.phase === 'waiting' && finalSequencePhase(i.match).stage === 'sealed' ? '最後一首 · 亂碼等待' : announcement ? !announcement.started ? `先公布 ${i.songs[0]?.title || '第一首'} · ${i.songs[0]?.difficulty || ''} ${Math.trunc(i.songs[0]?.level || 0)}` : announcement.complete ? '決賽曲目公布完畢' : `第 ${announcement.index + 1} 首公布 · ${i.songs[announcement.index]?.title || '待公布'}` : i.phase === 'waiting' && !i.qualifier && !i.songs.length ? '選曲前準備' : ['processing', 'set-result', 'ranking', 'round-result', 'bracket', 'final-totals', 'final-video'].includes(i.phase) ? phases[i.phase] : `第 ${i.songIndex + 1} 首 · ${i.songs[i.songIndex]?.title || '待選曲'}`;
     const tieStage = i.qualifier ? 'qualifier' : 'double-elimination';
     const steps = i.tie ? `${productionCueButton('選手準備', tieStage + '-waiting', 0)}${productionCueButton('公布加賽曲目', tieStage + '-tiebreak-announcement', 0)}${productionCueButton('比賽畫面', tieStage + '-match', 0, i.tie.revealed === false)}${productionCueButton('統計中', tieStage + '-processing', 0, i.tie.revealed === false)}${productionCueButton('加賽結果', 'song-result', 0, i.tie.revealed === false)}${i.qualifier ? productionCueButton('晉級名單', 'result') : ''}` : i.challengeSet
       ? productionCueButton('本批準備', 'qualifier-waiting', 0, !allowed)
@@ -900,9 +904,9 @@
   }
   function productionResultForm(m) {
     if (m.status === 'complete') return '';
-    if (fixedFinal(m) && (!finaleSong(m) || m.songs.length !== 3)) return '<p class="notice">最後一首尚未公布，暫不能確認冠軍。</p>';
+    if (fixedFinal(m) && m.presentation !== 'standard' && (!finaleSong(m) || m.songs.length !== 3)) return '<p class="notice">最後一首尚未公布，暫不能確認冠軍。</p>';
     const disabled = m.status === 'pending' ? 'disabled' : '';
-    return `<section class="production-result-confirm"><h3>整輪賽果核對</h3><div class="production-summary"><table><thead><tr><th>選手</th>${m.songs.map((s, si) => `<th>S${si + 1}</th>`).join('')}<th>TOTAL</th></tr></thead><tbody>${m.players.map((id, pi) => `<tr><td>${e(B.name(state, id))}</td>${m.scores[pi].map(score => `<td>${B.score(score)}</td>`).join('')}<td>${m.scores[pi].every(n => n === null) ? '—' : B.score(B.total(m.scores[pi]))}</td></tr>`).join('')}</tbody></table></div><form id="result-form">${state.tournament.ruleset !== 'proposal-2026' ? `<label for="referee-winner">平分時裁判勝者<select id="referee-winner">${options(m.players.filter(Boolean).map(id => [id, B.name(state, id)]))}</select></label>` : ''}<label for="result-note">裁判核對記錄<textarea id="result-note" class="report-note" ${disabled}></textarea></label>${button(fixedFinal(m) ? '確認三首總分 · 決出冠軍' : '確認整輪賽果並晉級', `type="submit" ${disabled}`, true)}</form>${matchTiebreakPanel(m, disabled)}<details id="production-other-scores"><summary>核對／修正前面曲目</summary>${m.songs.map((song, si) => si === m.currentSong ? '' : `<section><h4>SONG ${si + 1} · ${e(song.title)}</h4>${m.players.map((id, pi) => `<h4>${e(B.name(state, id))}</h4>${scoreEditor('m', m.id, pi, si, { score: m.scores[pi][si], judgements: m.judgements?.[pi]?.[si] }, disabled)}`).join('')}</section>`).join('')}</details></section>`;
+    return `<section class="production-result-confirm"><h3>整輪賽果核對</h3><div class="production-summary"><table><thead><tr><th>選手</th>${m.songs.map((s, si) => `<th>S${si + 1}</th>`).join('')}<th>TOTAL</th></tr></thead><tbody>${m.players.map((id, pi) => `<tr><td>${e(B.name(state, id))}</td>${m.scores[pi].map(score => `<td>${B.score(score)}</td>`).join('')}<td>${m.scores[pi].every(n => n === null) ? '—' : B.score(B.total(m.scores[pi]))}</td></tr>`).join('')}</tbody></table></div><form id="result-form">${state.tournament.ruleset !== 'proposal-2026' ? `<label for="referee-winner">平分時裁判勝者<select id="referee-winner">${options(m.players.filter(Boolean).map(id => [id, B.name(state, id)]))}</select></label>` : ''}<label for="result-note">裁判核對記錄<textarea id="result-note" class="report-note" ${disabled}></textarea></label>${button(fixedFinal(m) ? (m.presentation === 'standard' ? '確認兩首總分 · 決出冠軍' : '確認三首總分 · 決出冠軍') : '確認整輪賽果並晉級', `type="submit" ${disabled}`, true)}</form>${matchTiebreakPanel(m, disabled)}<details id="production-other-scores"><summary>核對／修正前面曲目</summary>${m.songs.map((song, si) => si === m.currentSong ? '' : `<section><h4>SONG ${si + 1} · ${e(song.title)}</h4>${m.players.map((id, pi) => `<h4>${e(B.name(state, id))}</h4>${scoreEditor('m', m.id, pi, si, { score: m.scores[pi][si], judgements: m.judgements?.[pi]?.[si] }, disabled)}`).join('')}</section>`).join('')}</details></section>`;
   }
   function productionChallengeProgress(info) {
     return `<ol class="production-challenge-progress" aria-label="三首連續課題進度">${info.songs.map((song, si) => `<li data-song-index="${si}" ${info.phase === 'match' && si === info.songIndex ? 'aria-current="step"' : ''}><span class="micro">SONG ${si + 1}</span><strong>${e(song?.title || '待設定曲目')}</strong><span>${info.phase === 'set-result' ? '已完成' : info.phase !== 'match' ? '待開始' : si < info.songIndex ? '已完成' : si === info.songIndex ? '正在比賽' : '接續播放'}</span></li>`).join('')}</ol>`;
@@ -919,6 +923,7 @@
     return `<div class="production-summary"><table data-final-two-totals><thead><tr><th>選手</th><th>SONG 1</th><th>SONG 2</th><th>前兩首合計</th></tr></thead><tbody>${match.players.map((id, pi) => `<tr><th>${e(B.name(state, id))}</th>${match.scores[pi].slice(0, 2).map(value => `<td>${B.score(value)}</td>`).join('')}<td><strong>${match.scores[pi].slice(0, 2).every(Number.isFinite) ? B.score(B.total(match.scores[pi].slice(0, 2))) : '—'}</strong></td></tr>`).join('')}</tbody></table></div>`;
   }
   function finalSequencePanel(match) {
+    if (match.presentation === 'standard') return '';
     const phase = finalSequencePhase(match), song = finaleSong(match), locked = ['pending', 'complete'].includes(match.status);
     const configLocked = locked || ['video', 'revealed'].includes(phase.stage), canContinue = !locked && finaleScoresComplete(match);
     const video = BroadcastVideos.finale(match.finale);
@@ -943,7 +948,7 @@
   function productionContextBody() {
     if (['intermission', 'arcaea-trailer'].includes(state.scene)) {
       const trailer = state.scene === 'arcaea-trailer';
-      return `<div class="production-context-head"><h2>${trailer ? 'Arcaea 比賽預告' : '休息時間'}</h2></div>${button(trailer ? '預告影片控制' : '休息畫面控制', `data-tab="${trailer ? 'trailer' : 'intermission'}"`)}`;
+      return `<div class="production-context-head"><h2>${trailer ? (state.eventProfile ? '中場影片' : 'Arcaea 比賽預告') : '休息時間'}</h2></div>${button(trailer ? '預告影片控制' : '休息畫面控制', `data-tab="${trailer ? 'trailer' : 'intermission'}"`)}`;
     }
     const info = productionInfo(), q = state.qualifier, m = info.match;
     if (info.qualifier) {
@@ -1100,7 +1105,7 @@
   function bracket() {
     const m = B.currentMatch(state), t = state.tournament;
     if (!m) return heading('Bracket') + `<section class="panel"><div class="section-heading"><h2>Seeds</h2></div>${seedEditor()}</section>`;
-    const count = matchSongCount(m), complete = m.status === 'complete', disabled = complete || m.status === 'pending' ? 'disabled' : '', finalPending = fixedFinal(m) && (!finaleSong(m) || m.songs.length !== 3);
+    const count = matchSongCount(m), complete = m.status === 'complete', disabled = complete || m.status === 'pending' ? 'disabled' : '', finalPending = fixedFinal(m) && m.presentation !== 'standard' && (!finaleSong(m) || m.songs.length !== 3);
     let round = 0;
     return heading('Bracket', button('Show bracket ↗', 'data-scene="bracket"', true)) +
       `<div class="section-grid"><section class="section-stack"><div class="panel"><div class="section-heading"><h2>Match schedule</h2><span class="micro">${t.matches.filter(x => x.status === 'complete').length} / 14 COMPLETE</span></div><div class="bracket-list">${t.matches.map(match => { const divider = match.round !== round ? `<div class="round-break">ROUND ${match.round}</div>` : ''; round = match.round; const targets = t.matches.filter(x => x.sources.some(y => y.type === 'winner' && y.value === match.id)).map(x => x.id).join(', '), loserTargets = t.matches.filter(x => x.sources.some(y => y.type === 'loser' && y.value === match.id)).map(x => x.id).join(', '); return divider + `<div class="match-row ${match.status}"><span class="match-id">${match.id}</span><div><h3>${e(match.label)}</h3><div class="versus-text">${match.players.map(id => id ? e(B.name(state, id)) : match.status === 'pending' ? 'TBD' : 'Vacant').join(' vs. ')}</div><div class="bracket-paths">${targets ? 'Winner → ' + targets : 'Winner → Champion'} · ${loserTargets ? 'Loser → ' + loserTargets : match.id === 'GF' ? 'Runner-up' : 'Loser eliminated'}</div></div><div>${['ready', 'live'].includes(match.status) ? button(match.status === 'live' ? 'Active' : 'Select', `data-match="${match.id}" class="btn-small"`, match.status === 'live') : `<span class="state-text">${match.status === 'complete' ? `${e(B.name(state, match.winnerId))}<br>${match.resultType.toUpperCase()}` : 'Waiting'}</span>`}</div></div>`; }).join('')}</div></div><div class="panel"><details id="seed-details" style="margin-top:0;border-top:0;padding-top:0"><summary>Seeding & vacancies</summary>${seedEditor()}</details>${t.drawLog.length ? `<div class="notice">${t.drawLog.map(d => `DRAW · ${e(B.name(state, d.winnerId))} → ${e(d.target)} · ${e(d.note)}`).join('<br>')}</div>` : ''}</div></section><section class="section-stack"><div class="panel"><div class="match-header"><div><h2>R${m.round} — ${e(m.label)}</h2><p>${m.bracket} · ${m.status.toUpperCase()} · ${count} SONGS</p></div><span class="match-code">${m.id}</span></div><div class="score-entry">${m.players.map((id, pi) => `<div class="player-score"><h3>${e(B.name(state, id))}</h3><div class="player-meta">SEED #${id ? B.seed(state, id) : '—'} · ${B.losses(state, id)} LOSSES</div>${Array.from({ length: count }, (_, si) => `<div class="match-song-score"><div class="song-caption">Song ${si + 1} · ${e(m.songs[si]?.title || 'Awaiting song selection')}${m.id === 'GF' && !fixedFinal(m) && si === 2 && !m.hostRevealed ? ' · PRIVATE' : ''}</div>${scoreEditor('m', m.id, pi, si, { score: m.scores[pi][si], judgements: m.judgements?.[pi]?.[si] }, disabled || !id || m.songs.length !== count || m.id === 'GF' && !fixedFinal(m) && si === 2 && !m.hostRevealed ? 'disabled' : '')}</div>`).join('')}<div class="total-band"><span class="micro">Total</span><strong>${B.score(B.total(m.scores[pi]))}</strong></div></div>`).join('')}</div><div class="progress-buttons">${Array.from({ length: count }, (_, i) => button(`SONG ${i + 1} / ${count}`, `data-song-progress="${i}" ${disabled || !m.songs[i] || m.id === 'GF' && !fixedFinal(m) && i === 2 && !m.hostRevealed ? 'disabled' : ''}`, i === m.currentSong)).join('')}</div><div class="form-actions">${button('Select songs ' + B.icon('next'), 'data-tab="songs"')}${button('Show match ↗', 'data-scene="double-elimination-match"', true)}</div><details id="result-details"><summary>Record result</summary><form id="result-form">${state.tournament.ruleset === 'proposal-2026' ? '' : `<label for="referee-winner">Referee winner (only for tied totals)<select id="referee-winner" ${disabled}>${options(m.players.filter(Boolean).map(id => [id, B.name(state, id)]))}</select></label>`}<label for="result-note" style="margin-top:16px">Adjudication note<textarea id="result-note" class="report-note" ${disabled}></textarea></label><div class="form-actions">${button('Confirm result & advance', `type="submit" ${disabled || finalPending ? 'disabled' : ''}`, true)}${finalPending ? '<p>最後一首尚未公布，暫不能確認賽果。</p>' : ''}</div></form></details>${matchTiebreakPanel(m, disabled)}<details id="special-details"><summary>Vacancy, bye & lottery</summary><label for="draw-winner">Lottery winner (empty = random)<select id="draw-winner" ${disabled}>${options([...new Set((([['W1', 'W2'], ['W3', 'W4'], ['W5', 'W6'], ['L1', 'L2'], ['L3', 'L4']].find(ids => ids.includes(m.id)) || []).flatMap(matchId => t.matches.find(x => x.id === matchId)?.players || [])))].filter(id => id && !B.player(state, id)?.disqualification).map(id => [id, B.name(state, id)]))}</select></label><label for="bye-note" style="margin-top:16px">Record note<input id="bye-note" placeholder="Vacant slot / lottery record" ${disabled}></label><div class="form-actions">${button('Record vacant-match bye', `data-bye ${disabled}`)}${button('Draw four-player bye', `data-lottery ${disabled}`)}</div><p class="secondary">Lottery requires three players and one vacancy, before scoring.</p></details><div class="form-actions" style="border-top:1px solid #2e3d49;padding-top:20px">${button('Reset current match', `data-reset class="danger" ${disabled}`)}</div></div></section></div>` + refereePanel();
@@ -1129,7 +1134,7 @@
   }
   function canApplyCompetitionPreset() {
     const t = state.tournament;
-    return !t.seeded && !QualifierRules.hasScores(state) && !state.result && !t.matches.length && !t.seeds.length && !t.drawLog.length &&
+    return !(state.eventProfile && state.qualifier.plan) && !t.seeded && !QualifierRules.hasScores(state) && !state.result && !t.matches.length && !t.seeds.length && !t.drawLog.length &&
       !Object.keys(t.songHistory || {}).length && !state.correctionLog?.length && !state.qualifier.players.some(player => player.judgements?.some(Boolean)) &&
       !['A', 'B'].some(group => Object.values(state.qualifier.rounds?.[group]?.results || {}).some(row => row.judgements?.some(Boolean)));
   }
@@ -1138,7 +1143,7 @@
     if (!config) return '';
     const library = config.library(), available = canApplyCompetitionPreset(), applied = officialConfig(state);
     const groups = [['Qualifier Group 1', config.QUALIFIER_SONG_IDS.A], ['Qualifier Group 2', config.QUALIFIER_SONG_IDS.B], ['Double Elimination · 42 charts', config.DOUBLE_ELIMINATION_SONG_IDS], ['Grand Final · 2 charts', config.FINAL_SONG_IDS]];
-    return `<section class="panel competition-preset-panel"><div class="section-heading"><div><h2>正式比赛歌单</h2><p class="secondary">6 首预选谱面 + 42 首双淘汰谱面 + 2 首决赛谱面 · ${applied ? '已载入' : '待套用'}</p></div>${button(applied ? '重新套用正式歌单' : '套用正式歌单与决赛规则', `data-apply-competition-config ${available ? '' : 'disabled'}`, !applied)}</div>${available ? '' : '<p class="secondary">已有比赛记录，无法替换歌单与规则。</p>'}<details id="competition-preset-details"><summary>完整歌单</summary><div class="competition-preset-groups">${groups.map(([title, ids]) => `<section><h3>${e(title)}</h3><div class="preset-song-list">${ids.map(id => { const song = library.find(s => s.id === id); return `<div class="preset-song-row"><img src="../${e(displayArt(song.art))}" alt="" loading="lazy"><div><strong>${e(song.title)}</strong><span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span></div></div>`; }).join('')}</div></section>`).join('')}</div></details></section>`;
+    return `<section class="panel competition-preset-panel"><div class="section-heading"><div><h2>ACAHKU 2026 預設</h2><p class="secondary">6 首预选谱面 + 42 首双淘汰谱面 + 2 首决赛谱面 · ${applied ? '已载入' : '待套用'} · 三首決賽與專屬演出</p></div>${button(applied ? '重新套用正式歌单' : '套用正式歌单与决赛规则', `data-apply-competition-config ${available ? '' : 'disabled'}`, !applied)}</div>${available ? '' : '<p class="secondary">已有比赛记录，无法替换歌单与规则。</p>'}<details id="competition-preset-details"><summary>完整歌单</summary><div class="competition-preset-groups">${groups.map(([title, ids]) => `<section><h3>${e(title)}</h3><div class="preset-song-list">${ids.map(id => { const song = library.find(s => s.id === id); return `<div class="preset-song-row"><img src="../${e(displayArt(song.art))}" alt="" loading="lazy"><div><strong>${e(song.title)}</strong><span>${e(song.difficulty)} ${e(Math.trunc(song.level))}</span></div></div>`; }).join('')}</div></section>`).join('')}</div></details></section>`;
   }
   async function applyCompetitionPreset() {
     if (!globalThis.CompetitionConfig || !canApplyCompetitionPreset()) throw new Error('已有比赛记录，不能替换当前赛事歌单与决赛规则。');
@@ -1148,21 +1153,44 @@
     await send('apply-competition-config', { confirmed: true }, { expectedRevision: revision, guard() { if (drafts.size || !canApplyCompetitionPreset()) throw new Error('草稿或比赛记录已变化，请重新核对正式歌单。'); } });
     editingSongId = null; focusSongId = null; render(); toast('正式歌单、曲绘及两首决赛规则已套用。');
   }
+  function eventTemplatePanel() {
+    const profile=state.eventProfile, locked=!!state.qualifier.plan || !canApplyCompetitionPreset(), config=CompetitionConfig;
+    const reserved=[...state.library.filter(s=>!s.eligible)];
+    for(const song of Object.values(config.QUALIFIER_TIEBREAK_SONGS))if(!reserved.some(s=>s.id===song.id))reserved.push(song);
+    const options=id=>reserved.map(s=>`<option value="${e(s.id)}" ${id===s.id?'selected':''}>${e(s.title)} · ${e(s.difficulty)} ${e(s.level)}</option>`).join('');
+    const finals=profile?.finalSongs || config.FINAL_SONG_IDS, ties=profile?.qualifierTiebreakSongs || Object.fromEntries(Object.entries(config.QUALIFIER_TIEBREAK_SONGS).map(([g,s])=>[g,s.id]));
+    const brand=profile?.branding || {logo:'assets/event/phigros-logo.webp',visual:null,socLogo:null,kiramekiLogo:null};
+    return `<section class="panel event-template-panel"><div class="section-heading"><h2>賽事模板</h2><span>${profile?'標準賽事':'ACAHKU 2026'}</span></div>
+      <div class="form-actions">${button('匯出模板','data-template-export')}${button('檢查曲庫與素材','data-template-check')}${button('匯入模板',`data-template-import ${locked?'disabled':''}`)}</div>
+      <input hidden id="event-template-file" type="file" accept=".json,application/json">
+      <form id="event-template-form"><fieldset ${locked?'disabled':''}><div class="field-grid">
+        ${['A','B'].map(g=>`<label>第 ${g==='A'?1:2} 輪加賽<select id="template-tie-${g}">${options(ties[g])}</select></label>`).join('')}
+        ${[0,1].map(i=>`<label>決賽第 ${i+1} 首<select id="template-final-${i}">${options(finals[i])}</select></label>`).join('')}
+        ${Object.entries({logo:'Logo',visual:'主視覺',socLogo:'合作標誌 1',kiramekiLogo:'合作標誌 2'}).map(([k,label])=>`<label>${label}<input id="template-brand-${k}" value="${e(brand[k]||'')}" placeholder="assets/event/image.png"></label>`).join('')}
+      </div><div class="form-actions"><button type="submit" class="btn-primary">保存標準賽事</button></div></fieldset></form>
+      ${locked?'<p>賽事配置已鎖定。</p>':''}</section>`;
+  }
+  listen($('content'), 'change', event=>{
+    if(event.target.id!=='event-template-file'||!event.target.files?.[0])return;
+    const file=event.target.files[0];event.target.value='';
+    if(file.size>1024*1024){toast('模板上限為 1 MB',true);return;}
+    file.text().then(text=>{const template=JSON.parse(text);if(!confirm('匯入此賽事模板？僅可在預選賽設定及開賽前使用。'))return;return send('apply-event-template',{confirmed:true,template});}).catch(err=>toast(err.message,true));
+  });
   function eventSettings() {
     const song = state.library.find(s => s.id === editingSongId);
     const chartLocked = song && ['A', 'B'].some(group => state.qualifier.groups[group].songs.includes(song.id) && QualifierRules.roundStarted(state, group)) ? 'disabled' : '';
-    return heading('Event & library', button('Export state backup ' + B.icon('folder'), 'data-export')) + competitionPresetPanel() + songPoolNotice() +
+    return heading('Event & library', button('Export state backup ' + B.icon('folder'), 'data-export')) + eventTemplatePanel() + competitionPresetPanel() + songPoolNotice() +
       `<div class="section-grid"><section class="panel"><div class="section-heading"><div><h2>Event information</h2></div></div><form id="event-form"><div class="field-grid"><label class="wide" for="event-title">Event name<input id="event-title" name="title" value="${e(state.event.title)}" maxlength="120" required></label><label class="wide" for="event-organiser">Organiser<input id="event-organiser" name="organiser" value="${e(state.event.organiser)}" maxlength="180"></label><label class="wide" for="event-organiser-zh">Organiser / 繁體中文<input id="event-organiser-zh" name="organiserZH" value="${e(state.event.organiserZH)}"></label><label for="event-date">Date<input id="event-date" name="date" type="date" value="${e(state.event.date)}" required></label><label for="event-time">Time<input id="event-time" name="time" value="${e(state.event.time)}"></label><label for="event-venue">Venue<input id="event-venue" name="venue" value="${e(state.event.venue)}" required></label><label for="event-message">Broadcast tagline<input id="event-message" name="message" value="${e(state.event.message)}"></label></div><div class="form-actions">${button('Save event information', 'type="submit"', true)}</div></form><label for="event-stage" style="margin-top:26px">Current stage<select id="event-stage" data-stage><option value="qualifier" ${state.stage === 'qualifier' ? 'selected' : ''}>Qualifiers</option><option value="double-elimination" ${state.stage === 'double-elimination' ? 'selected' : ''}>Double elimination</option></select></label></section><section class="panel"><div class="section-heading"><div><h2>Song library · ${state.library.length}</h2></div>${button('New song +', 'data-new-song')}</div><form id="song-form" style="margin-top:22px"><div class="field-grid"><label class="wide" for="song-title">Title<input id="song-title" value="${e(song?.title || '')}" required maxlength="100" ${chartLocked}></label><label class="wide" for="song-artist">Artist<input id="song-artist" value="${e(song?.artist || '')}" maxlength="100" ${chartLocked}></label><label for="song-difficulty">Difficulty<select id="song-difficulty" ${chartLocked}>${options(['EZ', 'HD', 'IN', 'AT'].map(x => [x, x]), song?.difficulty || 'IN', false)}</select></label><label for="song-level">Level<input id="song-level" type="number" min="1" max="20" step="1" value="${Math.trunc(song?.level ?? 15)}" required ${chartLocked}></label><label class="wide" for="song-constant">Chart constant · 原始定數（可選）<input id="song-constant" type="number" min="1" max="20" step="0.1" value="${e(songConstant(song) ?? '')}" placeholder="16.1" ${chartLocked}></label><label class="wide" for="song-art">Local artwork path <span>public/assets/song/</span><input id="song-art" value="${e(song?.art || 'assets/song/cover-1.svg')}" maxlength="180" required></label><label class="wide" for="song-preview-audio">Music preview path · optional <input id="song-preview-audio" value="${e(songPreviewPath(song))}" maxlength="180" placeholder="assets/song-preview/song-01.mp3"></label><label class="checkbox-label wide"><input id="song-eligible" type="checkbox" ${song?.eligible !== false ? 'checked' : ''}> Include in regular 6-song draws</label></div><div class="form-actions">${button(song ? 'Save song' : 'Add song', 'type="submit"', true)}${chartLocked ? '<span class="secondary">已用于预选赛，仅可更新曲绘与预览。</span>' : ''}</div></form><div class="library-list">${state.library.map(s => `<div class="library-row"><img class="library-art" src="../${e(displayArt(s.art))}" alt="" loading="lazy"><div>${e(s.title)}<div class="secondary">${e(s.difficulty)} ${e(Math.trunc(s.level))} · ${e(songCategory(s))}${songConstant(s) !== null ? ` · 定數 ${e(songConstant(s).toFixed(1))}` : ''}</div></div><button data-edit-song="${e(s.id)}" aria-label="Edit ${e(s.title)}">Edit ↗</button></div>`).join('')}</div></section></div>` + operationsPanel();
   }
   function intermissionPage() {
     const onAir = state.scene === 'intermission', activeBreak = ['intermission', 'arcaea-trailer'].includes(state.scene);
-    return heading('休息時間') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button('顯示休息畫面', `data-intermission-command="start-intermission" ${onAir ? 'disabled' : ''}`, true)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${activeBreak ? '' : 'disabled'}`)}${button('Arcaea 預告 →', 'data-tab="trailer"')}</div></section></div>`;
+    return heading('休息時間') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button('顯示休息畫面', `data-intermission-command="start-intermission" ${onAir ? 'disabled' : ''}`, true)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${activeBreak ? '' : 'disabled'}`)}${button(state.eventProfile ? '中場影片 →' : 'Arcaea 預告 →', 'data-tab="trailer"')}</div></section></div>`;
   }
   function arcaeaPage() {
     const config = BroadcastVideos.intermission(state.broadcast?.intermission || BroadcastIntermission.defaults()), onAir = state.scene === 'arcaea-trailer';
     const selectedPath = drafts.get('intermission|intermission-video-path')?.value ?? config.videoPath;
     const uploaded = intermissionUploadEvent === state.eventId && intermissionUploadedPath && intermissionUploadedPath !== selectedPath;
-    return heading('Arcaea 預告') + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir && config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${config.videoPath ? '' : 'disabled'}`, true)}${button('返回休息畫面', `data-intermission-command="stop-intermission-video" ${onAir ? '' : 'disabled'}`)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>影片設定</h2><form id="intermission-form"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
+    return heading((state.eventProfile ? '中場影片' : 'Arcaea 預告')) + `<div class="intermission-grid"><section class="intermission-preview"><div class="panel-header"><h2>OBS 預覽</h2><span class="on-air">${onAir ? '<i class="dot" aria-hidden="true"></i>播出中' : '未播出'}</span></div><div id="intermission-preview-container" class="intermission-preview-shell"></div></section><section class="panel intermission-controls"><h2>播出控制</h2><div class="intermission-actions">${button(onAir && config.cue ? '重新播放預告' : '播放預告', `data-intermission-command="play-intermission-video" ${config.videoPath ? '' : 'disabled'}`, true)}${button('返回休息畫面', `data-intermission-command="stop-intermission-video" ${onAir ? '' : 'disabled'}`)}${button('繼續雙淘汰賽 →', `data-intermission-command="end-intermission" ${['intermission', 'arcaea-trailer'].includes(state.scene) ? '' : 'disabled'}`)}</div>${config.videoPath ? '' : '<p class="intermission-video-state" role="status">尚未設定預告影片</p>'}</section></div><section class="panel intermission-settings"><h2>影片設定</h2><form id="intermission-form"><label for="intermission-video-path">影片路徑<input id="intermission-video-path" type="text" maxlength="180" value="${e(config.videoPath)}" placeholder="assets/intermission/arcaea-trailer.mp4"></label><div class="form-actions">${button('保存設定', 'type="submit"', true)}</div></form><div class="intermission-upload"><label for="intermission-upload-file">上傳影片<input id="intermission-upload-file" type="file" accept="video/mp4,video/webm,.mp4,.webm" ${intermissionUploading ? 'disabled' : ''}></label><p class="secondary">MP4 / WebM · 上限 250 MB${intermissionFile ? ' · ' + e(intermissionFile.name) : ''}</p><div class="form-actions">${button(intermissionUploading ? '正在上傳…' : '上傳影片', `data-upload-intermission ${intermissionUploading || !intermissionFile ? 'disabled' : ''}`)}${uploaded ? button('使用已上傳影片', 'data-use-intermission-upload') : ''}</div></div></section>`;
   }
   function useIntermissionUpload() {
     const input = $('intermission-video-path');
@@ -1203,6 +1231,16 @@
   listen(window, 'pagehide', disposePage);
   function render() {
     if (pageDisposed || !state) return;
+    {
+      document.title = state.event.title + ' · Broadcast control';
+      const wordmark = document.querySelector('.app-header .wordmark'), eventKind = state.eventProfile ? 'standard' : 'acahku';
+      if (wordmark && wordmark.dataset.eventKind !== eventKind) {
+        wordmark.innerHTML = state.eventProfile ? 'PHI<span>GROS</span><i></i>' : 'ACA<span>HKU</span><i></i>';
+        wordmark.dataset.eventKind = eventKind;
+      }
+      const trailerTab = document.querySelector('.tabs [data-tab="trailer"]');
+      if (trailerTab) trailerTab.textContent = state.eventProfile ? '中場影片' : 'Arcaea 預告';
+    }
     refreshVolume();
     const currentMatch = B.currentMatch(state);
     const visibleSongs = activeTab === 'songs' || activeTab === 'broadcast' && productionInfo().phase === 'selection' ? (fixedFinal(currentMatch) ? currentMatch.songs : currentMatch?.candidates) || [] : [];
@@ -1353,6 +1391,13 @@
     if (target.hasAttribute('data-reveal-host')) { if (confirm('Publish the MC song to all broadcast overlays now?')) send('reveal-host-song').catch(() => {}); return; }
     if (target.hasAttribute('data-new-song')) { editingSongId = null; render(); $('song-title').focus(); return; }
     if (target.dataset.editSong) { editingSongId = target.dataset.editSong; render(); $('song-title').focus(); return; }
+    if (target.hasAttribute('data-template-check')) {
+      fetch('../api/event-template/check',{headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Preflight failed');return r.json();}).then(r=>toast(`常規曲目 ${r.regularCharts} 首（完整八人賽程建議至少 ${r.recommendedMinimum} 首，加賽另留餘量）；${r.missing.length?'缺少素材：'+r.missing.slice(0,5).join('、'):'素材完整'}`,r.missing.length>0||r.regularCharts<r.recommendedMinimum)).catch(err=>toast(err.message,true));return;
+    }
+    if (target.hasAttribute('data-template-export')) {
+      fetch('../api/event-template', {headers:{Authorization:'Bearer '+token}}).then(r => { if (!r.ok) throw new Error('Template export failed'); return r.blob(); }).then(blob => { const url=URL.createObjectURL(blob), a=document.createElement('a');a.href=url;a.download='event-template.json';a.click();URL.revokeObjectURL(url); }).catch(err=>toast(err.message,true));return;
+    }
+    if (target.hasAttribute('data-template-import')) { $('event-template-file').click();return; }
     if (target.hasAttribute('data-export')) {
       fetch('../api/export', { signal: lifecycle.signal, headers: { Authorization: 'Bearer ' + token } }).then(response => { if (!response.ok) throw new Error('Pair this device again to export.'); return response.blob(); }).then(blob => {
         if (pageDisposed) return;
@@ -1390,6 +1435,17 @@
   listen(document, 'submit', event => {
     if (event.target.id === 'pair-form') return; event.preventDefault(); if (!state) return;
     const form = event.target;
+    if (form.id === 'event-template-form') {
+      if (!confirm('保存標準賽事配置？此設定只可在預選賽設定及開賽前變更。')) return;
+      const reviewedRevision=state.revision;
+      fetch('../api/event-template', {headers:{Authorization:'Bearer '+token}}).then(r=>{if(!r.ok)throw new Error('Template unavailable');return r.json();}).then(template=>{
+        return draftForm('event-profile','apply-event-template', values=>{
+        for(const g of ['A','B'])template.profile.qualifierTiebreakSongs[g]=values['template-tie-'+g];
+        template.profile.finalSongs=[0,1].map(i=>values['template-final-'+i]);
+        for(const k of ['logo','visual','socLogo','kiramekiLogo'])template.profile.branding[k]=values['template-brand-'+k].trim()||null;
+        return {confirmed:true,template}; },{expectedRevision:reviewedRevision});
+      }).then(()=>toast('標準賽事配置已保存')).catch(err=>toast(err.message,true));return;
+    }
     const scope = form.dataset.draftScope, entity = scope?.split(':')[1];
     if (form.dataset.scoreEditor) { submitScore(form, scope).then(result => { if (result) toast(form.dataset.scoreEditor === 'qd' ? '本曲統計已保存' : form.dataset.scoreEditor === 'qc' ? 'Challenge 总分已保存' : form.dataset.scoreEditor === 'qt' && challenge() ? '加赛分数已保存' : '分数与 ACC 已保存'); }).catch(error => toast(error.message, true)); return; }
     if (form.dataset.numberPlayer) { draftForm(scope, 'set-player-number', values => ({ playerId: form.dataset.numberPlayer, number: Number(values[`number-${form.dataset.numberPlayer}`]) })).catch(() => {}); return; }
