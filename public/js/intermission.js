@@ -13,6 +13,7 @@
     if (!value || typeof value !== 'object' || Array.isArray(value)
       || !(value.videoPath === '' || safePath(value.videoPath)) || typeof value.loop !== 'boolean' || !validTime(value.resumeTime))
       throw new Error('Invalid intermission video, loop or resume time.');
+    if (value.useBundledVideo !== undefined && typeof value.useBundledVideo !== 'boolean') throw new Error('Invalid bundled video setting.');
     if (value.videoDuration !== undefined && (!Number.isFinite(value.videoDuration) || value.videoDuration <= 0 || value.videoDuration > 3600))
       throw new Error('Invalid intermission video duration.');
     if (value.cue !== null && (!value.videoPath || !value.cue || typeof value.cue !== 'object'

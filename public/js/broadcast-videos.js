@@ -11,7 +11,7 @@
     finale: Object.freeze({ videoPath: 'assets/finale/final-song-reveal.mp4', videoDuration: 88.512 })
   });
   function intermission(value = {}) {
-    const videoPath = value.videoPath || clips.arcaea.videoPath;
+    const videoPath = value.videoPath || (value.useBundledVideo === false ? '' : clips.arcaea.videoPath);
     return { ...value, videoPath, loop: false,
       ...(videoPath === clips.arcaea.videoPath ? { videoDuration: clips.arcaea.videoDuration } : {}) };
   }

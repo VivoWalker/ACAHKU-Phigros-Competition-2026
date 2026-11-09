@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101319"><title>ACAHKU · Broadcast control</title><link rel="stylesheet" href="./control.css"><link rel="stylesheet" href="./production.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101319"><title>Phigros · Broadcast control</title><link rel="stylesheet" href="./control.css"><link rel="stylesheet" href="./production.css"></head>
 <body class="phi-app">
   <div class="ambient" aria-hidden="true"></div>
-  <header class="app-header has-global-volume"><a class="wordmark" href="./">ACA<span>HKU</span><i></i></a><div class="header-caption">Broadcast control</div><label class="global-volume" id="global-volume" for="broadcast-volume" hidden><span>主音量</span><input id="broadcast-volume" type="range" min="0" max="100" step="1" value="25" aria-label="全局音量"><span class="volume-value" id="broadcast-volume-value" aria-hidden="true">25%</span></label><div class="connection" id="connection" role="status"><span class="dot"></span>Connecting</div></header>
+  <header class="app-header has-global-volume"><a class="wordmark" href="./">PHI<span>GROS</span><i></i></a><div class="header-caption">Broadcast control</div><label class="global-volume" id="global-volume" for="broadcast-volume" hidden><span>主音量</span><input id="broadcast-volume" type="range" min="0" max="100" step="1" value="25" aria-label="全局音量"><span class="volume-value" id="broadcast-volume-value" aria-hidden="true">25%</span></label><div class="connection" id="connection" role="status"><span class="dot"></span>Connecting</div></header>
   <section id="pairing" class="pairing" hidden>
-    <div class="pair-art"><img src="../assets/event/signal.svg" alt="ACAHKU rhythm artwork"></div>
+    <div class="pair-art"><img src="../assets/ui/pair-art.svg" alt="Rhythm artwork"></div>
     <div class="pair-copy"><h1>Control access</h1><form id="pair-form"><label for="pin">Pairing code</label><input id="pin" name="pin" type="password" autocomplete="current-password" inputmode="numeric" required placeholder="Code from broadcast laptop"><button class="phi-surface phi-button is-primary" type="submit">Connect →</button></form><div id="pair-error" class="error" role="alert"></div><p class="secondary"><a href="../scorekeeper/">計分員登入 →</a></p></div>
   </section>
   <div id="workspace" hidden>
